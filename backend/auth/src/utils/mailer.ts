@@ -10,11 +10,11 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  tls: {
-    // allow self-signed certs if your local server uses them
-    rejectUnauthorized: false,
-  },
+  tls: { rejectUnauthorized: false },
 });
+
+// … sendOtpEmail as before
+
 
 export async function sendOtpEmail(to: string, code: string) {
   await transporter.sendMail({
