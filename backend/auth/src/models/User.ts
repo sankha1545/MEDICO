@@ -3,17 +3,17 @@ import { Schema, model, Document } from 'mongoose';
 export interface IUser extends Document {
   name: string;
   email: string;
-  password: string;
+  passwordHash: string;
   role: 'patient' | 'doctor';
-  isVerified: boolean;
+  createdAt: Date;
 }
 
 const userSchema = new Schema<IUser>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },            // hashed
-  role: { type: String, enum: ['patient','doctor'], required: true },
-  isVerified: { type: Boolean, default: false },
-}, { timestamps: true });
+  passwordHash: { type: String, required: true },
+  role: { type: String, enum: ['patient', 'doctor'], required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
 export default model<IUser>('User', userSchema);

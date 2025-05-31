@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronsRight, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import { SlideIn, FadeIn } from '../../components/animations/Transitions';
+import { useAuth } from '../../contexts/AuthContext';              // <-- fixed import path
+import { Button } from '../components/common/Button';             // (unchanged)
+import { Input } from '../components/common/Input';               // (unchanged)
+import { SlideIn, FadeIn } from '../components/animations/Transitions'; // (unchanged)
 
 type Role = 'patient' | 'doctor';
 
-const SignupPage: React.FC = () => {
+const SignUp: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -27,10 +27,13 @@ const SignupPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // 1) Check that passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
+
+    // 2) Enforce minimum length
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -38,11 +41,14 @@ const SignupPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // 3) Send OTP to the provided email via AuthContext
       await sendEmailOtp(email);
+
+      // 4) Navigate to OTP verification, passing form data in state
       navigate('/verify-email-otp', {
         state: { name, email, password, role },
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setError('Failed to send OTP. Please try again.');
     } finally {
@@ -104,7 +110,16 @@ const SignupPage: React.FC = () => {
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5">
                 <div className="text-primary-500 mr-2">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
                 </div>
@@ -117,7 +132,11 @@ const SignupPage: React.FC = () => {
             </div>
 
             {error && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-error-50 text-error-700 p-3 rounded-md mb-4"
+              >
                 {error}
               </motion.div>
             )}
@@ -211,7 +230,13 @@ const SignupPage: React.FC = () => {
               </div>
 
               <div className="flex items-center">
-                <input id="terms" name="terms" type="checkbox" required className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded" />
+                <input
+                  id="terms"
+                  name="terms"
+                  type="checkbox"
+                  required
+                  className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded"
+                />
                 <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
                   I agree to the{' '}
                   <Link to="/terms" className="text-primary-500 hover:text-primary-600">
@@ -244,4 +269,4 @@ const SignupPage: React.FC = () => {
   );
 };
 
-export default SignupPage;
+export default SignUp;

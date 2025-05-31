@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Lock, ArrowRight } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import { FadeIn, SlideIn } from '../../components/animations/Transitions';
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../components/common/Button';
+import { Input } from '../components/common/Input';
+import { FadeIn, SlideIn } from '../components/animations/Transitions';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');

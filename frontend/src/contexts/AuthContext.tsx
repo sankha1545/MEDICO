@@ -1,77 +1,69 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode
-} from 'react';
+// File: frontend/src/contexts/AuthContext.tsx
 
-interface SignupData {
-  name: string;
-  email: string;
-  password: string;
-  role: 'patient' | 'doctor';
-  otp: string;
-}
+import React, { createContext, useContext, ReactNode } from 'react';
+import axios, { AxiosInstance } from 'axios';
 
-interface AuthContextType {
+interface AuthContextValue {
   sendEmailOtp: (email: string) => Promise<void>;
-  completeSignup: (data: SignupData) => Promise<void>;
-  userEmail: string | null;
+  verifyEmailOtp: (email: string, otp: string) => Promise<void>;
+  signup: (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'patient' | 'doctor';
+  }) => Promise<void>;
+  isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue>(null!);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  //
+  // —— Make sure this exactly matches the variable in frontend/.env —— 
+  //
+  const baseURL = import.meta.env.VITE_API_URL as string;
 
-  // 1) Trigger backend to send OTP to email
-  const sendEmailOtp = async (email: string) => {
-    const resp = await fetch('http://localhost:5000/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (!resp.ok) {
-      const { message } = await resp.json();
-      throw new Error(message || 'Failed to send OTP');
+  const api: AxiosInstance = axios.create({
+    baseURL,                     // ← this must be e.g. "http://localhost:4000/api"
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const sendEmailOtp = async (email: string): Promise<void> => {
+    try {
+      await api.post('/send-email-otp', { email });
+    } catch (err) {
+      throw err;
     }
-    setUserEmail(email);
   };
 
-  // 2) Complete signup by submitting all data + OTP
-  const completeSignup = async ({
-    name,
-    email,
-    password,
-    role,
-    otp,
-  }: SignupData) => {
-    const resp = await fetch('http://localhost:5000/auth/complete-signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role, otp }),
-    });
-    if (!resp.ok) {
-      const { message } = await resp.json();
-      throw new Error(message || 'Signup verification failed');
+  const verifyEmailOtp = async (email: string, otp: string): Promise<void> => {
+    try {
+      await api.post('/verify-email-otp', { email, otp });
+    } catch (err) {
+      throw err;
     }
-    // optionally read token or user from resp.json()
-    setUserEmail(email);
   };
+
+  const signup = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'patient' | 'doctor';
+  }): Promise<void> => {
+    try {
+      await api.post('/signup', data);
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const isAuthenticated = false;
 
   return (
-    <AuthContext.Provider
-      value={{ sendEmailOtp, completeSignup, userEmail }}
-    >
+    <AuthContext.Provider value={{ sendEmailOtp, verifyEmailOtp, signup, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return ctx;
-};
+export const useAuth = (): AuthContextValue => useContext(AuthContext);

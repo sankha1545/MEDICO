@@ -9,9 +9,9 @@ import { Layout1 } from './frontend/components/layout/doctor/Layout'
 
 // Pages — patient
 import HomePage from './frontend/pages/patient/HomePage'
-import LoginPage from './frontend/pages/patient/LoginPage'
-import SignupPage from './frontend/pages/patient/SignupPage'
-import VerifyEmailOtpPage from './frontend/pages/patient/VerifyEmailOtp'   // ← OTP page
+import LoginPage from './frontend/Auth/LoginPage'
+import SignupPage from './frontend/Auth/SignupPage'
+import VerifyEmailOtpPage from './frontend/Auth/VerifyEmailOtp'   // ← OTP page
 import DashboardPage from './frontend/pages/patient/DashboardPage'
 import DoctorsPage from './frontend/pages/patient/DoctorsPage'
 import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage'
