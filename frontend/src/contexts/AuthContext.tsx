@@ -1,6 +1,6 @@
 // File: frontend/src/contexts/AuthContext.tsx
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
 
 interface AuthContextValue {
@@ -12,35 +12,38 @@ interface AuthContextValue {
     password: string;
     role: 'patient' | 'doctor';
   }) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  //
-  // —— Make sure this exactly matches the variable in frontend/.env —— 
-  //
   const baseURL = import.meta.env.VITE_API_URL as string;
 
   const api: AxiosInstance = axios.create({
-    baseURL,                     // ← this must be e.g. "http://localhost:4000/api"
+    baseURL,                     // e.g. "http://localhost:4000/api"
     headers: { 'Content-Type': 'application/json' },
   });
+
+  // You can store a token or auth state if needed. For now, we keep it simple:
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const sendEmailOtp = async (email: string): Promise<void> => {
     try {
       await api.post('/send-email-otp', { email });
-    } catch (err) {
-      throw err;
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to send OTP. Please try again.';
+      throw new Error(msg);
     }
   };
 
   const verifyEmailOtp = async (email: string, otp: string): Promise<void> => {
     try {
       await api.post('/verify-email-otp', { email, otp });
-    } catch (err) {
-      throw err;
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to verify OTP. Please try again.';
+      throw new Error(msg);
     }
   };
 
@@ -52,15 +55,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }): Promise<void> => {
     try {
       await api.post('/signup', data);
-    } catch (err) {
-      throw err;
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Signup failed. Please try again.';
+      throw new Error(msg);
     }
   };
 
-  const isAuthenticated = false;
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      await api.post('/login', { email, password });
+      // If you want to set a token in localStorage/cookies, do it here.
+      // For example:
+      // const token = response.data.token;
+      // localStorage.setItem('authToken', token);
+      // setIsAuthenticated(true);
+      setIsAuthenticated(true);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Login failed. Please try again.';
+      throw new Error(msg);
+    }
+  };
 
   return (
-    <AuthContext.Provider value={{ sendEmailOtp, verifyEmailOtp, signup, isAuthenticated }}>
+    <AuthContext.Provider
+      value={{ sendEmailOtp, verifyEmailOtp, signup, login, isAuthenticated }}
+    >
       {children}
     </AuthContext.Provider>
   );

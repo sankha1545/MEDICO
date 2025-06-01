@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronsRight, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';              // <-- fixed import path
-import { Button } from '../components/common/Button';             // (unchanged)
-import { Input } from '../components/common/Input';               // (unchanged)
-import { SlideIn, FadeIn } from '../components/animations/Transitions'; // (unchanged)
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../components/common/Button';
+import { Input } from '../components/common/Input';
+import { SlideIn, FadeIn } from '../components/animations/Transitions';
 
 type Role = 'patient' | 'doctor';
 
@@ -48,9 +48,9 @@ const SignUp: React.FC = () => {
       navigate('/verify-email-otp', {
         state: { name, email, password, role },
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Failed to send OTP. Please try again.');
+      setError(err.message || 'Failed to send OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +66,7 @@ const SignUp: React.FC = () => {
             src="https://images.pexels.com/photos/7089401/pexels-photo-7089401.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
             alt="Doctor with patient"
             className="h-full w-full object-cover"
+            loading="lazy"
           />
           <div className="absolute inset-0 flex flex-col justify-center p-12">
             <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl text-white max-w-md">
@@ -182,6 +183,7 @@ const SignUp: React.FC = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-3 top-6 flex items-center"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -202,7 +204,8 @@ const SignUp: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-3 top-6 flex items-center color-grey"
+                  className="absolute inset-y-0 right-3 top-6 flex items-center"
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -216,6 +219,7 @@ const SignUp: React.FC = () => {
                       key={r}
                       type="button"
                       onClick={() => setRole(r)}
+                      disabled={isLoading}
                       className={
                         `py-2 rounded-md transition-colors border ` +
                         (role === r

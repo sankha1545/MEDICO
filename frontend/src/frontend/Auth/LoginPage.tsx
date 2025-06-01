@@ -23,8 +23,8 @@ const LoginPage = () => {
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch (error) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +39,16 @@ const LoginPage = () => {
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5">
                 <div className="text-primary-500 mr-2">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                   </svg>
                 </div>

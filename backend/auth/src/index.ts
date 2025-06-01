@@ -1,3 +1,5 @@
+// File: backend/src/index.ts
+
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -10,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
+
 mongoose
   .connect(process.env.MONGO_URI!)
   .then(() => console.log('MongoDB connected'))
