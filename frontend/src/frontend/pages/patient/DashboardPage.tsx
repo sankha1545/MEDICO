@@ -1,9 +1,11 @@
+// src/pages/dashboard/DashboardPage.tsx
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
-  User,
+  User as UserIcon,
   Activity,
   FileText,
   Bell,
@@ -14,8 +16,8 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
-import EditProfileForm from '../../components/common/editprofileforms';
-import UpdateMedicalInfoForm from '../../components/common/UpdateMedicalInfoForm';
+import EditProfileForm from '../../components/common/editprofile/editprofileforms';
+import UpdateMedicalInfoForm from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
 import {
   FadeIn,
   SlideIn,
@@ -117,7 +119,9 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
   <button
     type="button"
     className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-      isActive ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+      isActive
+        ? 'bg-primary-50 text-primary-700 font-medium'
+        : 'text-gray-600 hover:bg-gray-100'
     }`}
     onClick={onClick}
   >
@@ -127,8 +131,10 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
 );
 
 const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>('overview');
+  const { user, updateProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'appointments' | 'notifications' | 'profile'
+  >('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
@@ -138,18 +144,22 @@ const DashboardPage: React.FC = () => {
     medicalConditions: 'Hypertension, Type 2 Diabetes',
   });
 
-  const upcomingCount = mockAppointments.filter(a => a.status === 'upcoming').length;
-  const completedCount = mockAppointments.filter(a => a.status === 'completed').length;
-  const unreadCount = mockNotifications.filter(n => !n.read).length;
+  const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
+  const completedCount = mockAppointments.filter((a) => a.status === 'completed').length;
+  const unreadCount = mockNotifications.filter((n) => !n.read).length;
 
-  const handleProfileSave = (updatedValues: Partial<typeof user>) => {
-    // TODO: send to backend / update context
-    console.log('Profile saved', updatedValues);
-    setShowEditProfile(false);
+  const handleProfileSave = async (updatedValues: { name?: string; email?: string }) => {
+    try {
+      const updated = await updateProfile(updatedValues);
+      console.log('Profile updated', updated);
+      setShowEditProfile(false);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleMedicalSave = (updatedMedical: MedicalInfo) => {
-    // TODO: send to backend
+    // TODO: send to backend when ready
     console.log('Medical info saved', updatedMedical);
     setMedicalInfo(updatedMedical);
     setShowUpdateMedical(false);
@@ -160,8 +170,12 @@ const DashboardPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <FadeIn>
           <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
-            <p className="text-gray-600 mt-2">Here's an overview of your health and appointments.</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Welcome {user?.name},
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Here&apos;s an overview of your health and appointments.
+            </p>
           </header>
         </FadeIn>
 
@@ -196,7 +210,9 @@ const DashboardPage: React.FC = () => {
             <SlideIn key={i} direction="up" delay={i * 0.1}>
               <div className="bg-white rounded-xl shadow-subtle border border-gray-100 p-6">
                 <div className="flex items-center">
-                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4`}>{stat.icon}</div>
+                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4`}>
+                    {stat.icon}
+                  </div>
                   <div>
                     <p className="text-sm text-gray-500">{stat.title}</p>
                     <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
@@ -211,10 +227,30 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-subtle border border-gray-100 mb-8">
           <div className="border-b border-gray-200">
             <div className="flex overflow-x-auto p-4 space-x-4">
-              <Tab label="Overview" isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Activity size={18} />} />
-              <Tab label="Appointments" isActive={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon={<Calendar size={18} />} />
-              <Tab label="Notifications" isActive={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={<Bell size={18} />} />
-              <Tab label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={<User size={18} />} />
+              <Tab
+                label="Overview"
+                isActive={activeTab === 'overview'}
+                onClick={() => setActiveTab('overview')}
+                icon={<Activity size={18} />}
+              />
+              <Tab
+                label="Appointments"
+                isActive={activeTab === 'appointments'}
+                onClick={() => setActiveTab('appointments')}
+                icon={<Calendar size={18} />}
+              />
+              <Tab
+                label="Notifications"
+                isActive={activeTab === 'notifications'}
+                onClick={() => setActiveTab('notifications')}
+                icon={<Bell size={18} />}
+              />
+              <Tab
+                label="Profile"
+                isActive={activeTab === 'profile'}
+                onClick={() => setActiveTab('profile')}
+                icon={<UserIcon size={18} />}
+              />
             </div>
           </div>
           <div className="p-6">
@@ -222,7 +258,9 @@ const DashboardPage: React.FC = () => {
               <>
                 {/* Upcoming */}
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Upcoming Appointments</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Upcoming Appointments
+                  </h2>
                   <Link to="/book-appointment">
                     <Button variant="outline" size="sm">
                       Book New Appointment
@@ -232,17 +270,23 @@ const DashboardPage: React.FC = () => {
                 <StaggeredContainer>
                   <div className="space-y-4">
                     {mockAppointments
-                      .filter(a => a.status === 'upcoming')
-                      .map((appt, idx) => (
+                      .filter((a) => a.status === 'upcoming')
+                      .map((appt) => (
                         <motion.div
                           key={appt.id}
                           variants={staggeredItemVariants}
                           className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-center">
-                            <img src={appt.image} alt={appt.doctorName} className="w-12 h-12 rounded-full object-cover mr-4" />
+                            <img
+                              src={appt.image}
+                              alt={appt.doctorName}
+                              className="w-12 h-12 rounded-full object-cover mr-4"
+                            />
                             <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900">{appt.doctorName}</h3>
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {appt.doctorName}
+                              </h3>
                               <p className="text-gray-500">{appt.specialty}</p>
                             </div>
                             <div className="text-right">
@@ -272,7 +316,9 @@ const DashboardPage: React.FC = () => {
                 {/* Recent notifications */}
                 <div className="mt-10">
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Recent Notifications</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Recent Notifications
+                    </h2>
                     <Link to="/notifications">
                       <Button variant="ghost" size="sm">
                         View All
@@ -281,11 +327,13 @@ const DashboardPage: React.FC = () => {
                   </div>
                   <StaggeredContainer>
                     <div className="space-y-3">
-                      {mockNotifications.slice(0, 3).map(n => (
+                      {mockNotifications.slice(0, 3).map((n) => (
                         <motion.div
                           key={n.id}
                           variants={staggeredItemVariants}
-                          className={`flex items-start p-3 rounded-md ${n.read ? 'bg-white' : 'bg-primary-50'}`}
+                          className={`flex items-start p-3 rounded-md ${
+                            n.read ? 'bg-white' : 'bg-primary-50'
+                          }`}
                         >
                           <div
                             className={`p-2 rounded-full mr-3 ${
@@ -296,16 +344,30 @@ const DashboardPage: React.FC = () => {
                                 : 'bg-amber-100 text-amber-600'
                             }`}
                           >
-                            {n.type === 'reminder' ? <Bell size={16} /> : n.type === 'medical' ? <FileText size={16} /> : <AlertTriangle size={16} />}
+                            {n.type === 'reminder' ? (
+                              <Bell size={16} />
+                            ) : n.type === 'medical' ? (
+                              <FileText size={16} />
+                            ) : (
+                              <AlertTriangle size={16} />
+                            )}
                           </div>
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h4 className="text-sm font-medium text-gray-900">{n.title}</h4>
-                              <span className="text-xs text-gray-500">{format(n.date, 'MMM d')}</span>
+                              <h4 className="text-sm font-medium text-gray-900">
+                                {n.title}
+                              </h4>
+                              <span className="text-xs text-gray-500">
+                                {format(n.date, 'MMM d')}
+                              </span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">{n.message}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {n.message}
+                            </p>
                           </div>
-                          {!n.read && <div className="bg-primary-500 rounded-full w-2 h-2"></div>}
+                          {!n.read && (
+                            <div className="bg-primary-500 rounded-full w-2 h-2"></div>
+                          )}
                         </motion.div>
                       ))}
                     </div>
@@ -317,7 +379,9 @@ const DashboardPage: React.FC = () => {
             {activeTab === 'appointments' && (
               <>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">All Appointments</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    All Appointments
+                  </h2>
                   <Link to="/book-appointment">
                     <Button variant="primary" size="sm">
                       Book New Appointment
@@ -325,7 +389,11 @@ const DashboardPage: React.FC = () => {
                   </Link>
                 </div>
                 <div className="flex space-x-2 mb-6">
-                  <Button variant="outline" size="sm" className="bg-primary-50 border-primary-200 text-primary-700">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-primary-50 border-primary-200 text-primary-700"
+                  >
                     Upcoming
                   </Button>
                   <Button variant="outline" size="sm">
@@ -337,7 +405,7 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <StaggeredContainer>
                   <div className="space-y-6">
-                    {mockAppointments.map(a => (
+                    {mockAppointments.map((a) => (
                       <motion.div
                         key={a.id}
                         variants={staggeredItemVariants}
@@ -345,12 +413,18 @@ const DashboardPage: React.FC = () => {
                       >
                         <div className="flex flex-col md:flex-row">
                           <div className="md:w-1/4">
-                            <img src={a.image} alt={a.doctorName} className="w-full h-32 md:h-full object-cover" />
+                            <img
+                              src={a.image}
+                              alt={a.doctorName}
+                              className="w-full h-32 md:h-full object-cover"
+                            />
                           </div>
                           <div className="p-6 md:w-3/4">
                             <div className="flex flex-col md:flex-row justify-between">
                               <div>
-                                <h3 className="text-xl font-medium text-gray-900">{a.doctorName}</h3>
+                                <h3 className="text-xl font-medium text-gray-900">
+                                  {a.doctorName}
+                                </h3>
                                 <p className="text-gray-500">{a.specialty}</p>
                               </div>
                               <div className="mt-4 md:mt-0 flex items-start">
@@ -363,13 +437,16 @@ const DashboardPage: React.FC = () => {
                                       : 'bg-red-100 text-red-800'
                                   }`}
                                 >
-                                  {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                                  {a.status.charAt(0).toUpperCase() +
+                                    a.status.slice(1)}
                                 </span>
                               </div>
                             </div>
                             <div className="mt-4 flex items-center text-gray-700">
                               <Calendar size={16} className="mr-2" />
-                              <span className="mr-6">{format(a.date, 'MMMM d, yyyy')}</span>
+                              <span className="mr-6">
+                                {format(a.date, 'MMMM d, yyyy')}
+                              </span>
                               <Clock size={16} className="mr-2" />
                               <span>{format(a.date, 'h:mm a')}</span>
                             </div>
@@ -382,7 +459,11 @@ const DashboardPage: React.FC = () => {
                                   <Button variant="outline" size="sm">
                                     Reschedule
                                   </Button>
-                                  <Button variant="ghost" size="sm" className="text-error-600 hover:bg-error-50">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-error-600 hover:bg-error-50"
+                                  >
                                     Cancel
                                   </Button>
                                 </>
@@ -409,19 +490,23 @@ const DashboardPage: React.FC = () => {
             {activeTab === 'notifications' && (
               <>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">All Notifications</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    All Notifications
+                  </h2>
                   <Button variant="outline" size="sm">
                     Mark All as Read
                   </Button>
                 </div>
                 <StaggeredContainer>
                   <div className="space-y-4">
-                    {mockNotifications.map(n => (
+                    {mockNotifications.map((n) => (
                       <motion.div
                         key={n.id}
                         variants={staggeredItemVariants}
                         className={`flex items-start p-4 rounded-lg border ${
-                          n.read ? 'bg-white border-gray-200' : 'bg-primary-50 border-primary-200'
+                          n.read
+                            ? 'bg-white border-gray-200'
+                            : 'bg-primary-50 border-primary-200'
                         }`}
                       >
                         <div
@@ -433,17 +518,29 @@ const DashboardPage: React.FC = () => {
                               : 'bg-amber-100 text-amber-600'
                           }`}
                         >
-                          {n.type === 'reminder' ? <Bell size={20} /> : n.type === 'medical' ? <FileText size={20} /> : <AlertTriangle size={20} />}
+                          {n.type === 'reminder' ? (
+                            <Bell size={20} />
+                          ) : n.type === 'medical' ? (
+                            <FileText size={20} />
+                          ) : (
+                            <AlertTriangle size={20} />
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between">
                             <h4 className="font-medium text-gray-900">{n.title}</h4>
-                            <span className="text-sm text-gray-500">{format(n.date, 'MMM d, h:mm a')}</span>
+                            <span className="text-sm text-gray-500">
+                              {format(n.date, 'MMM d, h:mm a')}
+                            </span>
                           </div>
                           <p className="text-gray-600 mt-1">{n.message}</p>
                           <div className="mt-3 flex space-x-3">
                             <Button variant="outline" size="sm">
-                              {n.type === 'reminder' ? 'View Appointment' : n.type === 'medical' ? 'View Prescription' : 'Read Message'}
+                              {n.type === 'reminder'
+                                ? 'View Appointment'
+                                : n.type === 'medical'
+                                ? 'View Prescription'
+                                : 'Read Message'}
                             </Button>
                             {!n.read && (
                               <Button variant="ghost" size="sm">
@@ -463,16 +560,20 @@ const DashboardPage: React.FC = () => {
               <>
                 <div className="flex items-center mb-8">
                   <div className="bg-gray-200 rounded-full w-24 h-24 flex items-center justify-center mr-6">
-                    <User size={40} className="text-gray-500" />
+                    <UserIcon size={40} className="text-gray-500" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-semibold text-gray-900">{user?.name}</h2>
+                    <h2 className="text-2xl font-semibold text-gray-900">
+                      {user?.name}
+                    </h2>
                     <p className="text-gray-600">{user?.email}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle relative">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Personal Information
+                    </h3>
                     <div className="space-y-4">
                       <div>
                         <p className="text-sm text-gray-500">Full Name</p>
@@ -490,7 +591,11 @@ const DashboardPage: React.FC = () => {
                         <p className="text-sm text-gray-500">Date of Birth</p>
                         <p className="text-gray-900">January 15, 1985</p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setShowEditProfile(true)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowEditProfile(true)}
+                      >
                         Edit Profile
                       </Button>
                       {showEditProfile && (
@@ -503,7 +608,9 @@ const DashboardPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Medical Information</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Medical Information
+                    </h3>
                     <div className="space-y-4">
                       <div>
                         <p className="text-sm text-gray-500">Blood Type</p>
@@ -515,13 +622,21 @@ const DashboardPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Current Medications</p>
-                        <p className="text-gray-900">{medicalInfo.currentMedications}</p>
+                        <p className="text-gray-900">
+                          {medicalInfo.currentMedications}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Medical Conditions</p>
-                        <p className="text-gray-900">{medicalInfo.medicalConditions}</p>
+                        <p className="text-gray-900">
+                          {medicalInfo.medicalConditions}
+                        </p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setShowUpdateMedical(true)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowUpdateMedical(true)}
+                      >
                         Update Medical Info
                       </Button>
                       {showUpdateMedical && (
@@ -536,11 +651,15 @@ const DashboardPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Account Settings</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Account Settings
+                  </h3>
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-gray-900 font-medium">Email Notifications</h4>
+                        <h4 className="text-gray-900 font-medium">
+                          Email Notifications
+                        </h4>
                         <p className="text-sm text-gray-500">
                           Receive emails about your appointments, reminders, and updates
                         </p>
@@ -558,17 +677,29 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-gray-900 font-medium">SMS Notifications</h4>
-                        <p className="text-sm text-gray-500">Receive text messages for appointment reminders</p>
+                        <h4 className="text-gray-900 font-medium">
+                          SMS Notifications
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Receive text messages for appointment reminders
+                        </p>
                       </div>
                       <div className="relative inline-block w-12 h-6 rounded-full bg-gray-200">
-                        <input type="checkbox" className="sr-only peer" id="sms-notifications" />
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          id="sms-notifications"
+                        />
                         <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-primary-500"></span>
                         <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
                       </div>
                     </div>
                     <div className="pt-4 border-t border-gray-200">
-                      <Button variant="outline" size="sm" className="text-error-600 hover:bg-error-50">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-error-600 hover:bg-error-50"
+                      >
                         Change Password
                       </Button>
                     </div>

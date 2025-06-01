@@ -19,13 +19,13 @@ import NotFoundPage from './frontend/pages/patient/NotFoundPage'
 import Services from './frontend/pages/patient/services'
 import About from './frontend/pages/patient/About'
 import Contact from './frontend/pages/patient/Contact'
-
+import Profile from './frontend/components/common/profile'
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage'
 import DashboardPage1 from './frontend/pages/doctor/Dashboard'
 
 // Common
-import Bookappointment from './frontend/components/common/bookappointment'
+import Bookappointment from './frontend/components/common/bookappointment/bookappointment'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -98,6 +98,7 @@ const App: React.FC = () => (
           <ProtectedRoute>
             <Layout>
               <DashboardPage />
+
             </Layout>
           </ProtectedRoute>
         }
@@ -112,7 +113,15 @@ const App: React.FC = () => (
           </ProtectedRoute>
         }
       />
-
+<Route path="/profile"
+element={
+  <ProtectedRoute>
+    <Layout>
+      <Profile />
+    </Layout>
+  </ProtectedRoute>
+}
+/>
       {/* Doctor pages */}
       <Route
         path="/doc-home"
@@ -122,6 +131,7 @@ const App: React.FC = () => (
           </Layout1>
         }
       />
+      
       <Route
         path="/doc-dashboard"
         element={
