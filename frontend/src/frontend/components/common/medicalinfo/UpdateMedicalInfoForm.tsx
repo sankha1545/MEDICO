@@ -1,7 +1,9 @@
-import React, { useState, FormEvent } from 'react';
-import { Button } from '../Button';
+// src/components/common/medicalinfo/UpdateMedicalInfoForm.tsx
 
-interface MedicalInfo {
+import React, { useState, FormEvent } from "react";
+import { Button } from "../Button";
+
+export interface MedicalInfo {
   bloodType: string;
   allergies: string;
   currentMedications: string;
@@ -21,8 +23,12 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
 }) => {
   const [bloodType, setBloodType] = useState(medicalInfo.bloodType);
   const [allergies, setAllergies] = useState(medicalInfo.allergies);
-  const [currentMedications, setCurrentMedications] = useState(medicalInfo.currentMedications);
-  const [medicalConditions, setMedicalConditions] = useState(medicalInfo.medicalConditions);
+  const [currentMedications, setCurrentMedications] = useState(
+    medicalInfo.currentMedications
+  );
+  const [medicalConditions, setMedicalConditions] = useState(
+    medicalInfo.medicalConditions
+  );
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -48,7 +54,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
           <input
             type="text"
             value={bloodType}
-            onChange={e => setBloodType(e.target.value)}
+            onChange={(e) => setBloodType(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </label>
@@ -58,7 +64,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
           <input
             type="text"
             value={allergies}
-            onChange={e => setAllergies(e.target.value)}
+            onChange={(e) => setAllergies(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </label>
@@ -68,7 +74,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
           <input
             type="text"
             value={currentMedications}
-            onChange={e => setCurrentMedications(e.target.value)}
+            onChange={(e) => setCurrentMedications(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </label>
@@ -78,7 +84,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
           <input
             type="text"
             value={medicalConditions}
-            onChange={e => setMedicalConditions(e.target.value)}
+            onChange={(e) => setMedicalConditions(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </label>
@@ -87,9 +93,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">
-            Save
-          </Button>
+          <Button type="submit">Save</Button>
         </div>
       </form>
     </div>

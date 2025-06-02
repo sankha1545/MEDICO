@@ -1,40 +1,45 @@
 // src/App.tsx
-import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Layouts
-import { Layout } from './frontend/components/layout/patient/Layout'
-import { Layout1 } from './frontend/components/layout/doctor/Layout'
+import { Layout } from './frontend/components/layout/patient/Layout';
+import { Layout1 } from './frontend/components/layout/doctor/Layout';
 
 // Pages — patient
-import HomePage from './frontend/pages/patient/HomePage'
-import LoginPage from './frontend/Auth/LoginPage'
-import SignupPage from './frontend/Auth/SignupPage'
-import VerifyEmailOtpPage from './frontend/Auth/VerifyEmailOtp'   // ← OTP page
-import DashboardPage from './frontend/pages/patient/DashboardPage'
-import DoctorsPage from './frontend/pages/patient/DoctorsPage'
-import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage'
-import NotFoundPage from './frontend/pages/patient/NotFoundPage'
-import Services from './frontend/pages/patient/services'
-import About from './frontend/pages/patient/About'
-import Contact from './frontend/pages/patient/Contact'
-import Profile from './frontend/components/common/profile'
+import HomePage from './frontend/pages/patient/HomePage';
+import LoginPage from './frontend/Auth/LoginPage';
+import SignupPage from './frontend/Auth/SignupPage';
+import VerifyEmailOtpPage from './frontend/Auth/VerifyEmailOtp';   // OTP page
+import DashboardPage from './frontend/pages/patient/DashboardPage';
+import DoctorsPage from './frontend/pages/patient/DoctorsPage';
+import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage';
+import NotFoundPage from './frontend/pages/patient/NotFoundPage';
+import Services from './frontend/pages/patient/services';
+import About from './frontend/pages/patient/About';
+import Contact from './frontend/pages/patient/Contact';
+import Profile from './frontend/components/common/profile';
+import FAQ from './frontend/components/footerlinks/FAQ';
+import HealthBlog from './frontend/components/footerlinks/HealthBlog';
+import TOS from './frontend/components/footerlinks/TermsOfService';
+import HelpCenter from './frontend/components/footerlinks/HelpCentre';
 // Pages — doctor
-import HomePage1 from './frontend/pages/doctor/HomePage'
-import DashboardPage1 from './frontend/pages/doctor/Dashboard'
+import HomePage1 from './frontend/pages/doctor/HomePage';
+import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 
 // Common
-import Bookappointment from './frontend/components/common/bookappointment/bookappointment'
+import Bookappointment from './frontend/components/common/bookappointment/bookappointment';
+import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" replace />;
   }
-  return <>{children}</>
-}
+  return <>{children}</>;
+};
 
 const App: React.FC = () => (
   <AuthProvider>
@@ -91,6 +96,48 @@ const App: React.FC = () => (
       />
       <Route path="/bookappointment" element={<Bookappointment />} />
 
+      {/* FAQ and Health Blog (public) */}
+      <Route
+        path="/faq"
+        element={
+          <Layout>
+            <FAQ />
+          </Layout>
+        }
+      />
+      <Route
+        path="/privacypolicy"
+        element={
+          <Layout>
+            <PrivacyPolicy />
+          </Layout>
+        }
+      />
+      <Route
+        path="/tos"
+        element={
+          <Layout>
+            <TOS />
+          </Layout>
+        }
+      />
+      <Route
+        path="/blog"
+        element={
+          <Layout>
+            <HealthBlog />
+          </Layout>
+        }
+      />
+      <Route
+        path="/helpcentre"
+        element={
+          <Layout>
+            <HelpCenter />
+          </Layout>
+        }
+      />
+
       {/* Protected patient-only */}
       <Route
         path="/dashboard"
@@ -98,7 +145,6 @@ const App: React.FC = () => (
           <ProtectedRoute>
             <Layout>
               <DashboardPage />
-
             </Layout>
           </ProtectedRoute>
         }
@@ -113,15 +159,17 @@ const App: React.FC = () => (
           </ProtectedRoute>
         }
       />
-<Route path="/profile"
-element={
-  <ProtectedRoute>
-    <Layout>
-      <Profile />
-    </Layout>
-  </ProtectedRoute>
-}
-/>
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Profile />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
       {/* Doctor pages */}
       <Route
         path="/doc-home"
@@ -131,7 +179,6 @@ element={
           </Layout1>
         }
       />
-      
       <Route
         path="/doc-dashboard"
         element={
@@ -145,6 +192,6 @@ element={
       <Route path="*" element={<Layout><NotFoundPage /></Layout>} />
     </Routes>
   </AuthProvider>
-)
+);
 
-export default App
+export default App;

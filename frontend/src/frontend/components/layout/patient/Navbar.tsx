@@ -1,261 +1,229 @@
+// src/frontend/components/common/Navbar.tsx
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronDown, User, Calendar, LogOut } from 'lucide-react';
+import { motion, AnimatePresence, useCycle } from 'framer-motion';
+import { Menu, X, ChevronDown, User, Calendar, LogOut, Home, BookOpen, Info, Phone, HeartPulse } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { Button } from '../../common/Button';
 
 export const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLogoutModal, setIsLogoutModal] = useState(false);
+  const [isMobileOpen, toggleMobile] = useCycle(false, true);
 
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle scroll effect for navbar
+  // Scroll effect: blur & backdrop
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close mobile menu when changing routes
+  // Close mobile menu on route change
   useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [location]);
+    if (isMobileOpen) toggleMobile();
+  }, [location.pathname]);
 
-  // Open the logout confirmation dialog
-  const openLogoutConfirm = () => {
-    setIsLogoutConfirmOpen(true);
-    setIsProfileMenuOpen(false);
+  const openLogout = () => {
+    setIsLogoutModal(true);
+    setIsProfileOpen(false);
   };
-
-  // Close the logout confirmation dialog
-  const closeLogoutConfirm = () => {
-    setIsLogoutConfirmOpen(false);
-  };
-
-  // Perform actual logout and redirect to login
+  const closeLogout = () => setIsLogoutModal(false);
   const confirmLogout = () => {
-    console.log('confirmLogout called'); // debug log
-    // 1) Navigate first
-    navigate('/login');
-    // 2) Then call logout
     logout();
-    // 3) Close the modal
-    setIsLogoutConfirmOpen(false);
+    navigate('/login');
+    setIsLogoutModal(false);
   };
 
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? 'bg-white shadow-soft py-2' : 'bg-transparent py-4'
+        className={`fixed w-full z-50 transition-all duration-300 ${
+          isScrolled
+            ? 'bg-white/70 backdrop-blur-md shadow-md py-2'
+            : 'bg-transparent py-4'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            {/* Logo and brand */}
-            <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <div className="text-primary-500 mr-2">
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                    </svg>
-                  </div>
-                </motion.div>
-                <motion.span
-                  className="text-xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  MedBook
-                </motion.span>
-              </Link>
-            </div>
-
-            {/* Desktop navigation */}
-            <div className="hidden md:flex md:items-center md:space-x-8">
-              <NavLink to="/">Home</NavLink>
-              <NavLink to="/doctors">Doctors</NavLink>
-              <NavLink to="/services">Services</NavLink>
-              <NavLink to="/about">About</NavLink>
-              <NavLink to="/contact">Contact</NavLink>
-              <NavLink to="/dashboard">Dashboard</NavLink>
-              {isAuthenticated ? (
-                <div className="relative ml-3">
-                  <button
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-primary-500 transition-colors"
-                  >
-                    <span>{user?.name}</span>
-                    <ChevronDown size={16} />
-                  </button>
-
-                  <AnimatePresence>
-                    {isProfileMenuOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md overflow-hidden z-10 border border-gray-200"
-                      >
-                        <div className="py-1">
-                          <Link
-                            to="/dashboard"
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                          >
-                            <User size={16} className="mr-2" />
-                            Dashboard
-                          </Link>
-                          <Link
-                            to="/appointments"
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                          >
-                            <Calendar size={16} className="mr-2" />
-                            My Appointments
-                          </Link>
-                          <button
-                            onClick={openLogoutConfirm}
-                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <LogOut size={16} className="mr-2" />
-                            Logout
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="flex space-x-3">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/login">Login</Link>
-                  </Button>
-                  <Button asChild variant="primary" size="sm">
-                    <Link to="/signup">Sign Up</Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 flex justify-between items-center">
+          {/* Logo + Brand */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex items-center"
+          >
+            <Link to="/" className="flex items-center space-x-2">
+              <motion.div
+                whileHover={{ rotate: 10, scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+                className="text-primary-600"
               >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
-            </div>
+                <HeartPulse size={32} />
+              </motion.div>
+              <motion.span
+                className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 via-secondary-500 to-indigo-500"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                MedBook
+              </motion.span>
+            </Link>
+          </motion.div>
+
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-8">
+            <DesktopLink to="/" Icon={Home}>Home</DesktopLink>
+            <DesktopLink to="/doctors" Icon={BookOpen}>Doctors</DesktopLink>
+            <DesktopLink to="/services" Icon={HeartPulse}>Services</DesktopLink>
+            <DesktopLink to="/about" Icon={Info}>About</DesktopLink>
+            <DesktopLink to="/contact" Icon={Phone}>Contact</DesktopLink>
+            {isAuthenticated && <DesktopLink to="/dashboard" Icon={User}>Dashboard</DesktopLink>}
+
+            {isAuthenticated ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileOpen(open => !open)}
+                  className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  <motion.span whileHover={{ scale: 1.05 }} className="capitalize">
+                    {user?.name}
+                  </motion.span>
+                  <ChevronDown size={16} />
+                </button>
+                <AnimatePresence>
+                  {isProfileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"
+                    >
+                      <ProfileItem to="/dashboard" icon={<User size={16} />}>Dashboard</ProfileItem>
+                      <ProfileItem to="/appointments" icon={<Calendar size={16} />}>My Appointments</ProfileItem>
+                      <ProfileButton onClick={openLogout} icon={<LogOut size={16} />}>Logout</ProfileButton>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <div className="flex space-x-4">
+                <Button asChild variant="outline" size="sm"><Link to="/login">Login</Link></Button>
+                <Button asChild variant="primary" size="sm"><Link to="/signup">Sign Up</Link></Button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Toggle */}
+          <div className="md:hidden">
+            <motion.button
+              onClick={() => toggleMobile()}
+              className="text-gray-600"
+              whileTap={{ scale: 0.9 }}
+            >
+              {isMobileOpen ? (
+                <X size={28} className="stroke-primary-600" />
+              ) : (
+                <Menu size={28} className="stroke-primary-600" />
+              )}
+            </motion.button>
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile Overlay Menu */}
         <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="md:hidden bg-white shadow-lg overflow-hidden"
-            >
-              <div className="px-4 pt-2 pb-3 space-y-1 sm:px-3">
-                <MobileNavLink to="/">Home</MobileNavLink>
-                <MobileNavLink to="/doctors">Doctors</MobileNavLink>
-                <MobileNavLink to="/services">Services</MobileNavLink>
-                <MobileNavLink to="/about">About</MobileNavLink>
-                <MobileNavLink to="/contact">Contact</MobileNavLink>
+          {isMobileOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black z-40"
+                onClick={() => toggleMobile()}
+              />
 
-                {isAuthenticated ? (
-                  <>
-                    <MobileNavLink to="/dashboard">Dashboard</MobileNavLink>
-                    <MobileNavLink to="/appointments">My Appointments</MobileNavLink>
-                    <button
-                      onClick={openLogoutConfirm}
-                      className="w-full flex items-center px-3 py-2 text-base font-medium text-gray-700 hover:text-primary-500 hover:bg-gray-50 rounded-md"
-                    >
-                      <LogOut size={18} className="mr-2" />
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex flex-col space-y-2 pt-2">
-                    <Button as={Link} to="/login" variant="outline" fullWidth>
-                      Login
-                    </Button>
-                    <Button as={Link} to="/signup" variant="primary" fullWidth>
-                      Sign Up
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+              {/* Menu Drawer */}
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'tween', duration: 0.4 }}
+                className="fixed top-0 right-0 w-4/5 h-full bg-white shadow-2xl z-50 p-6 flex flex-col"
+              >
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: {},
+                    visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
+                  }}
+                  className="mt-10 space-y-6"
+                >
+                  <MobileLink to="/" Icon={Home}>Home</MobileLink>
+                  <MobileLink to="/doctors" Icon={BookOpen}>Doctors</MobileLink>
+                  <MobileLink to="/services" Icon={HeartPulse}>Services</MobileLink>
+                  <MobileLink to="/about" Icon={Info}>About</MobileLink>
+                  <MobileLink to="/contact" Icon={Phone}>Contact</MobileLink>
+                  {isAuthenticated && (
+                    <>
+                      <MobileLink to="/dashboard" Icon={User}>Dashboard</MobileLink>
+                      <MobileLink to="/appointments" Icon={Calendar}>My Appointments</MobileLink>
+                      <motion.button
+                        onClick={openLogout}
+                        className="flex items-center space-x-2 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        whileHover={{ x: 5 }}
+                      >
+                        <LogOut size={18} />
+                        <span>Logout</span>
+                      </motion.button>
+                    </>
+                  )}
+                  {!isAuthenticated && (
+                    <>
+                      <Button as={Link} to="/login" variant="outline" fullWidth>Login</Button>
+                      <Button as={Link} to="/signup" variant="primary" fullWidth>Sign Up</Button>
+                    </>
+                  )}
+                </motion.div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>
-        {isLogoutConfirmOpen && (
+        {isLogoutModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center"
+            className="fixed inset-0 flex items-center justify-center z-60"
           >
-            {/* Semi-transparent overlay */}
             <div
               className="absolute inset-0 bg-black bg-opacity-50"
-              onClick={closeLogoutConfirm}
+              onClick={closeLogout}
             />
-
-            {/* Dialog box */}
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="relative bg-white rounded-lg shadow-lg p-6 max-w-sm w-full z-10"
+              className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full z-10"
             >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Confirm Logout
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to log out?
-              </p>
-              <div className="flex justify-end space-x-3">
-                <Button variant="outline" onClick={closeLogoutConfirm}>
-                  Cancel
-                </Button>
-                <Button variant="primary" onClick={confirmLogout}>
-                  Yes, Log Out
-                </Button>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Confirm Logout</h3>
+              <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
+              <div className="flex justify-end space-x-4">
+                <Button variant="outline" onClick={closeLogout}>Cancel</Button>
+                <Button variant="primary" onClick={confirmLogout}>Yes, Log Out</Button>
               </div>
             </motion.div>
           </motion.div>
@@ -265,45 +233,86 @@ export const Navbar = () => {
   );
 };
 
-// Desktop navigation link
-const NavLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
+type LinkProps = {
+  to: string;
+  Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  children: React.ReactNode;
+};
 
+// Desktop link with gradient underline on active
+const DesktopLink = ({ to, Icon, children }: LinkProps) => {
+  const location = useLocation();
+  const active = location.pathname === to;
   return (
-    <Link
-      to={to}
-      className={`relative text-sm font-medium transition-colors ${
-        isActive ? 'text-primary-500' : 'text-gray-700 hover:text-primary-500'
-      }`}
-    >
-      {children}
-      {isActive && (
+    <motion.div className="relative flex items-center space-x-1">
+      <Icon size={18} className={active ? 'text-primary-600' : 'text-gray-600'} />
+      <Link
+        to={to}
+        className={`text-base font-medium transition-colors ${
+          active ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'
+        }`}
+      >
+        {children}
+      </Link>
+      {active && (
         <motion.div
-          layoutId="navigation-underline"
-          className="absolute left-0 right-0 h-0.5 bg-primary-500 bottom-[-5px]"
+          layoutId="nav-underline"
+          className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-primary-500 to-secondary-500 rounded"
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         />
       )}
-    </Link>
+    </motion.div>
   );
 };
 
-// Mobile navigation link
-const MobileNavLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
+// Mobile link with fade-in
+const MobileLink = ({ to, Icon, children }: LinkProps) => {
   const location = useLocation();
-  const isActive = location.pathname === to;
-
+  const active = location.pathname === to;
   return (
-    <Link
-      to={to}
-      className={`block px-3 py-2 rounded-md text-base font-medium ${
-        isActive
-          ? 'text-primary-500 bg-gray-50'
-          : 'text-gray-700 hover:text-primary-500 hover:bg-gray-50'
-      }`}
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.4 }}
     >
-      {children}
-    </Link>
+      <Link
+        to={to}
+        className={`flex items-center space-x-2 text-lg font-medium px-3 py-2 rounded-lg transition-colors ${
+          active
+            ? 'text-primary-600 bg-gray-100'
+            : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+        }`}
+      >
+        <Icon size={20} />
+        <span>{children}</span>
+      </Link>
+    </motion.div>
   );
 };
+
+type ProfileProps = {
+  to: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+};
+
+const ProfileItem = ({ to, icon, children }: ProfileProps) => (
+  <Link
+    to={to}
+    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+  >
+    <span className="mr-2">{icon}</span>
+    {children}
+  </Link>
+);
+
+const ProfileButton = ({ onClick, icon, children }: { onClick: () => void; icon: React.ReactNode; children: React.ReactNode; }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+  >
+    <span className="mr-2">{icon}</span>
+    {children}
+  </button>
+);

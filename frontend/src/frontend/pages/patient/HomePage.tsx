@@ -1,117 +1,361 @@
-import React from 'react';
+// src/frontend/pages/patient/HomePage.tsx
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
   Search,
-  Clock,
   CheckCircle,
   Users,
   Award,
+  Car,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
-import {
-  SlideIn,
-  FadeIn,
-  StaggeredContainer,
-  staggeredItemVariants,
-} from '../../components/animations/Transitions';
 import Chatbot from '../../components/common/chatbot/chatbot';
+import earthTexture from '../../assets/earth.png';
+import patient from '../../assets/patient.jpg';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import * as THREE from 'three';
 
-const HomePage: React.FC = () => {
+function EarthModel() {
+  const earthRef = useRef<THREE.Mesh>(null!);
+  const texture = useLoader(THREE.TextureLoader, earthTexture);
+
+  // Continuous Y-axis rotation
+  useFrame((_, delta) => {
+    earthRef.current.rotation.y += delta * 0.2;
+  });
+
   return (
-    <main>
-      {/* Hero Section */}
-      <section className="relative pt-20 pb-20 md:pt-32 md:pb-32 bg-gradient-to-br from-primary-50 to-secondary-50 overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <SlideIn direction="left">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-                  Your Health, <span className="text-primary-500">Our Priority</span>
-                </h1>
-                <p className="mt-6 text-lg md:text-xl text-gray-600 max-w-lg">
-                  Book appointments with top doctors, get digital prescriptions, order medicine, and
-                  manage your health record all in one place.
-                </p>
-                <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                  <Button as={Link} to="/signup" variant="primary" size="lg">
-                    Get Started
-                  </Button>
-                  <Button as={Link} to="/doctors" variant="outline" size="lg">
-                    Find Doctors
-                  </Button>
-                </div>
-                <div className="mt-12 grid grid-cols-3 gap-4">
-                  {[
-                    { icon: <Users />, title: '10K+', subtitle: 'Patients' },
-                    { icon: <Award />, title: '500+', subtitle: 'Doctors' },
-                    { icon: <CheckCircle />, title: '98%', subtitle: 'Satisfaction' },
-                  ].map((stat, index) => (
-                    <motion.div
-                      key={index}
-                      className="flex flex-col items-center"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 + index * 0.1 }}
-                    >
-                      <div className="text-primary-500 mb-2">{stat.icon}</div>
-                      <div className="text-2xl font-bold text-gray-900">{stat.title}</div>
-                      <div className="text-sm text-gray-500">{stat.subtitle}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </SlideIn>
-            </div>
+    <mesh ref={earthRef} castShadow receiveShadow>
+      <sphereGeometry args={[2, 64, 64]} />
+      <meshStandardMaterial map={texture} />
+    </mesh>
+  );
+}
 
+function Stars() {
+  const groupRef = useRef<THREE.Points>(null!);
+  // Generate random star positions in a cube around the origin
+  const starPositions = useMemo(() => {
+    const positions = new Float32Array(1000 * 3);
+    for (let i = 0; i < 1000; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 20; // x
+      positions[i * 3 + 1] = Math.random() * 10 + 2;     // y (start above)
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 20; // z
+    }
+    return positions;
+  }, []);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const positions = groupRef.current.geometry.attributes.position.array as Float32Array;
+    for (let i = 0; i < positions.length / 3; i++) {
+      positions[i * 3 + 1] -= delta * 1.5; // move down at 1.5 units/sec
+      if (positions[i * 3 + 1] < -5) {
+        positions[i * 3 + 1] = Math.random() * 10 + 5; // reset above
+        positions[i * 3 + 0] = (Math.random() - 0.5) * 20;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+      }
+    }
+    groupRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={groupRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={starPositions.length / 3}
+          array={starPositions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial color="white" size={0.05} />
+    </points>
+  );
+}
+
+function ShootingStar() {
+  const starRef = useRef<THREE.Mesh>(null!);
+  const [startTime] = useState(() => Math.random() * 5); // random initial delay
+
+  // Starting position and velocity
+  const initialPos = useMemo(
+    () => new THREE.Vector3(-10, Math.random() * 5 + 2, -10),
+    []
+  );
+  const velocity = useMemo(
+    () => new THREE.Vector3(1, -0.3, 1).normalize().multiplyScalar(10),
+    []
+  );
+
+  useFrame((state) => {
+    const elapsed = state.clock.getElapsedTime() - startTime;
+    if (elapsed > 0) {
+      const t = elapsed % 3; // shooting star lasts 3 seconds
+      starRef.current.position.set(
+        initialPos.x + velocity.x * t,
+        initialPos.y + velocity.y * t,
+        initialPos.z + velocity.z * t
+      );
+      // After t > 3, it will loop automatically due to modulo
+    }
+  });
+
+  return (
+    <mesh ref={starRef}>
+      <sphereGeometry args={[0.08, 8, 8]} />
+      <meshBasicMaterial color="yellow" />
+    </mesh>
+  );
+}
+
+export default function HomePage() {
+  const slogans = [
+    'Your Health, Our Priority',
+    'Expert Care, Anytime, Anywhere',
+    'Wellness Starts with a Click',
+    'Connecting You to Better Care',
+    'Your Guide to a Healthier Life',
+  ];
+
+  const [currentSloganIndex, setCurrentSloganIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const typingSpeed = 100;
+  const deletingSpeed = 50;
+  const pauseAfterFull = 1500;
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    const current = slogans[currentSloganIndex];
+
+    if (!isDeleting) {
+      if (displayedText.length < current.length) {
+        timeout = setTimeout(
+          () =>
+            setDisplayedText(current.slice(0, displayedText.length + 1)),
+          typingSpeed
+        );
+      } else {
+        timeout = setTimeout(() => setIsDeleting(true), pauseAfterFull);
+      }
+    } else {
+      if (displayedText.length > 0) {
+        timeout = setTimeout(
+          () =>
+            setDisplayedText(current.slice(0, displayedText.length - 1)),
+          deletingSpeed
+        );
+      } else {
+        setIsDeleting(false);
+        setCurrentSloganIndex((prev) => (prev + 1) % slogans.length);
+      }
+    }
+
+    return () => clearTimeout(timeout);
+  }, [displayedText, isDeleting, currentSloganIndex, slogans]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Animation variants
+  const staggerContainer = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.2 } },
+  };
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: 'easeOut' },
+    },
+  };
+  const blinkCaret = {
+    blink: {
+      opacity: [0, 1],
+      transition: { repeat: Infinity, duration: 0.8, ease: 'easeInOut' },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 30, scale: 0.9 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        delay: 0.3 + i * 0.15,
+        duration: 0.6,
+        ease: 'easeOut',
+      },
+    }),
+    hover: { scale: 1.05, transition: { duration: 0.2 } },
+  };
+
+  const headingVariants = {
+    hidden: { opacity: 0, x: -50 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+  };
+  const descVariants = {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: 'easeOut', delay: 0.2 } },
+  };
+
+  return (
+    <main className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-white overflow-hidden">
+      {/* Hero Section */}
+      <section className="relative pt-24 pb-32 bg-gradient-to-tr from-gray-950 to-gray-800 overflow-hidden">
+        {/* Decorative Blobs */}
+        <motion.div
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-purple-900 opacity-20 blur-3xl"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.1, 0.2] }}
+          transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-indigo-900 opacity-20 blur-3xl"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.1, 0.2] }}
+          transition={{ repeat: Infinity, duration: 9, ease: 'easeInOut', delay: 1 }}
+        />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Hero Content */}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={staggerContainer}
+              className="space-y-8"
+            >
+              <AnimatePresence>
+                <motion.h1
+                  key={slogans[currentSloganIndex]}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+                    exit: { opacity: 0, y: -20, transition: { duration: 0.5, ease: 'easeIn' } },
+                  }}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight"
+                >
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+                    {displayedText}
+                    <motion.span variants={blinkCaret} animate="blink">
+                      |
+                    </motion.span>
+                  </span>
+                </motion.h1>
+              </AnimatePresence>
+
+              <motion.p
+                variants={fadeInUp}
+                className="mt-4 text-lg md:text-xl text-gray-300 max-w-lg"
+              >
+                Book top doctors, receive digital prescriptions instantly, order
+                medicine, and manage your health records—all in one seamless
+                platform.
+              </motion.p>
+
+              <motion.div variants={fadeInUp} className="mt-8 flex flex-col sm:flex-row gap-4">
+                <Button
+                  as={Link}
+                  to="/signup"
+                  variant="primary"
+                  size="lg"
+                  className="bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-pink-600 hover:to-indigo-600 text-black"
+                >
+                  Get Started
+                </Button>
+                <Button
+                  as={Link}
+                  to="/doctors"
+                  variant="outline"
+                  size="lg"
+                  className="border-pink-400 text-pink-400 hover:bg-gray-700"
+                >
+                  Find Doctors
+                </Button>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className="mt-12 grid grid-cols-3 gap-6">
+                {[
+                  { icon: <Users className="text-pink-400" />, title: '10K+', subtitle: 'Patients' },
+                  { icon: <Award className="text-pink-400" />, title: '500+', subtitle: 'Doctors' },
+                  { icon: <CheckCircle className="text-pink-400" />, title: '98%', subtitle: 'Satisfaction' },
+                ].map((stat, idx) => (
+                  <motion.div
+                    key={idx}
+                    className="flex flex-col items-center bg-gray-800 rounded-2xl p-6 shadow-lg"
+                    variants={fadeInUp}
+                    transition={{ delay: 0.6 + idx * 0.1, duration: 0.6 }}
+                  >
+                    <div className="text-3xl mb-2">{stat.icon}</div>
+                    <div className="text-2xl font-bold">{stat.title}</div>
+                    <div className="text-sm text-gray-400">{stat.subtitle}</div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            {/* Right Hero Image with Overlays */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              transition={{ duration: 0.7, delay: 0.3 }}
               className="relative hidden lg:block"
             >
-              <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary-400 to-secondary-400 opacity-30 blur-2xl" />
-              <div className="relative bg-white p-6 rounded-2xl shadow-soft overflow-hidden">
+              <div className="absolute -inset-1 rounded-3xl bg-gradient-to-tr from-indigo-600 to-pink-600 opacity-25 blur-2xl" />
+              <div className="relative bg-gray-800 p-4 rounded-3xl shadow-2xl overflow-hidden">
                 <img
                   src="https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
                   alt="Doctor with patient"
-                  className="w-full h-auto rounded-lg"
+                  className="w-full h-auto object-cover rounded-lg"
                 />
 
+                {/* Appointment Confirmation Overlay */}
                 <motion.div
-                  initial={{ x: -50, opacity: 0 }}
+                  initial={{ x: -60, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                  className="absolute left-0 bottom-20 transform -translate-y-1/2"
+                  transition={{ delay: 0.6, duration: 0.6 }}
+                  className="absolute left-0 bottom-24 transform -translate-y-1/2"
                 >
-                  <div className="bg-white rounded-r-lg shadow-soft p-4 flex items-center space-x-3 max-w-xs">
-                    <div className="bg-success-100 p-2 rounded-full text-success-600">
+                  <div className="bg-gray-800 rounded-r-lg shadow-lg p-4 flex items-center space-x-3 max-w-xs ring-1 ring-gray-700">
+                    <div className="bg-green-900 p-2 rounded-full text-green-400">
                       <CheckCircle size={20} />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Appointment Confirmed</p>
-                      <p className="text-sm text-gray-500">Dr. Sarah Johnson, 10:30 AM</p>
+                      <p className="font-medium">Appointment Confirmed</p>
+                      <p className="text-sm text-gray-400">Dr. Sarah Johnson, 10:30 AM</p>
                     </div>
                   </div>
                 </motion.div>
 
+                {/* Time Slots Overlay */}
                 <motion.div
-                  initial={{ x: 50, opacity: 0 }}
+                  initial={{ x: 60, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.8, duration: 0.5 }}
+                  transition={{ delay: 0.8, duration: 0.6 }}
                   className="absolute right-0 top-20 transform -translate-y-1/2"
                 >
-                  <div className="bg-white rounded-l-lg shadow-soft p-4 max-w-xs">
+                  <div className="bg-gray-800 rounded-l-lg shadow-lg p-4 ring-1 ring-gray-700 max-w-xs">
                     <div className="flex items-center space-x-3 mb-2">
-                      <div className="bg-primary-100 p-2 rounded-full text-primary-600">
+                      <div className="bg-pink-800 p-2 rounded-full text-pink-400">
                         <Calendar size={20} />
                       </div>
-                      <p className="font-medium text-gray-900">Available Time Slots</p>
+                      <p className="font-medium">Available Time Slots</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {['9:00', '10:30', '11:45'].map((time, i) => (
-                        <div key={i} className="bg-gray-100 rounded px-2 py-1 text-xs text-center text-gray-700">
+                        <div
+                          key={i}
+                          className="bg-gray-700 rounded-full px-3 py-1 text-xs text-center text-gray-400"
+                        >
                           {time}
                         </div>
                       ))}
@@ -122,81 +366,171 @@ const HomePage: React.FC = () => {
             </motion.div>
           </div>
         </div>
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-secondary-200 rounded-full opacity-20 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-primary-200 rounded-full opacity-20 blur-3xl" />
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
-              <p className="mt-4 text-xl text-gray-600">
-                We've simplified the process of finding and booking appointments with healthcare professionals.
-              </p>
-            </div>
-          </FadeIn>
+      {/* How It Works Section */}
+      <section className="py-24 bg-gradient-to-bl from-gray-900 to-gray-800 overflow-hidden relative">
+        {/* Decorative Shape */}
+        <motion.div
+          className="absolute top-10 right-10 w-48 h-48 rounded-full bg-yellow-900 opacity-20 blur-3xl"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.1, 0.2] }}
+          transition={{ repeat: Infinity, duration: 7, ease: 'easeInOut' }}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Section Heading & Description */}
+          <motion.div>
+            <motion.h2
+              initial="hidden"
+              animate="visible"
+              variants={headingVariants}
+              className="text-3xl font-extrabold text-center"
+            >
+              How It Works
+            </motion.h2>
+            <motion.p
+              initial="hidden"
+              animate="visible"
+              variants={descVariants}
+              className="mt-4 text-center text-lg text-gray-400"
+            >
+              We’ve simplified booking appointments with top healthcare professionals in three easy
+              steps.
+            </motion.p>
+          </motion.div>
+
+          {/* Feature Cards */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12"
+          >
             {[
-              { icon: <Search className="w-8 h-8 text-primary-500" />, title: 'Find Doctors', description: 'Search for specialists based on specialty, location, availability, and patient reviews.', delay: 0 },
-              { icon: <Calendar className="w-8 h-8 text-primary-500" />, title: 'Book Appointments', description: 'Select a convenient time slot and book your appointment in just a few clicks.', delay: 0.2 },
-              { icon: <Clock className="w-8 h-8 text-primary-500" />, title: 'Get Care', description: 'Visit the doctor at the scheduled time or connect via video consultation.', delay: 0.4 },
-            ].map((feature, index) => (
-              <SlideIn key={index} direction="up" delay={feature.delay}>
-                <div className="bg-white border border-gray-100 rounded-xl p-8 shadow-subtle h-full transition-all duration-300 hover:shadow-soft hover:border-primary-200 hover:-translate-y-1">
-                  <div className="inline-flex items-center justify-center p-3 bg-primary-50 rounded-lg mb-5">
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
-                  <p className="text-gray-600">{feature.description}</p>
+              {
+                icon: <Search className="w-10 h-10 text-pink-400" />,
+                title: 'Find Doctors',
+                description: 'Search specialists by specialty, location, availability, and patient reviews.',
+              },
+              {
+                icon: <Calendar className="w-10 h-10 text-pink-400" />,
+                title: 'Book Appointments',
+                description: 'Choose a convenient time slot and confirm your appointment in a few clicks.',
+              },
+              {
+                icon: <Car className="w-10 h-10 text-pink-400" />,
+                title: 'Get Transport',
+                description: 'Arrange medical transportation directly to your doorstep for hassle-free visits.',
+              },
+            ].map((feature, idx) => (
+              <motion.div
+                key={idx}
+                custom={idx}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                whileHover="hover"
+                className="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-lg transition-shadow"
+              >
+                <div className="inline-flex items-center justify-center p-4 bg-pink-800 rounded-lg mb-6">
+                  {feature.icon}
                 </div>
-              </SlideIn>
+                <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
+                <p className="text-gray-400">{feature.description}</p>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Specialties Section */}
-      <section className="py-20 bg-gray-50">
-        {/* ...specialties content as before... */}
-      </section>
+      {/* Connecting You to the People Section */}
+      <section className="py-24 bg-gradient-to-tr from-gray-900 to-gray-800 flex flex-col items-center justify-center relative">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-3xl font-extrabold mb-12 text-center"
+        >
+          Connecting You to the World's Best Doctors
+        </motion.h2>
 
-      {/* Testimonials Section */}
-      <section className="py-20 bg-white">
-        {/* ...testimonials content as before... */}
+        <div className="relative w-600 h-96">
+          <Canvas
+            shadows
+            camera={{ position: [0, 0, 8], fov: 50 }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            {/* Ambient & directional lighting for Earth and stars */}
+            <ambientLight intensity={0.4} />
+            <directionalLight position={[5, 5, 5]} intensity={0.8} />
+
+            {/* 3D Earth */}
+            <EarthModel />
+
+            {/* Falling stars */}
+            <Stars />
+
+            {/* Shooting star */}
+            <ShootingStar />
+          </Canvas>
+        </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary-500 to-secondary-500 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex flex-col lg:flex-row items-center justify-between">
-            <div className="mb-8 lg:mb-0">
-              <FadeIn>
-                <h2 className="text-3xl font-bold text-white mb-4">Ready to prioritize your health?</h2>
-                <p className="text-xl text-white opacity-90 max-w-xl">
-                  Join thousands of patients who have simplified their healthcare journey with MedBook.
-                </p>
-              </FadeIn>
-            </div>
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <SlideIn direction="right">
-                <Button as={Link} to="/signup" variant="primary" size="lg" className="bg-white text-primary-600 hover:bg-gray-100">
+      <section className="py-24 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-center lg:text-left max-w-xl"
+            >
+              <h2 className="text-3xl font-extrabold mb-4">Ready to prioritize your health?</h2>
+              <p className="text-xl text-gray-300 mb-6">
+                Join thousands of patients who have simplified their healthcare journey with MedBook.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  as={Link}
+                  to="/signup"
+                  variant="secondary"
+                  size="lg"
+                  className="bg-white text-gray-900 hover:bg-gray-200"
+                >
                   Sign Up Now
                 </Button>
-                <Button as={Link} to="/how-it-works" variant="outline" size="lg" className="text-white border-white hover:bg-white/10">
+                <Button
+                  as={Link}
+                  to="/how-it-works"
+                  variant="outline"
+                  size="lg"
+                  className="text-white border-white hover:bg-white/10"
+                >
                   Learn More
                 </Button>
-              </SlideIn>
-            </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="w-full max-w-sm mx-auto lg:mx-0"
+            >
+              <img
+                src={patient}
+                alt="Happy patient"
+                className="w-full rounded-2xl shadow-2xl"
+              />
+            </motion.div>
           </div>
         </div>
+
         <Chatbot />
       </section>
     </main>
   );
-};
-
-export default HomePage;
+}

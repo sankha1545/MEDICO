@@ -1,7 +1,7 @@
 // src/pages/dashboard/DashboardPage.tsx
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
   Calendar,
   Clock,
@@ -11,28 +11,31 @@ import {
   Bell,
   CheckCircle,
   AlertTriangle,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../components/common/Button';
-import EditProfileForm from '../../components/common/editprofile/editprofileforms';
-import UpdateMedicalInfoForm from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
+} from "lucide-react";
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../../contexts/AuthContext";
+import { Button } from "../../components/common/Button";
+import EditProfileForm from "../../components/common/editprofile/editprofileforms";
+import UpdateMedicalInfoForm, {
+  MedicalInfo,
+} from "../../components/common/medicalinfo/UpdateMedicalInfoForm";
 import {
   FadeIn,
   SlideIn,
   StaggeredContainer,
   staggeredItemVariants,
-} from '../../components/animations/Transitions';
-import Chatbot from '../../components/common/chatbot/chatbot';
+} from "../../components/animations/Transitions";
+import Chatbot from "../../components/common/chatbot/chatbot";
+import axios from "axios";
 
-// Interfaces
+// Interfaces for appointments & notifications remain the same
 interface Appointment {
   id: string;
   doctorName: string;
   specialty: string;
   date: Date;
-  status: 'upcoming' | 'completed' | 'cancelled';
+  status: "upcoming" | "completed" | "cancelled";
   image: string;
 }
 
@@ -42,72 +45,66 @@ interface NotificationItem {
   message: string;
   date: Date;
   read: boolean;
-  type: 'reminder' | 'medical' | 'message';
+  type: "reminder" | "medical" | "message";
 }
 
-interface MedicalInfo {
-  bloodType: string;
-  allergies: string;
-  currentMedications: string;
-  medicalConditions: string;
-}
-
-// Mock data
+// Mock data (unchanged)
 const mockAppointments: Appointment[] = [
   {
-    id: '1',
-    doctorName: 'Dr. Sarah Johnson',
-    specialty: 'Cardiologist',
+    id: "1",
+    doctorName: "Dr. Sarah Johnson",
+    specialty: "Cardiologist",
     date: new Date(2025, 4, 15, 10, 30),
-    status: 'upcoming',
-    image: 'https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg',
+    status: "upcoming",
+    image: "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg",
   },
   {
-    id: '2',
-    doctorName: 'Dr. Michael Rodriguez',
-    specialty: 'Dermatologist',
+    id: "2",
+    doctorName: "Dr. Michael Rodriguez",
+    specialty: "Dermatologist",
     date: new Date(2025, 4, 20, 14, 0),
-    status: 'upcoming',
-    image: 'https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg',
+    status: "upcoming",
+    image: "https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg",
   },
   {
-    id: '3',
-    doctorName: 'Dr. Emma Chen',
-    specialty: 'Neurologist',
+    id: "3",
+    doctorName: "Dr. Emma Chen",
+    specialty: "Neurologist",
     date: new Date(2025, 3, 30, 9, 0),
-    status: 'completed',
-    image: 'https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg',
+    status: "completed",
+    image: "https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg",
   },
 ];
 
 const mockNotifications: NotificationItem[] = [
   {
-    id: '1',
-    title: 'Appointment Reminder',
-    message: 'Your appointment with Dr. Sarah Johnson is tomorrow at 10:30 AM',
+    id: "1",
+    title: "Appointment Reminder",
+    message: "Your appointment with Dr. Sarah Johnson is tomorrow at 10:30 AM",
     date: new Date(2025, 4, 14, 9, 0),
     read: false,
-    type: 'reminder',
+    type: "reminder",
   },
   {
-    id: '2',
-    title: 'Prescription Renewal',
-    message: 'Your prescription for Lisinopril is due for renewal',
+    id: "2",
+    title: "Prescription Renewal",
+    message: "Your prescription for Lisinopril is due for renewal",
     date: new Date(2025, 4, 10, 14, 30),
     read: true,
-    type: 'medical',
+    type: "medical",
   },
   {
-    id: '3',
-    title: 'New Message',
-    message: 'Dr. Michael Rodriguez has sent you a message regarding your last visit',
+    id: "3",
+    title: "New Message",
+    message:
+      "Dr. Michael Rodriguez has sent you a message regarding your last visit",
     date: new Date(2025, 4, 8, 11, 45),
     read: false,
-    type: 'message',
+    type: "message",
   },
 ];
 
-// Tab component
+// Tab component (unchanged)
 interface TabProps {
   label: string;
   isActive: boolean;
@@ -120,12 +117,14 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
     type="button"
     className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
       isActive
-        ? 'bg-primary-50 text-primary-700 font-medium'
-        : 'text-gray-600 hover:bg-gray-100'
+        ? "bg-primary-50 text-primary-700 font-medium"
+        : "text-gray-600 hover:bg-gray-100"
     }`}
     onClick={onClick}
   >
-    <span className={isActive ? 'text-primary-500' : 'text-gray-500'}>{icon}</span>
+    <span className={isActive ? "text-primary-500" : "text-gray-500"}>
+      {icon}
+    </span>
     <span>{label}</span>
   </button>
 );
@@ -133,37 +132,94 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
 const DashboardPage: React.FC = () => {
   const { user, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'appointments' | 'notifications' | 'profile'
-  >('overview');
+    "overview" | "appointments" | "notifications" | "profile"
+  >("overview");
+
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
+
+  // Initialize with empty strings; we’ll overwrite in useEffect
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
-    bloodType: 'O+',
-    allergies: 'Penicillin, Peanuts',
-    currentMedications: 'Lisinopril, Metformin',
-    medicalConditions: 'Hypertension, Type 2 Diabetes',
+    bloodType: "",
+    allergies: "",
+    currentMedications: "",
+    medicalConditions: "",
   });
 
-  const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
-  const completedCount = mockAppointments.filter((a) => a.status === 'completed').length;
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
+  // Fetch real medical info from the backend on mount
+  useEffect(() => {
+    const fetchMedical = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("No token found in localStorage");
+          return;
+        }
 
-  const handleProfileSave = async (updatedValues: { name?: string; email?: string }) => {
+        const resp = await axios.get<{ medicalInfo: MedicalInfo }>(
+          "http://localhost:7000/api/medical",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setMedicalInfo(resp.data.medicalInfo);
+      } catch (err: any) {
+        console.error("Failed to fetch medical info:", err);
+      }
+    };
+    fetchMedical();
+  }, []);
+
+  // Handler for saving profile (UNCHANGED)
+  const handleProfileSave = async (updatedValues: {
+    name?: string;
+    email?: string;
+  }) => {
     try {
-      const updated = await updateProfile(updatedValues);
-      console.log('Profile updated', updated);
+      await updateProfile(updatedValues);
       setShowEditProfile(false);
     } catch (err: any) {
       alert(err.message);
     }
   };
 
-  const handleMedicalSave = (updatedMedical: MedicalInfo) => {
-    // TODO: send to backend when ready
-    console.log('Medical info saved', updatedMedical);
-    setMedicalInfo(updatedMedical);
-    setShowUpdateMedical(false);
+  // Handler for saving medical info (updated to send actual JWT)
+  const handleMedicalSave = async (updatedMedical: MedicalInfo) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Unable to save: no authentication token found.");
+        return;
+      }
+
+      const resp = await axios.put<{ medicalInfo: MedicalInfo }>(
+        "http://localhost:7000/api/medical",
+        updatedMedical,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setMedicalInfo(resp.data.medicalInfo);
+      setShowUpdateMedical(false);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        alert("Unauthorized: please log in again.");
+      } else {
+        alert("Could not save medical info: " + err.message);
+      }
+    }
   };
+
+  // Compute stats from mock data
+  const upcomingCount = mockAppointments.filter((a) => a.status === "upcoming")
+    .length;
+  const completedCount = mockAppointments.filter((a) => a.status === "completed")
+    .length;
+  const unreadCount = mockNotifications.filter((n) => !n.read).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -174,7 +230,7 @@ const DashboardPage: React.FC = () => {
               Welcome {user?.name},
             </h1>
             <p className="text-gray-600 mt-2">
-              Here&apos;s an overview of your health and appointments.
+              Here’s an overview of your health and appointments.
             </p>
           </header>
         </FadeIn>
@@ -183,28 +239,28 @@ const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[
             {
-              title: 'Upcoming Appointments',
+              title: "Upcoming Appointments",
               value: String(upcomingCount),
               icon: <Calendar className="text-primary-500" />,
-              iconBg: 'bg-primary-100',
+              iconBg: "bg-primary-100",
             },
             {
-              title: 'Completed Visits',
+              title: "Completed Visits",
               value: String(completedCount),
               icon: <CheckCircle className="text-green-500" />,
-              iconBg: 'bg-green-100',
+              iconBg: "bg-green-100",
             },
             {
-              title: 'Pending Reports',
-              value: '3',
+              title: "Pending Reports",
+              value: "3", // Still a mock
               icon: <FileText className="text-amber-500" />,
-              iconBg: 'bg-amber-100',
+              iconBg: "bg-amber-100",
             },
             {
-              title: 'Unread Notifications',
+              title: "Unread Notifications",
               value: String(unreadCount),
               icon: <Bell className="text-purple-500" />,
-              iconBg: 'bg-purple-100',
+              iconBg: "bg-purple-100",
             },
           ].map((stat, i) => (
             <SlideIn key={i} direction="up" delay={i * 0.1}>
@@ -215,7 +271,9 @@ const DashboardPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stat.value}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -229,34 +287,35 @@ const DashboardPage: React.FC = () => {
             <div className="flex overflow-x-auto p-4 space-x-4">
               <Tab
                 label="Overview"
-                isActive={activeTab === 'overview'}
-                onClick={() => setActiveTab('overview')}
+                isActive={activeTab === "overview"}
+                onClick={() => setActiveTab("overview")}
                 icon={<Activity size={18} />}
               />
               <Tab
                 label="Appointments"
-                isActive={activeTab === 'appointments'}
-                onClick={() => setActiveTab('appointments')}
+                isActive={activeTab === "appointments"}
+                onClick={() => setActiveTab("appointments")}
                 icon={<Calendar size={18} />}
               />
               <Tab
                 label="Notifications"
-                isActive={activeTab === 'notifications'}
-                onClick={() => setActiveTab('notifications')}
+                isActive={activeTab === "notifications"}
+                onClick={() => setActiveTab("notifications")}
                 icon={<Bell size={18} />}
               />
               <Tab
                 label="Profile"
-                isActive={activeTab === 'profile'}
-                onClick={() => setActiveTab('profile')}
+                isActive={activeTab === "profile"}
+                onClick={() => setActiveTab("profile")}
                 icon={<UserIcon size={18} />}
               />
             </div>
           </div>
           <div className="p-6">
-            {activeTab === 'overview' && (
+            {/* ========== Overview Tab ========== */}
+            {activeTab === "overview" && (
               <>
-                {/* Upcoming */}
+                {/* Upcoming Appointments Section */}
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
                     Upcoming Appointments
@@ -270,7 +329,7 @@ const DashboardPage: React.FC = () => {
                 <StaggeredContainer>
                   <div className="space-y-4">
                     {mockAppointments
-                      .filter((a) => a.status === 'upcoming')
+                      .filter((a) => a.status === "upcoming")
                       .map((appt) => (
                         <motion.div
                           key={appt.id}
@@ -292,11 +351,11 @@ const DashboardPage: React.FC = () => {
                             <div className="text-right">
                               <div className="flex items-center text-gray-700 mb-1">
                                 <Calendar size={14} className="mr-1" />
-                                <span>{format(appt.date, 'MMM d, yyyy')}</span>
+                                <span>{format(appt.date, "MMM d, yyyy")}</span>
                               </div>
                               <div className="flex items-center text-gray-700">
                                 <Clock size={14} className="mr-1" />
-                                <span>{format(appt.date, 'h:mm a')}</span>
+                                <span>{format(appt.date, "h:mm a")}</span>
                               </div>
                             </div>
                           </div>
@@ -313,7 +372,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </StaggeredContainer>
 
-                {/* Recent notifications */}
+                {/* Recent Notifications Section */}
                 <div className="mt-10">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -332,21 +391,21 @@ const DashboardPage: React.FC = () => {
                           key={n.id}
                           variants={staggeredItemVariants}
                           className={`flex items-start p-3 rounded-md ${
-                            n.read ? 'bg-white' : 'bg-primary-50'
+                            n.read ? "bg-white" : "bg-primary-50"
                           }`}
                         >
                           <div
                             className={`p-2 rounded-full mr-3 ${
-                              n.type === 'reminder'
-                                ? 'bg-primary-100 text-primary-600'
-                                : n.type === 'medical'
-                                ? 'bg-green-100 text-green-600'
-                                : 'bg-amber-100 text-amber-600'
+                              n.type === "reminder"
+                                ? "bg-primary-100 text-primary-600"
+                                : n.type === "medical"
+                                ? "bg-green-100 text-green-600"
+                                : "bg-amber-100 text-amber-600"
                             }`}
                           >
-                            {n.type === 'reminder' ? (
+                            {n.type === "reminder" ? (
                               <Bell size={16} />
-                            ) : n.type === 'medical' ? (
+                            ) : n.type === "medical" ? (
                               <FileText size={16} />
                             ) : (
                               <AlertTriangle size={16} />
@@ -358,7 +417,7 @@ const DashboardPage: React.FC = () => {
                                 {n.title}
                               </h4>
                               <span className="text-xs text-gray-500">
-                                {format(n.date, 'MMM d')}
+                                {format(n.date, "MMM d")}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">
@@ -366,7 +425,7 @@ const DashboardPage: React.FC = () => {
                             </p>
                           </div>
                           {!n.read && (
-                            <div className="bg-primary-500 rounded-full w-2 h-2"></div>
+                            <div className="bg-primary-500 rounded-full w-2 h-2" />
                           )}
                         </motion.div>
                       ))}
@@ -376,7 +435,8 @@ const DashboardPage: React.FC = () => {
               </>
             )}
 
-            {activeTab === 'appointments' && (
+            {/* ========== Appointments Tab ========== */}
+            {activeTab === "appointments" && (
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -430,11 +490,11 @@ const DashboardPage: React.FC = () => {
                               <div className="mt-4 md:mt-0 flex items-start">
                                 <span
                                   className={`px-3 py-1 text-xs rounded-full ${
-                                    a.status === 'upcoming'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : a.status === 'completed'
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-red-100 text-red-800'
+                                    a.status === "upcoming"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : a.status === "completed"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-red-100 text-red-800"
                                   }`}
                                 >
                                   {a.status.charAt(0).toUpperCase() +
@@ -445,13 +505,13 @@ const DashboardPage: React.FC = () => {
                             <div className="mt-4 flex items-center text-gray-700">
                               <Calendar size={16} className="mr-2" />
                               <span className="mr-6">
-                                {format(a.date, 'MMMM d, yyyy')}
+                                {format(a.date, "MMMM d, yyyy")}
                               </span>
                               <Clock size={16} className="mr-2" />
-                              <span>{format(a.date, 'h:mm a')}</span>
+                              <span>{format(a.date, "h:mm a")}</span>
                             </div>
                             <div className="mt-6 flex flex-wrap gap-3">
-                              {a.status === 'upcoming' ? (
+                              {a.status === "upcoming" ? (
                                 <>
                                   <Button variant="primary" size="sm">
                                     Join Video Call
@@ -487,7 +547,8 @@ const DashboardPage: React.FC = () => {
               </>
             )}
 
-            {activeTab === 'notifications' && (
+            {/* ========== Notifications Tab ========== */}
+            {activeTab === "notifications" && (
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -505,22 +566,22 @@ const DashboardPage: React.FC = () => {
                         variants={staggeredItemVariants}
                         className={`flex items-start p-4 rounded-lg border ${
                           n.read
-                            ? 'bg-white border-gray-200'
-                            : 'bg-primary-50 border-primary-200'
+                            ? "bg-white border-gray-200"
+                            : "bg-primary-50 border-primary-200"
                         }`}
                       >
                         <div
                           className={`p-3 rounded-full mr-4 ${
-                            n.type === 'reminder'
-                              ? 'bg-primary-100 text-primary-600'
-                              : n.type === 'medical'
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-amber-100 text-amber-600'
+                            n.type === "reminder"
+                              ? "bg-primary-100 text-primary-600"
+                              : n.type === "medical"
+                              ? "bg-green-100 text-green-600"
+                              : "bg-amber-100 text-amber-600"
                           }`}
                         >
-                          {n.type === 'reminder' ? (
+                          {n.type === "reminder" ? (
                             <Bell size={20} />
-                          ) : n.type === 'medical' ? (
+                          ) : n.type === "medical" ? (
                             <FileText size={20} />
                           ) : (
                             <AlertTriangle size={20} />
@@ -528,19 +589,21 @@ const DashboardPage: React.FC = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between">
-                            <h4 className="font-medium text-gray-900">{n.title}</h4>
+                            <h4 className="font-medium text-gray-900">
+                              {n.title}
+                            </h4>
                             <span className="text-sm text-gray-500">
-                              {format(n.date, 'MMM d, h:mm a')}
+                              {format(n.date, "MMM d, h:mm a")}
                             </span>
                           </div>
                           <p className="text-gray-600 mt-1">{n.message}</p>
                           <div className="mt-3 flex space-x-3">
                             <Button variant="outline" size="sm">
-                              {n.type === 'reminder'
-                                ? 'View Appointment'
-                                : n.type === 'medical'
-                                ? 'View Prescription'
-                                : 'Read Message'}
+                              {n.type === "reminder"
+                                ? "View Appointment"
+                                : n.type === "medical"
+                                ? "View Prescription"
+                                : "Read Message"}
                             </Button>
                             {!n.read && (
                               <Button variant="ghost" size="sm">
@@ -556,7 +619,8 @@ const DashboardPage: React.FC = () => {
               </>
             )}
 
-            {activeTab === 'profile' && (
+            {/* ========== Profile Tab ========== */}
+            {activeTab === "profile" && (
               <>
                 <div className="flex items-center mb-8">
                   <div className="bg-gray-200 rounded-full w-24 h-24 flex items-center justify-center mr-6">
@@ -570,6 +634,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Personal Information Card */}
                   <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle relative">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                       Personal Information
@@ -595,9 +660,7 @@ const DashboardPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setShowEditProfile(true)}
-                      >
-                        Edit Profile
-                      </Button>
+                      >Edit Profile</Button>
                       {showEditProfile && (
                         <EditProfileForm
                           user={user!}
@@ -607,6 +670,8 @@ const DashboardPage: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Medical Information Card */}
                   <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                       Medical Information
@@ -621,13 +686,17 @@ const DashboardPage: React.FC = () => {
                         <p className="text-gray-900">{medicalInfo.allergies}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Current Medications</p>
+                        <p className="text-sm text-gray-500">
+                          Current Medications
+                        </p>
                         <p className="text-gray-900">
                           {medicalInfo.currentMedications}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Medical Conditions</p>
+                        <p className="text-sm text-gray-500">
+                          Medical Conditions
+                        </p>
                         <p className="text-gray-900">
                           {medicalInfo.medicalConditions}
                         </p>
@@ -650,6 +719,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Account Settings Card */}
                 <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">
                     Account Settings

@@ -10,6 +10,7 @@ import { FadeIn, SlideIn } from '../components/animations/Transitions';
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -22,6 +23,7 @@ const LoginPage = () => {
     
     try {
       await login(email, password);
+      
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
