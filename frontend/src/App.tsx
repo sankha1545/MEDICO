@@ -36,6 +36,7 @@ import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
+    // If not authenticated, redirect to "/login"
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
@@ -56,7 +57,10 @@ const App: React.FC = () => (
           </Layout>
         }
       />
+
+      {/* LOGIN ROUTE: Navbar calls `navigate("/login")` on logout */}
       <Route path="/login" element={<LoginPage />} />
+
       <Route path="/signup" element={<SignupPage />} />
 
       {/* OTP Verification page (public) */}

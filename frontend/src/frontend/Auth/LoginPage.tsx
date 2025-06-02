@@ -1,4 +1,6 @@
-import { useState } from 'react';
+// File: frontend/src/pages/LoginPage.tsx
+
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Lock, ArrowRight } from 'lucide-react';
@@ -7,23 +9,22 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { FadeIn, SlideIn } from '../components/animations/Transitions';
 
-const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+const LoginPage: React.FC = () => {
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const { login, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
       await login(email, password);
-      
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -31,10 +32,24 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
-  
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await signInWithGoogle();
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Google login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Left side: Form */}
+      {/* Left: Form */}
       <FadeIn>
         <div className="flex items-center justify-center p-8 md:p-12">
           <div className="w-full max-w-md">
@@ -61,7 +76,7 @@ const LoginPage = () => {
               <h1 className="text-3xl font-bold text-gray-800">Welcome back</h1>
               <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
             </div>
-            
+
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -71,36 +86,32 @@ const LoginPage = () => {
                 {error}
               </motion.div>
             )}
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Input
-                  type="email"
-                  id="email"
-                  label="Email Address"
-                  placeholder="you@example.com"
-                  icon={<User size={16} />}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  fullWidth
-                />
-              </div>
-              
-              <div>
-                <Input
-                  type="password"
-                  id="password"
-                  label="Password"
-                  placeholder="••••••••"
-                  icon={<Lock size={16} />}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  fullWidth
-                />
-              </div>
-              
+              <Input
+                type="email"
+                id="email"
+                label="Email Address"
+                placeholder="you@example.com"
+                icon={<User size={16} />}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                fullWidth
+              />
+
+              <Input
+                type="password"
+                id="password"
+                label="Password"
+                placeholder="••••••••"
+                icon={<Lock size={16} />}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                fullWidth
+              />
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input
@@ -113,28 +124,34 @@ const LoginPage = () => {
                     Remember me
                   </label>
                 </div>
-                
                 <div className="text-sm">
                   <Link to="/forgot-password" className="text-primary-500 hover:text-primary-600">
                     Forgot password?
                   </Link>
                 </div>
               </div>
-              
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isLoading}
-                fullWidth
-                className="mt-6"
-              >
+
+              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth className="mt-6">
                 Sign In
               </Button>
             </form>
-            
+
+            {/* Google Login Button */}
+            <div className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                isLoading={isLoading}
+                fullWidth
+                onClick={handleGoogleLogin}
+              >
+                Continue with Google
+              </Button>
+            </div>
+
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don’t have an account?{' '}
                 <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">
                   Sign up
                 </Link>
@@ -143,8 +160,8 @@ const LoginPage = () => {
           </div>
         </div>
       </FadeIn>
-      
-      {/* Right side: Image */}
+
+      {/* Right: Image */}
       <SlideIn direction="right">
         <div className="hidden md:block relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary-500 to-secondary-500 opacity-90"></div>

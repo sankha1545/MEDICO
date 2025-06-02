@@ -15,7 +15,7 @@ import Chatbot from '../../components/common/chatbot/chatbot';
 
 // 🔑 Replace this with a true 2∶1 equirectangular Earth map (0°–360°, ±90°).
 //    For example, download “earth-full-equirect.jpg” from a NASA/Three.js example.
-import earthEquirect from '../../assets/earth.png';
+import earthEquirect from '../../assets/earth-full-equirect.jpg';
 
 import patient from '../../assets/patient.jpg';
 
@@ -52,7 +52,7 @@ function EarthModel() {
         – VERY high segment count (500 × 500) to eliminate faceting/gaps.
         – Radius = 3 (adjust if you like).
       */}
-      <sphereGeometry args={[3, 50, 100]} />
+      <sphereGeometry args={[3, 500, 500]} />
 
       <meshStandardMaterial
         map={texture}

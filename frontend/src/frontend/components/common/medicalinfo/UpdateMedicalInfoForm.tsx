@@ -1,7 +1,7 @@
-// src/components/common/medicalinfo/UpdateMedicalInfoForm.tsx
+// File: frontend/src/components/common/medicalinfo/UpdateMedicalform.tsx
 
-import React, { useState, FormEvent } from "react";
-import { Button } from "../Button";
+import React, { useState, FormEvent } from 'react';
+import { Button } from '../Button';
 
 export interface MedicalInfo {
   bloodType: string;
@@ -16,19 +16,15 @@ interface UpdateMedicalInfoFormProps {
   onSave: (info: MedicalInfo) => void;
 }
 
-const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
+const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
   medicalInfo,
   onClose,
   onSave,
 }) => {
   const [bloodType, setBloodType] = useState(medicalInfo.bloodType);
   const [allergies, setAllergies] = useState(medicalInfo.allergies);
-  const [currentMedications, setCurrentMedications] = useState(
-    medicalInfo.currentMedications
-  );
-  const [medicalConditions, setMedicalConditions] = useState(
-    medicalInfo.medicalConditions
-  );
+  const [currentMedications, setCurrentMedications] = useState(medicalInfo.currentMedications);
+  const [medicalConditions, setMedicalConditions] = useState(medicalInfo.medicalConditions);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -100,4 +96,4 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
   );
 };
 
-export default UpdateMedicalInfoForm;
+export default UpdateMedicalform;

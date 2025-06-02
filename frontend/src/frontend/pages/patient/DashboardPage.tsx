@@ -1,7 +1,7 @@
-// src/pages/dashboard/DashboardPage.tsx
+// File: frontend/src/pages/DashboardPage.tsx
 
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
@@ -11,172 +11,162 @@ import {
   Bell,
   CheckCircle,
   AlertTriangle,
-} from "lucide-react";
-import { format } from "date-fns";
-import { Link } from "react-router-dom";
-import { useAuth } from "../../../contexts/AuthContext";
-import { Button } from "../../components/common/Button";
-import EditProfileForm from "../../components/common/editprofile/editprofileforms";
-import UpdateMedicalInfoForm, {
-  MedicalInfo,
-} from "../../components/common/medicalinfo/UpdateMedicalInfoForm";
-import {
-  FadeIn,
-  SlideIn,
-  StaggeredContainer,
-  staggeredItemVariants,
-} from "../../components/animations/Transitions";
-import Chatbot from "../../components/common/chatbot/chatbot";
-import axios from "axios";
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
+import { Button } from '../../components/common/Button';
+import EditProfileForm from '../../components/common/editprofile/editprofileforms';
+import UpdateMedicalform, { MedicalInfo } from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
+import Chatbot from '../../components/common/chatbot/chatbot';
 
-// Interfaces for appointments & notifications remain the same
+// Framer Motion variants
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15 } },
+};
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: 'easeOut' },
+  },
+};
+const cardHover = { scale: 1.03, boxShadow: '0 10px 20px rgba(0,0,0,0.5)' };
+
+// Mock data
 interface Appointment {
   id: string;
   doctorName: string;
   specialty: string;
   date: Date;
-  status: "upcoming" | "completed" | "cancelled";
+  status: 'upcoming' | 'completed' | 'cancelled';
   image: string;
 }
-
 interface NotificationItem {
   id: string;
   title: string;
   message: string;
   date: Date;
   read: boolean;
-  type: "reminder" | "medical" | "message";
+  type: 'reminder' | 'medical' | 'message';
 }
-
-// Mock data (unchanged)
 const mockAppointments: Appointment[] = [
   {
-    id: "1",
-    doctorName: "Dr. Sarah Johnson",
-    specialty: "Cardiologist",
+    id: '1',
+    doctorName: 'Dr. Sarah Johnson',
+    specialty: 'Cardiologist',
     date: new Date(2025, 4, 15, 10, 30),
-    status: "upcoming",
-    image: "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg",
+    status: 'upcoming',
+    image:
+      'https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg?auto=compress&cs=tinysrgb&w=300',
   },
   {
-    id: "2",
-    doctorName: "Dr. Michael Rodriguez",
-    specialty: "Dermatologist",
+    id: '2',
+    doctorName: 'Dr. Michael Rodriguez',
+    specialty: 'Dermatologist',
     date: new Date(2025, 4, 20, 14, 0),
-    status: "upcoming",
-    image: "https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg",
+    status: 'upcoming',
+    image:
+      'https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg?auto=compress&cs=tinysrgb&w=300',
   },
   {
-    id: "3",
-    doctorName: "Dr. Emma Chen",
-    specialty: "Neurologist",
+    id: '3',
+    doctorName: 'Dr. Emma Chen',
+    specialty: 'Neurologist',
     date: new Date(2025, 3, 30, 9, 0),
-    status: "completed",
-    image: "https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg",
+    status: 'completed',
+    image:
+      'https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=300',
   },
 ];
-
 const mockNotifications: NotificationItem[] = [
   {
-    id: "1",
-    title: "Appointment Reminder",
-    message: "Your appointment with Dr. Sarah Johnson is tomorrow at 10:30 AM",
+    id: '1',
+    title: 'Appointment Reminder',
+    message: 'Your appointment with Dr. Sarah Johnson is tomorrow at 10:30 AM',
     date: new Date(2025, 4, 14, 9, 0),
     read: false,
-    type: "reminder",
+    type: 'reminder',
   },
   {
-    id: "2",
-    title: "Prescription Renewal",
-    message: "Your prescription for Lisinopril is due for renewal",
+    id: '2',
+    title: 'Prescription Renewal',
+    message: 'Your prescription for Lisinopril is due for renewal',
     date: new Date(2025, 4, 10, 14, 30),
     read: true,
-    type: "medical",
+    type: 'medical',
   },
   {
-    id: "3",
-    title: "New Message",
+    id: '3',
+    title: 'New Message',
     message:
-      "Dr. Michael Rodriguez has sent you a message regarding your last visit",
+      'Dr. Michael Rodriguez has sent you a message regarding your last visit',
     date: new Date(2025, 4, 8, 11, 45),
     read: false,
-    type: "message",
+    type: 'message',
   },
 ];
 
-// Tab component (unchanged)
+// Tab component
 interface TabProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
   icon: React.ReactNode;
 }
-
 const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
-  <button
+  <motion.button
     type="button"
-    className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-      isActive
-        ? "bg-primary-50 text-primary-700 font-medium"
-        : "text-gray-600 hover:bg-gray-100"
-    }`}
     onClick={onClick}
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    className={`flex items-center space-x-2 px-5 py-2 rounded-full transition-colors duration-200 ${
+      isActive
+        ? 'bg-indigo-600 text-white shadow-lg'
+        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+    }`}
   >
-    <span className={isActive ? "text-primary-500" : "text-gray-500"}>
-      {icon}
-    </span>
-    <span>{label}</span>
-  </button>
+    <span className={`${isActive ? 'text-white' : 'text-gray-400'}`}>{icon}</span>
+    <span className={`${isActive ? 'font-semibold' : ''}`}>{label}</span>
+  </motion.button>
 );
 
 const DashboardPage: React.FC = () => {
   const { user, updateProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "appointments" | "notifications" | "profile"
-  >("overview");
-
+  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
-
-  // Initialize with empty strings; we’ll overwrite in useEffect
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
-    bloodType: "",
-    allergies: "",
-    currentMedications: "",
-    medicalConditions: "",
+    bloodType: '',
+    allergies: '',
+    currentMedications: '',
+    medicalConditions: '',
   });
 
-  // Fetch real medical info from the backend on mount
+  // Fetch real medical info on mount
   useEffect(() => {
     const fetchMedical = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          console.error("No token found in localStorage");
-          return;
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('http://localhost:7000/api/medical', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          setMedicalInfo(data.medicalInfo);
         }
-
-        const resp = await axios.get<{ medicalInfo: MedicalInfo }>(
-          "http://localhost:7000/api/medical",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        setMedicalInfo(resp.data.medicalInfo);
-      } catch (err: any) {
-        console.error("Failed to fetch medical info:", err);
+      } catch (err) {
+        console.error('Failed to fetch medical info:', err);
       }
     };
     fetchMedical();
   }, []);
 
-  // Handler for saving profile (UNCHANGED)
-  const handleProfileSave = async (updatedValues: {
-    name?: string;
-    email?: string;
-  }) => {
+  // Handlers
+  const handleProfileSave = async (updatedValues: { name?: string; email?: string }) => {
     try {
       await updateProfile(updatedValues);
       setShowEditProfile(false);
@@ -185,227 +175,208 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // Handler for saving medical info (updated to send actual JWT)
   const handleMedicalSave = async (updatedMedical: MedicalInfo) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       if (!token) {
-        alert("Unable to save: no authentication token found.");
+        alert('Unable to save: no authentication token found.');
         return;
       }
-
-      const resp = await axios.put<{ medicalInfo: MedicalInfo }>(
-        "http://localhost:7000/api/medical",
-        updatedMedical,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setMedicalInfo(resp.data.medicalInfo);
-      setShowUpdateMedical(false);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
-        alert("Unauthorized: please log in again.");
+      const resp = await fetch('http://localhost:7000/api/medical', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedMedical),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setMedicalInfo(data.medicalInfo);
+        setShowUpdateMedical(false);
+      } else if (resp.status === 401) {
+        alert('Unauthorized: please log in again.');
       } else {
-        alert("Could not save medical info: " + err.message);
+        alert('Could not save medical info.');
       }
+    } catch (err: any) {
+      alert('Error: ' + err.message);
     }
   };
 
-  // Compute stats from mock data
-  const upcomingCount = mockAppointments.filter((a) => a.status === "upcoming")
-    .length;
-  const completedCount = mockAppointments.filter((a) => a.status === "completed")
-    .length;
+  // Stats counts
+  const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
+  const completedCount = mockAppointments.filter((a) => a.status === 'completed').length;
   const unreadCount = mockNotifications.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <FadeIn>
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Welcome {user?.name},
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Here’s an overview of your health and appointments.
-            </p>
-          </header>
-        </FadeIn>
+    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-gray-100 overflow-y-auto">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
+          {/* Header */}
+          <motion.header variants={fadeInUp} className="mb-8">
+            <h1 className="text-4xl font-bold text-white">Welcome, {user?.name}</h1>
+            <p className="text-gray-400 mt-2">Here’s an overview of your health and appointments.</p>
+          </motion.header>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[
-            {
-              title: "Upcoming Appointments",
-              value: String(upcomingCount),
-              icon: <Calendar className="text-primary-500" />,
-              iconBg: "bg-primary-100",
-            },
-            {
-              title: "Completed Visits",
-              value: String(completedCount),
-              icon: <CheckCircle className="text-green-500" />,
-              iconBg: "bg-green-100",
-            },
-            {
-              title: "Pending Reports",
-              value: "3", // Still a mock
-              icon: <FileText className="text-amber-500" />,
-              iconBg: "bg-amber-100",
-            },
-            {
-              title: "Unread Notifications",
-              value: String(unreadCount),
-              icon: <Bell className="text-purple-500" />,
-              iconBg: "bg-purple-100",
-            },
-          ].map((stat, i) => (
-            <SlideIn key={i} direction="up" delay={i * 0.1}>
-              <div className="bg-white rounded-xl shadow-subtle border border-gray-100 p-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            {[
+              {
+                title: 'Upcoming Appointments',
+                value: upcomingCount.toString(),
+                icon: <Calendar size={24} className="text-teal-300 animate-pulse" />,
+                iconBg: 'bg-teal-800',
+              },
+              {
+                title: 'Completed Visits',
+                value: completedCount.toString(),
+                icon: <CheckCircle size={24} className="text-emerald-300 animate-pulse" />,
+                iconBg: 'bg-emerald-800',
+              },
+              {
+                title: 'Pending Reports',
+                value: '3',
+                icon: <FileText size={24} className="text-amber-300 animate-pulse" />,
+                iconBg: 'bg-amber-800',
+              },
+              {
+                title: 'Unread Notifications',
+                value: unreadCount.toString(),
+                icon: <Bell size={24} className="text-indigo-300 animate-pulse" />,
+                iconBg: 'bg-indigo-800',
+              },
+            ].map((stat, i) => (
+              <motion.div
+                key={i}
+                variants={fadeInUp}
+                whileHover={cardHover}
+                className="bg-gray-800 rounded-2xl border border-gray-700 p-6"
+              >
                 <div className="flex items-center">
-                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4`}>
+                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4 flex-shrink-0`}>
                     {stat.icon}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {stat.value}
-                    </p>
+                    <p className="text-sm text-gray-400">{stat.title}</p>
+                    <p className="text-3xl font-bold text-white mt-1">{stat.value}</p>
                   </div>
                 </div>
-              </div>
-            </SlideIn>
-          ))}
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-subtle border border-gray-100 mb-8">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto p-4 space-x-4">
-              <Tab
-                label="Overview"
-                isActive={activeTab === "overview"}
-                onClick={() => setActiveTab("overview")}
-                icon={<Activity size={18} />}
-              />
-              <Tab
-                label="Appointments"
-                isActive={activeTab === "appointments"}
-                onClick={() => setActiveTab("appointments")}
-                icon={<Calendar size={18} />}
-              />
-              <Tab
-                label="Notifications"
-                isActive={activeTab === "notifications"}
-                onClick={() => setActiveTab("notifications")}
-                icon={<Bell size={18} />}
-              />
-              <Tab
-                label="Profile"
-                isActive={activeTab === "profile"}
-                onClick={() => setActiveTab("profile")}
-                icon={<UserIcon size={18} />}
-              />
-            </div>
+              </motion.div>
+            ))}
           </div>
-          <div className="p-6">
-            {/* ========== Overview Tab ========== */}
-            {activeTab === "overview" && (
-              <>
-                {/* Upcoming Appointments Section */}
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Upcoming Appointments
-                  </h2>
-                  <Link to="/book-appointment">
-                    <Button variant="outline" size="sm">
-                      Book New Appointment
-                    </Button>
-                  </Link>
-                </div>
-                <StaggeredContainer>
-                  <div className="space-y-4">
-                    {mockAppointments
-                      .filter((a) => a.status === "upcoming")
-                      .map((appt) => (
-                        <motion.div
-                          key={appt.id}
-                          variants={staggeredItemVariants}
-                          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center">
+
+          {/* Tabs */}
+          <motion.div variants={fadeInUp} className="bg-gray-800 rounded-2xl border border-gray-700">
+            <div className="border-b border-gray-700">
+              <div className="flex overflow-x-auto p-4 space-x-4">
+                <Tab
+                  label="Overview"
+                  isActive={activeTab === 'overview'}
+                  onClick={() => setActiveTab('overview')}
+                  icon={<Activity size={18} />}
+                />
+                <Tab
+                  label="Appointments"
+                  isActive={activeTab === 'appointments'}
+                  onClick={() => setActiveTab('appointments')}
+                  icon={<Calendar size={18} />}
+                />
+                <Tab
+                  label="Notifications"
+                  isActive={activeTab === 'notifications'}
+                  onClick={() => setActiveTab('notifications')}
+                  icon={<Bell size={18} />}
+                />
+                <Tab
+                  label="Profile"
+                  isActive={activeTab === 'profile'}
+                  onClick={() => setActiveTab('profile')}
+                  icon={<UserIcon size={18} />}
+                />
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Overview Tab */}
+              {activeTab === 'overview' && (
+                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-10">
+                  {/* Upcoming Appointments */}
+                  <motion.div variants={fadeInUp}>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-semibold text-white">Upcoming Appointments</h2>
+                      <Link to="/book-appointment">
+                        <Button variant="outline" size="sm" className="border-teal-400 text-teal-400 hover:bg-teal-700">
+                          Book New
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="space-y-4">
+                      {mockAppointments
+                        .filter((a) => a.status === 'upcoming')
+                        .map((appt) => (
+                          <motion.div
+                            key={appt.id}
+                            variants={fadeInUp}
+                            whileHover={cardHover}
+                            className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex items-center hover:shadow-xl transition-shadow"
+                          >
                             <img
                               src={appt.image}
                               alt={appt.doctorName}
-                              className="w-12 h-12 rounded-full object-cover mr-4"
+                              className="w-14 h-14 rounded-full object-cover border-2 border-gray-700 mr-4"
                             />
                             <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900">
-                                {appt.doctorName}
-                              </h3>
-                              <p className="text-gray-500">{appt.specialty}</p>
+                              <h3 className="text-lg font-medium text-white">{appt.doctorName}</h3>
+                              <p className="text-gray-400">{appt.specialty}</p>
                             </div>
                             <div className="text-right">
-                              <div className="flex items-center text-gray-700 mb-1">
+                              <div className="flex items-center text-gray-400 mb-1">
                                 <Calendar size={14} className="mr-1" />
-                                <span>{format(appt.date, "MMM d, yyyy")}</span>
+                                <span>{format(appt.date, 'MMM d, yyyy')}</span>
                               </div>
-                              <div className="flex items-center text-gray-700">
+                              <div className="flex items-center text-gray-400">
                                 <Clock size={14} className="mr-1" />
-                                <span>{format(appt.date, "h:mm a")}</span>
+                                <span>{format(appt.date, 'h:mm a')}</span>
                               </div>
                             </div>
-                          </div>
-                          <div className="mt-4 flex justify-end space-x-3">
-                            <Button variant="outline" size="sm">
-                              Reschedule
-                            </Button>
-                            <Button variant="primary" size="sm">
-                              Join Call
-                            </Button>
-                          </div>
-                        </motion.div>
-                      ))}
-                  </div>
-                </StaggeredContainer>
+                          </motion.div>
+                        ))}
+                    </div>
+                  </motion.div>
 
-                {/* Recent Notifications Section */}
-                <div className="mt-10">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">
-                      Recent Notifications
-                    </h2>
-                    <Link to="/notifications">
-                      <Button variant="ghost" size="sm">
-                        View All
-                      </Button>
-                    </Link>
-                  </div>
-                  <StaggeredContainer>
+                  {/* Recent Notifications */}
+                  <motion.div variants={fadeInUp}>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-semibold text-white">Recent Notifications</h2>
+                      <Link to="/notifications">
+                        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
+                          View All
+                        </Button>
+                      </Link>
+                    </div>
                     <div className="space-y-3">
                       {mockNotifications.slice(0, 3).map((n) => (
                         <motion.div
                           key={n.id}
-                          variants={staggeredItemVariants}
-                          className={`flex items-start p-3 rounded-md ${
-                            n.read ? "bg-white" : "bg-primary-50"
+                          variants={fadeInUp}
+                          whileHover={cardHover}
+                          className={`flex items-center p-4 rounded-xl transition-colors ${
+                            n.read ? 'bg-gray-800 border border-gray-700' : 'bg-indigo-900 border-indigo-700'
                           }`}
                         >
                           <div
-                            className={`p-2 rounded-full mr-3 ${
-                              n.type === "reminder"
-                                ? "bg-primary-100 text-primary-600"
-                                : n.type === "medical"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-amber-100 text-amber-600"
+                            className={`p-2 rounded-full mr-3 flex-shrink-0 ${
+                              n.type === 'reminder'
+                                ? 'bg-indigo-600 text-white'
+                                : n.type === 'medical'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-amber-600 text-white'
                             }`}
                           >
-                            {n.type === "reminder" ? (
+                            {n.type === 'reminder' ? (
                               <Bell size={16} />
-                            ) : n.type === "medical" ? (
+                            ) : n.type === 'medical' ? (
                               <FileText size={16} />
                             ) : (
                               <AlertTriangle size={16} />
@@ -413,126 +384,103 @@ const DashboardPage: React.FC = () => {
                           </div>
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h4 className="text-sm font-medium text-gray-900">
-                                {n.title}
-                              </h4>
-                              <span className="text-xs text-gray-500">
-                                {format(n.date, "MMM d")}
-                              </span>
+                              <h4 className="text-sm font-medium text-white">{n.title}</h4>
+                              <span className="text-xs text-gray-400">{format(n.date, 'MMM d')}</span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {n.message}
-                            </p>
+                            <p className="text-sm text-gray-300 mt-1">{n.message}</p>
                           </div>
-                          {!n.read && (
-                            <div className="bg-primary-500 rounded-full w-2 h-2" />
-                          )}
+                          {!n.read && <div className="bg-indigo-500 rounded-full w-2 h-2 ml-3" />}
                         </motion.div>
                       ))}
                     </div>
-                  </StaggeredContainer>
-                </div>
-              </>
-            )}
+                  </motion.div>
+                </motion.div>
+              )}
 
-            {/* ========== Appointments Tab ========== */}
-            {activeTab === "appointments" && (
-              <>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    All Appointments
-                  </h2>
-                  <Link to="/book-appointment">
-                    <Button variant="primary" size="sm">
-                      Book New Appointment
+              {/* Appointments Tab */}
+              {activeTab === 'appointments' && (
+                <motion.div variants={fadeInUp} className="space-y-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-semibold text-white">All Appointments</h2>
+                    <Link to="/book-appointment">
+                      <Button variant="primary" size="sm" className="bg-teal-500 hover:bg-teal-600">
+                        Book New
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="flex space-x-3 mb-6">
+                    <Button variant="outline" size="sm" className="border-teal-400 text-teal-400 hover:bg-teal-700">
+                      Upcoming
                     </Button>
-                  </Link>
-                </div>
-                <div className="flex space-x-2 mb-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-primary-50 border-primary-200 text-primary-700"
-                  >
-                    Upcoming
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Completed
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Cancelled
-                  </Button>
-                </div>
-                <StaggeredContainer>
+                    <Button variant="outline" size="sm" className="border-emerald-400 text-emerald-400 hover:bg-emerald-700">
+                      Completed
+                    </Button>
+                    <Button variant="outline" size="sm" className="border-red-400 text-red-400 hover:bg-red-700">
+                      Cancelled
+                    </Button>
+                  </div>
+
                   <div className="space-y-6">
                     {mockAppointments.map((a) => (
                       <motion.div
                         key={a.id}
-                        variants={staggeredItemVariants}
-                        className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-subtle"
+                        variants={fadeInUp}
+                        whileHover={cardHover}
+                        className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden"
                       >
-                        <div className="flex flex-col md:flex-row">
+                        <div className="md:flex">
                           <div className="md:w-1/4">
                             <img
                               src={a.image}
                               alt={a.doctorName}
-                              className="w-full h-32 md:h-full object-cover"
+                              className="w-full h-32 md:h-full object-cover border-b border-gray-700 md:border-b-0 md:border-r border-gray-700"
                             />
                           </div>
                           <div className="p-6 md:w-3/4">
                             <div className="flex flex-col md:flex-row justify-between">
                               <div>
-                                <h3 className="text-xl font-medium text-gray-900">
-                                  {a.doctorName}
-                                </h3>
-                                <p className="text-gray-500">{a.specialty}</p>
+                                <h3 className="text-2xl font-medium text-white">{a.doctorName}</h3>
+                                <p className="text-gray-400">{a.specialty}</p>
                               </div>
-                              <div className="mt-4 md:mt-0 flex items-start">
+                              <div className="mt-4 md:mt-0 flex items-center">
                                 <span
                                   className={`px-3 py-1 text-xs rounded-full ${
-                                    a.status === "upcoming"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : a.status === "completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
+                                    a.status === 'upcoming'
+                                      ? 'bg-teal-600 text-white'
+                                      : a.status === 'completed'
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-red-600 text-white'
                                   }`}
                                 >
-                                  {a.status.charAt(0).toUpperCase() +
-                                    a.status.slice(1)}
+                                  {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-4 flex items-center text-gray-700">
+                            <div className="mt-4 flex items-center text-gray-400">
                               <Calendar size={16} className="mr-2" />
-                              <span className="mr-6">
-                                {format(a.date, "MMMM d, yyyy")}
-                              </span>
+                              <span className="mr-6">{format(a.date, 'MMMM d, yyyy')}</span>
                               <Clock size={16} className="mr-2" />
-                              <span>{format(a.date, "h:mm a")}</span>
+                              <span>{format(a.date, 'h:mm a')}</span>
                             </div>
                             <div className="mt-6 flex flex-wrap gap-3">
-                              {a.status === "upcoming" ? (
+                              {a.status === 'upcoming' ? (
                                 <>
-                                  <Button variant="primary" size="sm">
+                                  <Button variant="primary" size="sm" className="bg-emerald-500 hover:bg-emerald-600">
                                     Join Video Call
                                   </Button>
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-400 hover:bg-indigo-700">
                                     Reschedule
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-error-600 hover:bg-error-50"
-                                  >
+                                  <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-700">
                                     Cancel
                                   </Button>
                                 </>
                               ) : (
                                 <>
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
                                     View Details
                                   </Button>
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
                                     Download Report
                                   </Button>
                                 </>
@@ -543,45 +491,40 @@ const DashboardPage: React.FC = () => {
                       </motion.div>
                     ))}
                   </div>
-                </StaggeredContainer>
-              </>
-            )}
+                </motion.div>
+              )}
 
-            {/* ========== Notifications Tab ========== */}
-            {activeTab === "notifications" && (
-              <>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    All Notifications
-                  </h2>
-                  <Button variant="outline" size="sm">
-                    Mark All as Read
-                  </Button>
-                </div>
-                <StaggeredContainer>
+              {/* Notifications Tab */}
+              {activeTab === 'notifications' && (
+                <motion.div variants={fadeInUp} className="space-y-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-semibold text-white">All Notifications</h2>
+                    <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-400 hover:bg-indigo-700">
+                      Mark All as Read
+                    </Button>
+                  </div>
                   <div className="space-y-4">
                     {mockNotifications.map((n) => (
                       <motion.div
                         key={n.id}
-                        variants={staggeredItemVariants}
-                        className={`flex items-start p-4 rounded-lg border ${
-                          n.read
-                            ? "bg-white border-gray-200"
-                            : "bg-primary-50 border-primary-200"
+                        variants={fadeInUp}
+                        whileHover={cardHover}
+                        className={`flex items-start p-4 rounded-xl transition-colors ${
+                          n.read ? 'bg-gray-800 border border-gray-700' : 'bg-indigo-900 border-indigo-700'
                         }`}
                       >
                         <div
-                          className={`p-3 rounded-full mr-4 ${
-                            n.type === "reminder"
-                              ? "bg-primary-100 text-primary-600"
-                              : n.type === "medical"
-                              ? "bg-green-100 text-green-600"
-                              : "bg-amber-100 text-amber-600"
+                          className={`p-3 rounded-full mr-4 flex-shrink-0 ${
+                            n.type === 'reminder'
+                              ? 'bg-indigo-600 text-white'
+                              : n.type === 'medical'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-amber-600 text-white'
                           }`}
                         >
-                          {n.type === "reminder" ? (
+                          {n.type === 'reminder' ? (
                             <Bell size={20} />
-                          ) : n.type === "medical" ? (
+                          ) : n.type === 'medical' ? (
                             <FileText size={20} />
                           ) : (
                             <AlertTriangle size={20} />
@@ -589,24 +532,20 @@ const DashboardPage: React.FC = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between">
-                            <h4 className="font-medium text-gray-900">
-                              {n.title}
-                            </h4>
-                            <span className="text-sm text-gray-500">
-                              {format(n.date, "MMM d, h:mm a")}
-                            </span>
+                            <h4 className="font-medium text-white">{n.title}</h4>
+                            <span className="text-sm text-gray-400">{format(n.date, 'MMM d, h:mm a')}</span>
                           </div>
-                          <p className="text-gray-600 mt-1">{n.message}</p>
+                          <p className="text-gray-300 mt-1">{n.message}</p>
                           <div className="mt-3 flex space-x-3">
-                            <Button variant="outline" size="sm">
-                              {n.type === "reminder"
-                                ? "View Appointment"
-                                : n.type === "medical"
-                                ? "View Prescription"
-                                : "Read Message"}
+                            <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
+                              {n.type === 'reminder'
+                                ? 'View Appointment'
+                                : n.type === 'medical'
+                                ? 'View Prescription'
+                                : 'Read Message'}
                             </Button>
                             {!n.read && (
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" className="text-indigo-400 hover:bg-indigo-700">
                                 Mark as Read
                               </Button>
                             )}
@@ -615,173 +554,176 @@ const DashboardPage: React.FC = () => {
                       </motion.div>
                     ))}
                   </div>
-                </StaggeredContainer>
-              </>
-            )}
+                </motion.div>
+              )}
 
-            {/* ========== Profile Tab ========== */}
-            {activeTab === "profile" && (
-              <>
-                <div className="flex items-center mb-8">
-                  <div className="bg-gray-200 rounded-full w-24 h-24 flex items-center justify-center mr-6">
-                    <UserIcon size={40} className="text-gray-500" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-semibold text-gray-900">
-                      {user?.name}
-                    </h2>
-                    <p className="text-gray-600">{user?.email}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Personal Information Card */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle relative">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      Personal Information
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Full Name</p>
-                        <p className="text-gray-900">{user?.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Email Address</p>
-                        <p className="text-gray-900">{user?.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Phone Number</p>
-                        <p className="text-gray-900">+1 (555) 123-4567</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Date of Birth</p>
-                        <p className="text-gray-900">January 15, 1985</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowEditProfile(true)}
-                      >Edit Profile</Button>
-                      {showEditProfile && (
-                        <EditProfileForm
-                          user={user!}
-                          onClose={() => setShowEditProfile(false)}
-                          onSave={handleProfileSave}
-                        />
-                      )}
+              {/* Profile Tab */}
+              {activeTab === 'profile' && (
+                <motion.div variants={fadeInUp} className="space-y-8">
+                  <div className="flex items-center mb-6">
+                    <div className="bg-gray-700 rounded-full w-24 h-24 flex items-center justify-center mr-6">
+                      <UserIcon size={48} className="text-gray-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-semibold text-white">{user?.name}</h2>
+                      <p className="text-gray-400">{user?.email}</p>
                     </div>
                   </div>
 
-                  {/* Medical Information Card */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      Medical Information
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Blood Type</p>
-                        <p className="text-gray-900">{medicalInfo.bloodType}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Personal Info */}
+                    <motion.div
+                      variants={fadeInUp}
+                      whileHover={cardHover}
+                      className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg"
+                    >
+                      <h3 className="text-xl font-medium text-white mb-4">Personal Information</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Full Name</p>
+                          <p className="text-gray-200">{user?.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Email Address</p>
+                          <p className="text-gray-200">{user?.email}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Phone Number</p>
+                          <p className="text-gray-200">+1 (555) 123-4567</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Date of Birth</p>
+                          <p className="text-gray-200">January 15, 1985</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-indigo-400 text-indigo-400 hover:bg-indigo-700"
+                          onClick={() => setShowEditProfile(true)}
+                        >
+                          Edit Profile
+                        </Button>
+                        {showEditProfile && (
+                          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                            <EditProfileForm
+                              user={user!}
+                              onClose={() => setShowEditProfile(false)}
+                              onSave={handleProfileSave}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Allergies</p>
-                        <p className="text-gray-900">{medicalInfo.allergies}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">
-                          Current Medications
-                        </p>
-                        <p className="text-gray-900">
-                          {medicalInfo.currentMedications}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">
-                          Medical Conditions
-                        </p>
-                        <p className="text-gray-900">
-                          {medicalInfo.medicalConditions}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowUpdateMedical(true)}
-                      >
-                        Update Medical Info
-                      </Button>
-                      {showUpdateMedical && (
-                        <UpdateMedicalInfoForm
-                          medicalInfo={medicalInfo}
-                          onClose={() => setShowUpdateMedical(false)}
-                          onSave={handleMedicalSave}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
+                    </motion.div>
 
-                {/* Account Settings Card */}
-                <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-subtle">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Account Settings
-                  </h3>
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-gray-900 font-medium">
-                          Email Notifications
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Receive emails about your appointments, reminders, and updates
-                        </p>
+                    {/* Medical Info */}
+                    <motion.div
+                      variants={fadeInUp}
+                      whileHover={cardHover}
+                      className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg"
+                    >
+                      <h3 className="text-xl font-medium text-white mb-4">Medical Information</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Blood Type</p>
+                          <p className="text-gray-200">{medicalInfo.bloodType}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Allergies</p>
+                          <p className="text-gray-200">{medicalInfo.allergies}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Current Medications</p>
+                          <p className="text-gray-200">{medicalInfo.currentMedications}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Medical Conditions</p>
+                          <p className="text-gray-200">{medicalInfo.medicalConditions}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-teal-400 text-teal-400 hover:bg-teal-700"
+                          onClick={() => setShowUpdateMedical(true)}
+                        >
+                          Update Medical Info
+                        </Button>
+                        {showUpdateMedical && (
+                          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                            <UpdateMedicalform
+                              medicalInfo={medicalInfo}
+                              onClose={() => setShowUpdateMedical(false)}
+                              onSave={handleMedicalSave}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div className="relative inline-block w-12 h-6 rounded-full bg-gray-200">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          id="email-notifications"
-                          defaultChecked
-                        />
-                        <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-primary-500"></span>
-                        <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-gray-900 font-medium">
-                          SMS Notifications
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Receive text messages for appointment reminders
-                        </p>
-                      </div>
-                      <div className="relative inline-block w-12 h-6 rounded-full bg-gray-200">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          id="sms-notifications"
-                        />
-                        <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-primary-500"></span>
-                        <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
-                      </div>
-                    </div>
-                    <div className="pt-4 border-t border-gray-200">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-error-600 hover:bg-error-50"
-                      >
-                        Change Password
-                      </Button>
-                    </div>
+                    </motion.div>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+
+                  {/* Account Settings */}
+                  <motion.div
+                    variants={fadeInUp}
+                    whileHover={cardHover}
+                    className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg"
+                  >
+                    <h3 className="text-xl font-medium text-white mb-4">Account Settings</h3>
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-gray-200 font-medium">Email Notifications</h4>
+                          <p className="text-sm text-gray-400">
+                            Receive emails about your appointments, reminders, and updates
+                          </p>
+                        </div>
+                        <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            id="email-notifications"
+                            defaultChecked
+                          />
+                          <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-indigo-600"></span>
+                          <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-gray-200 font-medium">SMS Notifications</h4>
+                          <p className="text-sm text-gray-400">
+                            Receive text messages for appointment reminders
+                          </p>
+                        </div>
+                        <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            id="sms-notifications"
+                          />
+                          <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-indigo-600"></span>
+                          <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-gray-700">
+                        <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-700 border-red-500">
+                          Change Password
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
-      <Chatbot />
-    </div>
+
+      {/* Chatbot Floating Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Chatbot />
+      </div>
+    </main>
   );
 };
 

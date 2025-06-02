@@ -9,7 +9,7 @@ import { SlideIn, FadeIn } from '../components/animations/Transitions';
 
 type Role = 'patient' | 'doctor';
 
-const SignUp: React.FC = () => {
+const SignUpPage: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -27,13 +27,10 @@ const SignUp: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // 1) Check that passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-
-    // 2) Enforce minimum length
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -41,10 +38,10 @@ const SignUp: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 3) Send OTP to the provided email via AuthContext
+      // Send OTP to email
       await sendEmailOtp(email);
 
-      // 4) Navigate to OTP verification, passing form data in state
+      // Navigate to OTP verification, passing form data
       navigate('/verify-email-otp', {
         state: { name, email, password, role },
       });
@@ -56,12 +53,17 @@ const SignUp: React.FC = () => {
     }
   };
 
+  const handleGoogleSignup = () => {
+    const googleAuthUrl = `${import.meta.env.VITE_API_URL}/auth/google`;
+    window.location.href = googleAuthUrl;
+  };
+
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Left Side: Image & Info */}
+      {/* Left: Image & Info */}
       <SlideIn direction="left">
         <div className="hidden md:block relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-tl from-secondary-500 to-primary-500 opacity-90" />
+          <div className="absolute inset-0 bg-gradient-to-tl from-secondary-500 to-primary-500 opacity-90"></div>
           <img
             src="https://images.pexels.com/photos/7089401/pexels-photo-7089401.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
             alt="Doctor with patient"
@@ -104,7 +106,7 @@ const SignUp: React.FC = () => {
         </div>
       </SlideIn>
 
-      {/* Right Side: Form */}
+      {/* Right: Form */}
       <FadeIn>
         <div className="flex items-center justify-center p-8 md:p-12">
           <div className="w-full max-w-md">
@@ -175,7 +177,7 @@ const SignUp: React.FC = () => {
                   placeholder="••••••••"
                   icon={<Lock size={16} />}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e. target.value)}
                   required
                   fullWidth
                 />
@@ -256,6 +258,12 @@ const SignUp: React.FC = () => {
               <Button type="submit" variant="primary" isLoading={isLoading} fullWidth className="mt-6">
                 Create Account
               </Button>
+
+              <div className="mt-4">
+                <Button type="button" variant="outline" onClick={handleGoogleSignup} fullWidth>
+                  Sign Up with Google
+                </Button>
+              </div>
             </form>
 
             <div className="mt-6 text-center">
@@ -273,4 +281,4 @@ const SignUp: React.FC = () => {
   );
 };
 
-export default SignUp;
+export default SignUpPage;
