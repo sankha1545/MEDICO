@@ -1,3 +1,5 @@
+// pages/services.tsx
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import General_Consultation from '../../assets/general_consultation.jpg';
@@ -7,6 +9,7 @@ import Dental_Services from '../../assets/Dental.jpg';
 import Dermatology from '../../assets/Dermatology.jpg';
 import Telehealth from '../../assets/telehealth.jpg';
 import Chatbot from '../../components/common/chatbot/chatbot';
+
 export default function ServicePage() {
   const services = [
     {
@@ -42,65 +45,113 @@ export default function ServicePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Hero Section */}
-      <div className="text-center max-w-2xl mx-auto mb-16">
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-4"
-        >
-          Our Medical Services
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg text-gray-600"
-        >
-          Explore our wide range of healthcare services designed to meet all your medical needs.
-        </motion.p>
-      </div>
-
-      {/* Services Grid */}
-      <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-        {services.map((service, idx) => (
-          <motion.div
-            key={service.title}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: idx * 0.1 }}
-            className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-transform"
+    <div className="w-full min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-gray-100 flex flex-col">
+      {/* HERO SECTION */}
+      <section className="relative w-full h-80 lg:h-96 overflow-hidden">
+        {/* Background Image with Dark Overlay */}
+        <motion.div
+          className="absolute inset-0 bg-[url('/hero/services-bg.jpg')] bg-cover bg-center opacity-30"
+          initial={{ scale: 1.2 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 8, ease: 'easeOut' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-gray-900/80" />
+        <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 lg:px-8 text-center">
+          <motion.h1
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-teal-300 mb-2"
           >
-            <img
-              src={service.icon}
-              alt={`${service.title} icon`}
-              className="h-12 w-12 mb-4"
-            />
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              {service.title}
-            </h3>
-            <p className="text-gray-600">
-              {service.description}
-            </p>
-          </motion.div>
-        ))}
-      </div>
+            Our Medical Services
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { delay: 0.3 } }}
+            className="text-lg sm:text-xl text-gray-300 max-w-2xl"
+          >
+            Explore our wide range of healthcare solutions—designed to meet all your medical needs, under one roof.
+          </motion.p>
+        </div>
+      </section>
 
-      {/* Call to Action */}
-      <div className="mt-20 text-center">
-        <motion.a
-          href="/booking"
+      {/* SERVICES GRID */}
+      <motion.section
+        className="flex-grow px-4 sm:px-6 lg:px-8 py-16"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.2 }}
+      >
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {services.map((service, idx) => (
+            <motion.div
+              key={service.title}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: idx * 0.1 }}
+              className="relative bg-gray-800/70 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden cursor-pointer transform hover:scale-105 transition-transform"
+            >
+              {/* Blended Image Overlay */}
+              <motion.div
+                className="absolute inset-0 bg-cover bg-center blend-overlay opacity-20"
+                style={{ backgroundImage: `url(${service.icon})` }}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 5, ease: 'easeOut' }}
+              />
+              <div className="relative p-6 flex flex-col items-start space-y-4 h-full">
+                <div className="w-12 h-12 rounded-full bg-teal-500 flex items-center justify-center">
+                  <img src={service.icon} alt={`${service.title} icon`} className="w-6 h-6 object-cover rounded-full" />
+                </div>
+                <h3 className="text-2xl font-semibold text-white">{service.title}</h3>
+                <p className="text-gray-300 flex-grow">{service.description}</p>
+                <motion.a
+                  href="/booking"
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-full text-sm font-medium text-white shadow-md transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Book Now
+                </motion.a>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* CALL TO ACTION */}
+      <section className="w-full bg-gray-900/80 py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="inline-block bg-blue-600 text-white text-lg font-medium px-8 py-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-        >
-          Book an Appointment
-        </motion.a>
+          transition={{ duration: 1 }}
+        />
+        <div className="relative z-10 max-w-3xl mx-auto text-center">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-3xl sm:text-4xl font-bold text-white mb-6"
+          >
+            Ready to Take Charge of Your Health?
+          </motion.h2>
+          <motion.a
+            href="/booking"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="inline-flex items-center px-8 py-4 bg-teal-500 hover:bg-teal-600 rounded-full text-lg font-semibold text-white shadow-xl transform hover:scale-105 transition"
+          >
+            Schedule an Appointment
+          </motion.a>
+        </div>
+      </section>
+
+      {/* PERSISTENT CHATBOT */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Chatbot />
       </div>
-      <Chatbot />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-// src/App.tsx
+// File: src/App.tsx
+
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -11,7 +12,7 @@ import { Layout1 } from './frontend/components/layout/doctor/Layout';
 import HomePage from './frontend/pages/patient/HomePage';
 import LoginPage from './frontend/Auth/LoginPage';
 import SignupPage from './frontend/Auth/SignupPage';
-import VerifyEmailOtpPage from './frontend/Auth/VerifyEmailOtp';   // OTP page
+import OTPVerificationPage from './frontend/Auth/VerifyEmailOtp';
 import DashboardPage from './frontend/pages/patient/DashboardPage';
 import DoctorsPage from './frontend/pages/patient/DoctorsPage';
 import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage';
@@ -24,6 +25,7 @@ import FAQ from './frontend/components/footerlinks/FAQ';
 import HealthBlog from './frontend/components/footerlinks/HealthBlog';
 import TOS from './frontend/components/footerlinks/TermsOfService';
 import HelpCenter from './frontend/components/footerlinks/HelpCentre';
+
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
@@ -36,7 +38,6 @@ import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
-    // If not authenticated, redirect to "/login"
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
@@ -58,14 +59,12 @@ const App: React.FC = () => (
         }
       />
 
-      {/* LOGIN ROUTE: Navbar calls `navigate("/login")` on logout */}
+      {/* Authentication */}
       <Route path="/login" element={<LoginPage />} />
-
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
 
-      {/* OTP Verification page (public) */}
-      <Route path="/verify-email-otp" element={<VerifyEmailOtpPage />} />
-
+      {/* More public patient pages */}
       <Route
         path="/doctors"
         element={
@@ -186,9 +185,11 @@ const App: React.FC = () => (
       <Route
         path="/doc-dashboard"
         element={
-          <Layout1>
-            <DashboardPage1 />
-          </Layout1>
+          <ProtectedRoute>
+            <Layout1>
+              <DashboardPage1 />
+            </Layout1>
+          </ProtectedRoute>
         }
       />
 

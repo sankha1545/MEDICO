@@ -1,0 +1,110 @@
+[
+  {
+    "prompt": "What is Medico’s mission?",
+    "response": "Our mission is to empower patients with seamless access to healthcare professionals through technology and empathy."
+  },
+  {
+    "prompt": "What is Medico’s vision?",
+    "response": "To be the global leader in accessible, personalized, and digital-first healthcare experiences."
+  },
+  {
+    "prompt": "Give me a brief history of Medico.",
+    "response": "• 2010: Founded by a team of healthcare visionaries.\n• 2015: Partnered with 100+ clinics across the globe.\n• 2020: Unveiled AI-powered diagnosis tools.\n• 2023: Over 2 million patients empowered."
+  },
+  {
+    "prompt": "Who is on the Medico leadership team?",
+    "response": "• Dr. Aisha Khan – Chief Medical Officer\n• Ravi Menon – Head of Technology\n• Sofia Martinez – Head of Community\n• Liam O’Connor – UX Lead"
+  },
+  {
+    "prompt": "How can I contact Medico?",
+    "response": "You can reach us by:\n• Email: support@medico.com\n• Phone: (123) 456-7890\n• Address: 123 Health St, Wellness City, Carestate 45678"
+  },
+  {
+    "prompt": "Where is Medico located?",
+    "response": "123 Health St, Wellness City, Carestate 45678 (embedded Google Map available on the Contact page)."
+  },
+  {
+    "prompt": "What services does Medico offer?",
+    "response": "We offer:\n• General Consultation\n• Pediatric Care\n• Dental Services\n• Cardiology\n• Dermatology\n• Telehealth (virtual appointments)"
+  },
+  {
+    "prompt": "How do I book an appointment on Medico?",
+    "response": "Click “Book an Appointment” on the Services page, choose your desired service, select a time slot, and confirm. You’ll receive a confirmation email and reminder before your visit."
+  },
+  {
+    "prompt": "What payment methods are accepted?",
+    "response": "We accept all major credit/debit cards (Visa, MasterCard, American Express), as well as UPI and net-banking. Payment is collected securely at the time of booking."
+  },
+  {
+    "prompt": "How do I reset my filters on the Doctors page?",
+    "response": "Click the “Reset” button under Filters to clear search terms and return to “All Specialties.”"
+  },
+  {
+    "prompt": "I’m looking for a cardiologist—how do I find one?",
+    "response": "On the Doctors page, type “Cardiologist” into the search bar or select “Cardiology” from the specialties dropdown. Relevant results will appear in the list below."
+  },
+  {
+    "prompt": "How do I view a doctor’s profile?",
+    "response": "Click “View Profile” on any doctor card. A modal will open showing their specialization, rating, reviews count, experience, hospital affiliation, location, and next available slot."
+  },
+  {
+    "prompt": "How do I book an appointment with Dr. Sarah Johnson?",
+    "response": "On the Doctors page, find Dr. Sarah Johnson’s card and click “Book Appointment.” Fill out your details (name, phone, email, blood group, preferred time slot, message) and submit."
+  },
+  {
+    "prompt": "What if no doctors match my search?",
+    "response": "If no results appear, you’ll see a “No doctors found” message. You can clear filters by clicking “Clear Filters” to broaden your search."
+  },
+  {
+    "prompt": "How do I search for frequently asked questions?",
+    "response": "On the FAQ page, type keywords into the “Search FAQs…” bar. Matching questions will appear in the accordion list below."
+  },
+  {
+    "prompt": "How do I view the answer to “Can I reschedule or cancel my appointment?”",
+    "response": "On the FAQ page, click the question “Can I reschedule or cancel my appointment?” to expand it and reveal:\n“Yes. Simply head to your appointment history/dashboard, click ‘Reschedule’ or ‘Cancel’ next to the booking, and follow the prompts. You can reschedule up to 24 hours before your appointment without any extra charge.”"
+  },
+  {
+    "prompt": "What topics are covered in the Help Center?",
+    "response": "Help Center covers:\n• Getting Started (sign-up, first appointment, profile setup)\n• Managing Appointments (view, reschedule, cancel, reminders)\n• Contacting Doctors (messaging or calling providers)\n• Billing & Payments (accepted methods, invoices, refunds)"
+  },
+  {
+    "prompt": "How do I search for a Help Center topic?",
+    "response": "On the Help Center page, type keywords into the search bar labeled “Search topics or keywords…”. Topics matching your input will appear below."
+  },
+  {
+    "prompt": "What is your Privacy Policy?",
+    "response": "We collect:\n• Account Data (name, email, phone, password)\n• Profile Info (medical history, insurance details)\n• Usage Data (browsing patterns, pages visited)\n• Device & Log Data (IP address, browser type, device ID)\n\nWe use this information to provide/improve our services, communicate with you (e.g., reminders), personalize your experience, and ensure security. We use cookies for preferences and analytics, may share data with payment processors, analytics providers, and email services. We implement encryption (HTTPS in transit, data at rest), regular security audits, and restricted access. You have rights to access, correct, delete data, and file complaints. Changes to policy are posted with a “Last Updated” date. Contact: privacy@Medico.com or +91 8597786209."
+  },
+  {
+    "prompt": "Summarize Medico’s Terms of Service.",
+    "response": "• You must be ≥18 to use Medico.\n• By using our services, you agree to be bound by these terms.\n• You are responsible for your login credentials and must not misuse the platform.\n• All content (text, graphics, logos) is copyrighted; you may not reproduce it without permission.\n• We may terminate your account if you violate these terms.\n• Service is provided “as is” with no warranties; Medico is not a substitute for professional medical advice.\n• We limit liability for any indirect or consequential damages.\n• These Terms are governed by New York law; any dispute goes to New York County courts.\n• Questions? Contact legal@Medico.com or +91 8597786209."
+  },
+  {
+    "prompt": "What are the latest blog posts on Medico?",
+    "response": "Latest posts include:\n• “5 Tips for a Stronger Immune System” by Dr. Sarah Lee (June 1, 2025)\n• “Managing Stress in a Busy World” by Emily Chen (May 20, 2025)\n• “Healthy Eating on a Budget” by James Patel (May 10, 2025)\n• “The Benefits of Telehealth Services” by Dr. Sarah Lee (April 28, 2025)\n"
+  },
+  {
+    "prompt": "How do I load more blog posts?",
+    "response": "Scroll to the bottom of the Health Blog page and click the “Load More Posts” button with the pink-purple gradient. It triggers a ripple animation and would fetch additional posts."
+  },
+  {
+    "prompt": "How can I get real-time assistance from Medico support?",
+    "response": "Visit the Help Center’s “Still Need Help?” section and click “Start Chat” under Live Chat. A modal will open to connect you directly with a support specialist."
+  },
+  {
+    "prompt": "How do I email Medico support?",
+    "response": "In the Help Center’s “Email Support” card, click “Email Us” or send an email to support@Medico.com. Expect a response within 24 hours."
+  },
+  {
+    "prompt": "What is the difference between Live Chat and Email Support?",
+    "response": "• Live Chat: Instant, real-time messaging with a support agent.\n• Email Support: Asynchronous messaging—send a detailed inquiry via email (support@Medico.com), get a response within 24 hours."
+  },
+  {
+    "prompt": "What is the privacy email address for legal questions?",
+    "response": "For questions about the Privacy Policy, email privacy@Medico.com."
+  },
+  {
+    "prompt": "What is the legal contact number for Medico?",
+    "response": "For legal inquiries, call +91 8597786209."
+  }
+]
