@@ -52,7 +52,7 @@ function EarthModel() {
         – VERY high segment count (500 × 500) to eliminate faceting/gaps.
         – Radius = 3 (adjust if you like).
       */}
-      <sphereGeometry args={[3, 50, 100]} />
+      <sphereGeometry args={[3, 100, 100]} />
 
       <meshStandardMaterial
         map={texture}
@@ -251,9 +251,9 @@ export default function HomePage() {
   };
 
   return (
-    <main className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-white overflow-hidden">
+    <main className="relative bg-gradient-to-br from bg-black via-gray-800 to-gray-700 text-white overflow-hidden">
       {/* —————————— HERO SECTION —————————— */}
-      <section className="relative pt-24 pb-32 bg-gradient-to-tr from-gray-950 to-gray-800 overflow-hidden">
+      <section className="relative pt-24 pb-32 bg-gradient-to-tr from bg-black to-gray-600 overflow-hidden">
         {/* Decorative Blobs */}
         <motion.div
           className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-purple-900 opacity-20 blur-3xl"
@@ -355,7 +355,7 @@ export default function HomePage() {
               className="relative hidden lg:block"
             >
               <div className="absolute -inset-1 rounded-3xl bg-gradient-to-tr from-indigo-600 to-pink-600 opacity-25 blur-2xl" />
-              <div className="relative bg-gray-800 p-4 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="relative bg-black p-4 rounded-3xl shadow-2xl overflow-hidden">
                 <img
                   src="https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
                   alt="Doctor with patient"
@@ -413,7 +413,7 @@ export default function HomePage() {
       </section>
 
       {/* —————————— HOW IT WORKS SECTION —————————— */}
-      <section className="py-24 bg-gradient-to-bl from-gray-900 to-gray-800 overflow-hidden relative">
+      <section className="py-24 bg-gradient-to-bl from bg-black to-white-800 overflow-hidden relative">
         <motion.div
           className="absolute top-10 right-10 w-48 h-48 rounded-full bg-yellow-900 opacity-20 blur-3xl"
           animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.1, 0.2] }}
@@ -485,7 +485,7 @@ export default function HomePage() {
       </section>
 
       {/* —————————— CONNECTING YOU TO THE PEOPLE (3D SCENE) —————————— */}
-      <section className="py-24 bg-gradient-to-tr from-gray-900 to-gray-800 flex flex-col items-center justify-center relative">
+      <section className="py-24 bg-gradient-to-tr from- bg-black to-gray-800 flex flex-col items-center justify-center relative">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -519,7 +519,7 @@ export default function HomePage() {
       </section>
 
       {/* —————————— CTA SECTION —————————— */}
-      <section className="py-24 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 relative overflow-hidden">
+      <section className="py-24 bg-gradient-to-br from bg-black via-gray-800 to-gray-700 relative overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">

@@ -1,0 +1,41 @@
+{
+  "name": "chatbot",
+  "version": "1.0.0",
+  "description": "Medico FAQ chatbot backend (fuzzy matching)",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "chatbot",
+    "faq",
+    "medico",
+    "fuzzy-match",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "mongoose": "^8.15.1",
+    "passport": "^0.7.0",
+    "pdf-parse": "^1.1.1",
+    "string-similarity": "^4.0.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.18",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.2",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^22.15.29",
+    "@types/passport": "^1.0.10",
+    "@types/string-similarity": "^4.0.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  }
+}

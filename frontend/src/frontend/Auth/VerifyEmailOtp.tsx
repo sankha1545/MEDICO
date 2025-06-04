@@ -1,4 +1,4 @@
-// File: frontend/src/pages/verifymail.tsx
+// pages/OTPverify.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -35,17 +35,14 @@ const OTPVerificationPage: React.FC = () => {
 
   const { name, email, password, role } = state;
 
-  // OTP digit state
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(INITIAL_TIME);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
-  // Refs for input boxes
   const inputRefs = useRef<HTMLInputElement[]>([]);
 
-  // Timer countdown
   useEffect(() => {
     if (timeLeft <= 0) return;
     const timerId = setInterval(() => {
@@ -55,9 +52,7 @@ const OTPVerificationPage: React.FC = () => {
   }, [timeLeft]);
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, '0');
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
@@ -95,8 +90,12 @@ const OTPVerificationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // 1. Call verifyEmailOtp to delete OTP doc
       await verifyEmailOtp(email, combinedOtp);
+
+      // 2. Now call signup (create user)
       await signup({ name, email, password, role });
+
       setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please try again.');
@@ -119,7 +118,7 @@ const OTPVerificationPage: React.FC = () => {
         </p>
 
         <div className="flex justify-center mb-4">
-          <span className={`text-sm font-medium ${timeLeft > 0 ? 'text-gray-700' : 'text-error-600'}`}>
+          <span className={`text-sm font-medium ${timeLeft > 0 ? 'text-gray-700' : 'text-red-600'}`}>
             {timeLeft > 0 ? `Time remaining: ${formatTime(timeLeft)}` : 'OTP expired'}
           </span>
         </div>
@@ -128,7 +127,7 @@ const OTPVerificationPage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-error-50 text-error-700 p-3 rounded-md mb-4"
+            className="bg-red-100 text-red-700 p-3 rounded-md mb-4"
           >
             {error}
           </motion.div>

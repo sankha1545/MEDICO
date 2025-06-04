@@ -13,6 +13,7 @@ import HomePage from './frontend/pages/patient/HomePage';
 import LoginPage from './frontend/Auth/LoginPage';
 import SignupPage from './frontend/Auth/SignupPage';
 import OTPVerificationPage from './frontend/Auth/VerifyEmailOtp';
+import OAuthSuccessPage from './frontend/pages/patient/OAuthSuccessPage';
 import DashboardPage from './frontend/pages/patient/DashboardPage';
 import DoctorsPage from './frontend/pages/patient/DoctorsPage';
 import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage';
@@ -63,6 +64,9 @@ const App: React.FC = () => (
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
+
+      {/* OAuth Success (Google redirect lands here with ?token=…) */}
+      <Route path="/oauth-success" element={<OAuthSuccessPage />} />
 
       {/* More public patient pages */}
       <Route
@@ -194,7 +198,11 @@ const App: React.FC = () => (
       />
 
       {/* Catch-all 404 */}
-      <Route path="*" element={<Layout><NotFoundPage /></Layout>} />
+      <Route path="*" element={
+        <Layout>
+          <NotFoundPage />
+        </Layout>
+      } />
     </Routes>
   </AuthProvider>
 );

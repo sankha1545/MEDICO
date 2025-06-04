@@ -1,20 +1,22 @@
+// File: src/components/ChatbotUI.tsx
+
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, MessageCircle, Mic } from "lucide-react";
-import bot from '../../../assets/bot.png';
-import user from '../../../assets/user.png';
+import { Send, MessageCircle, Mic, X } from "lucide-react";
+import botAvatar from "../../../assets/bot.png";
+import userAvatar from "../../../assets/user.png";
 
 const initialMessages = [
   {
     role: "system",
-    avatar: bot,
+    avatar: botAvatar,
     content:
       "You are a helpful assistant for our medical booking appointment website. You can answer any questions about medical appointments, services, doctors, or booking procedures. If the question is unrelated, respond with 'sorry'.",
   },
   {
     id: 1,
     role: "bot",
-    avatar: bot,
+    avatar: botAvatar,
     content: "Hi there! How can I assist you with your medical appointment today?",
   },
 ];
@@ -27,32 +29,43 @@ export default function ChatbotUI() {
   const [isListening, setIsListening] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Keep speech recognition instance
+  const recognition = useRef<SpeechRecognition | null>(null);
+  const speechRecognitionAPI =
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const recognition = useRef<SpeechRecognition | null>(null);
-  const speechRecognitionAPI =
-    window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-
+  // Initialize speech recognition
   useEffect(() => {
     if (speechRecognitionAPI) {
       recognition.current = new speechRecognitionAPI();
       recognition.current.lang = "en-US";
-      recognition.current.continuous = true;
-      recognition.current.interimResults = true;
+      recognition.current.continuous = false;
+      recognition.current.interimResults = false;
 
       recognition.current.onstart = () => setIsListening(true);
       recognition.current.onend = () => setIsListening(false);
       recognition.current.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[event.results.length - 1][0].transcript;
+        const transcript = event.results[0][0].transcript;
         setInput(transcript);
       };
     }
   }, []);
 
-  const startListening = () => recognition.current?.start();
-  const stopListening = () => recognition.current?.stop();
+  const startListening = () => {
+    if (recognition.current && !isListening) {
+      recognition.current.start();
+    }
+  };
+  const stopListening = () => {
+    if (recognition.current && isListening) {
+      recognition.current.stop();
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -60,7 +73,7 @@ export default function ChatbotUI() {
     const userMsg = {
       id: Date.now(),
       role: "user",
-      avatar: user,
+      avatar: userAvatar,
       content: input.trim(),
     };
 
@@ -84,7 +97,7 @@ export default function ChatbotUI() {
       const botMsg = {
         id: Date.now() + 1,
         role: "bot",
-        avatar: bot,
+        avatar: botAvatar,
         content: data.answer,
       };
 
@@ -96,7 +109,7 @@ export default function ChatbotUI() {
         {
           id: Date.now() + 1,
           role: "bot",
-          avatar: bot,
+          avatar: botAvatar,
           content: "Sorry, I couldn't fetch an answer right now.",
         },
       ]);
@@ -114,59 +127,88 @@ export default function ChatbotUI() {
 
   return (
     <>
+      {/* Floating Chat Button */}
       <motion.button
+        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-6 right-6 z-50 rounded-full bg-blue-100 p-4 shadow-lg text-blue-700"
+        className="fixed bottom-6 right-6 z-50 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-4 shadow-xl text-white"
         onClick={() => setIsOpen((prev) => !prev)}
+        aria-label="Toggle Chatbot"
       >
         <MessageCircle size={24} />
       </motion.button>
 
+      {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-20 right-4 z-50 w-80 max-h-[75vh] flex flex-col rounded-2xl bg-white/90 shadow-2xl overflow-hidden sm:w-96"
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed bottom-20 right-4 z-50 flex h-[75vh] w-80 max-w-full flex-col rounded-2xl bg-white/30 shadow-2xl backdrop-blur-lg sm:w-96"
           >
-            <div className="p-4 font-semibold bg-white/70 flex items-center justify-between">
-              <span>Medical Booking Assistant</span>
-              <button onClick={() => setIsOpen(false)} className="text-xl font-bold">×</button>
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-indigo-600 to-blue-500 px-4 py-3 text-white shadow-md">
+              <div className="flex items-center space-x-2">
+                <img src={botAvatar} alt="Bot Avatar" className="h-8 w-8 rounded-full border-2 border-white" />
+                <h2 className="text-lg font-semibold drop-shadow-sm">
+                  Medical Booking Assistant
+                </h2>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-1 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
+                aria-label="Close Chatbot"
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((msg, idx) => <Message key={idx} {...msg} />)}
-              {isTyping && <TypingIndicator />}
+            {/* Messages Container */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+              {messages.map((msg, idx) => (
+                <MessageBubble key={idx} {...msg} />
+              ))}
+              {isTyping && <TypingDots />}
               <div ref={chatEndRef} />
             </div>
 
+            {/* Input Area */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 sendMessage();
               }}
-              className="p-3 bg-white/70"
+              className="rounded-b-2xl bg-white/70 px-4 py-3 backdrop-blur-sm"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-2">
                 <textarea
-                  className="flex-1 resize-none rounded-xl border bg-white px-3 py-2 text-sm shadow-inner focus:ring-2 focus:ring-blue-200"
+                  className="flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-inner focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 "
                   rows={1}
                   value={input}
                   placeholder="Ask about appointments..."
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  style={{color:"#000"}}
                 />
-                <button type="submit" disabled={!input.trim()} className="rounded-full p-2 disabled:opacity-50">
-                  <Send size={18} className="text-blue-700" />
-                </button>
                 <button
                   type="button"
                   onClick={isListening ? stopListening : startListening}
-                  className={`rounded-full p-2 ${isListening ? 'bg-red-400' : 'bg-green-400'}`}
+                  aria-label={isListening ? "Stop Listening" : "Start Listening"}
+                  className={`flex items-center justify-center rounded-full p-2 ${
+                    isListening ? "bg-red-500" : "bg-green-500"
+                  } shadow-lg transition-colors duration-200 hover:opacity-90`}
                 >
                   <Mic size={18} className="text-white" />
+                </button>
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="flex items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 p-2 shadow-lg disabled:opacity-50 transition-transform duration-200 hover:scale-105"
+                  aria-label="Send Message"
+                >
+                  <Send size={18} className="text-white" />
                 </button>
               </div>
             </form>
@@ -177,25 +219,67 @@ export default function ChatbotUI() {
   );
 }
 
-function Message({ role, avatar, content }: { role: string; avatar: string; content: string }) {
-  const isUser = role === 'user';
+// Chat Bubble Component
+function MessageBubble({
+  role,
+  avatar,
+  content,
+}: {
+  role: string;
+  avatar: string;
+  content: string;
+}) {
+  const isUser = role === "user";
   return (
-    <div className={`flex items-end ${isUser ? 'justify-end' : 'justify-start'}`}>
-      {!isUser && <img src={avatar} alt="bot" className="mr-2 h-8 w-8 rounded-full" />}
-      <div className={`px-4 py-2 rounded-2xl text-sm shadow max-w-[75%] ${isUser ? 'bg-blue-100 text-blue-700 rounded-br-none' : 'bg-white/80 text-gray-800 rounded-bl-none'}`}>
+    <div
+      className={`flex items-end ${isUser ? "justify-end" : "justify-start"}`}
+    >
+      {!isUser && (
+        <img
+          src={avatar}
+          alt="bot-avatar"
+          className="mr-2 h-8 w-8 rounded-full border border-gray-200 shadow-sm"
+        />
+      )}
+      <div
+        className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm shadow ${
+          isUser
+            ? "bg-gradient-to-tr from-blue-400 to-indigo-500 text-white rounded-br-none"
+            : "bg-white/80 text-gray-800 rounded-bl-none"
+        }`}
+      >
         {content}
       </div>
-      {isUser && <img src={avatar} alt="user" className="ml-2 h-8 w-8 rounded-full" />}
+      {isUser && (
+        <img
+          src={avatar}
+          alt="user-avatar"
+          className="ml-2 h-8 w-8 rounded-full border border-gray-200 shadow-sm"
+        />
+      )}
     </div>
   );
 }
 
-function TypingIndicator() {
+// Typing Indicator Component
+function TypingDots() {
   return (
     <div className="flex items-center space-x-1 pl-10">
-      <span className="h-2 w-2 animate-bounce bg-blue-300 rounded-full [animation-delay:-0.3s]" />
-      <span className="h-2 w-2 animate-bounce bg-blue-300 rounded-full [animation-delay:-0.15s]" />
-      <span className="h-2 w-2 animate-bounce bg-blue-300 rounded-full" />
+      <motion.span
+        className="h-2 w-2 rounded-full bg-indigo-400"
+        animate={{ y: ["0%", "-50%", "0%"] }}
+        transition={{ repeat: Infinity, duration: 0.8, delay: 0 }}
+      />
+      <motion.span
+        className="h-2 w-2 rounded-full bg-indigo-400"
+        animate={{ y: ["0%", "-50%", "0%"] }}
+        transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }}
+      />
+      <motion.span
+        className="h-2 w-2 rounded-full bg-indigo-400"
+        animate={{ y: ["0%", "-50%", "0%"] }}
+        transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }}
+      />
     </div>
   );
 }

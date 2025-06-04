@@ -1,3 +1,4 @@
+// models/Otp.ts
 import { Schema, model, Document } from 'mongoose';
 
 export interface IOtp extends Document {
@@ -7,10 +8,12 @@ export interface IOtp extends Document {
 }
 
 const otpSchema = new Schema<IOtp>({
-  email: { type: String, required: true },
+  email: { type: String, required: true, index: true },
   code: { type: String, required: true },
-  expiresAt: { type: Date, required: true }
+  expiresAt: { type: Date, required: true },
 });
 
+// Auto-delete OTP docs once expiresAt is passed
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 export default model<IOtp>('Otp', otpSchema);

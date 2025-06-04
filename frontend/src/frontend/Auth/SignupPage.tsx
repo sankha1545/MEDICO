@@ -1,3 +1,5 @@
+// File: frontend/src/pages/SignUp.tsx
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -6,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { SlideIn, FadeIn } from '../components/animations/Transitions';
+import { GoogleLogin } from '@react-oauth/google';
 
 type Role = 'patient' | 'doctor';
 
@@ -20,9 +23,10 @@ const SignUpPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
-  const { sendEmailOtp } = useAuth();
+  const { sendEmailOtp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
+  // Handle form submission for email/password signup
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -53,9 +57,19 @@ const SignUpPage: React.FC = () => {
     }
   };
 
-  const handleGoogleSignup = () => {
-    const googleAuthUrl = `${import.meta.env.VITE_API_URL}/auth/google`;
-    window.location.href = googleAuthUrl;
+  // Handle Google Signup
+  const handleGoogleSignup = async (response: any) => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await signInWithGoogle(response.credential);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Google signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -177,7 +191,7 @@ const SignUpPage: React.FC = () => {
                   placeholder="••••••••"
                   icon={<Lock size={16} />}
                   value={password}
-                  onChange={(e) => setPassword(e. target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   fullWidth
                 />

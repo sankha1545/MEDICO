@@ -1,7 +1,7 @@
 // File: frontend/src/pages/LoginPage.tsx
 
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,8 +15,18 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const { login, signInWithGoogle } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // If redirected back from Google OAuth, capture token
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (token) {
+      localStorage.setItem('authToken', token);
+      navigate('/dashboard');
+    }
+  }, [searchParams, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,45 +43,20 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError('');
-    setIsLoading(true);
-
-    try {
-      await signInWithGoogle();
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Google login failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleGoogleLogin = () => {
+    // Redirect browser to backend’s Google OAuth endpoint
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-gray-100">
       {/* Left: Form */}
       <FadeIn>
         <div className="flex items-center justify-center p-8 md:p-12">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <Link to="/" className="inline-flex items-center mb-5">
-                <div className="text-primary-500 mr-2">
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                  </svg>
-                </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
-                  MedBook
-                </span>
+              <Link to="/" className="inline-flex items-center mb-5 text-2xl font-bold">
+                <span className="text-primary-500">MedBook</span>
               </Link>
               <h1 className="text-3xl font-bold text-gray-800">Welcome back</h1>
               <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
@@ -81,7 +66,7 @@ const LoginPage: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-error-50 text-error-700 p-3 rounded-md mb-4"
+                className="bg-red-100 text-red-700 p-3 rounded-md mb-4"
               >
                 {error}
               </motion.div>
@@ -131,20 +116,13 @@ const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth className="mt-6">
+              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
                 Sign In
               </Button>
             </form>
 
-            {/* Google Login Button */}
             <div className="mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                isLoading={isLoading}
-                fullWidth
-                onClick={handleGoogleLogin}
-              >
+              <Button variant="outline" onClick={handleGoogleLogin} fullWidth>
                 Continue with Google
               </Button>
             </div>
@@ -163,23 +141,19 @@ const LoginPage: React.FC = () => {
 
       {/* Right: Image */}
       <SlideIn direction="right">
-        <div className="hidden md:block relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-500 to-secondary-500 opacity-90"></div>
+        <div className="hidden md:block relative">
           <img
             src="https://images.pexels.com/photos/7579831/pexels-photo-7579831.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
             alt="Medical professionals"
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 flex flex-col justify-center p-12">
-            <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg text-white max-w-md">
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="text-white text-center max-w-sm p-8">
               <h2 className="text-2xl font-bold mb-4">Your health is our priority</h2>
-              <p className="mb-6">
-                Book appointments with top doctors, get digital prescriptions, and manage your health record all in one place.
+              <p>
+                Book appointments with top doctors, get digital prescriptions, and manage your health
+                record—all in one place.
               </p>
-              <div className="flex items-center space-x-2 text-sm">
-                <span>Learn more about our services</span>
-                <ArrowRight size={16} />
-              </div>
             </div>
           </div>
         </div>
