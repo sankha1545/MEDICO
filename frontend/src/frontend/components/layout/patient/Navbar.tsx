@@ -123,7 +123,7 @@ export const Navbar: React.FC = () => {
           {/* Desktop Menu */}
           <div className="hidden lg:flex items-center space-x-10">
             {[
-              { to: '/', label: 'Home', Icon: Home },
+              { to: '/home', label: 'Home', Icon: Home },
               { to: '/doctors', label: 'Doctors', Icon: BookOpen },
               { to: '/services', label: 'Services', Icon: HeartPulse },
               { to: '/about', label: 'About', Icon: Info },
@@ -148,12 +148,12 @@ export const Navbar: React.FC = () => {
                     className={`flex items-center space-x-1 text-lg font-medium transition-colors ${
                       active
                         ? 'text-pink-500'
-                        : 'text-gray-700 hover:text-pink-500'
+                        : 'text-white hover:text-pink-500'
                     }`}
                   >
                     <item.Icon
                       size={20}
-                      className={active ? 'text-pink-500' : 'text-gray-500'}
+                      className={active ? 'text-pink-500' : 'text-white'}
                     />
                     <span>{item.label}</span>
                   </Link>
@@ -329,7 +329,7 @@ export const Navbar: React.FC = () => {
                         openLogout();
                         setIsMobileOpen(false);
                       }}
-                      className="flex items-center space-x-3 text-2xl font-semibold text-gray-200 hover:text-white"
+                      className="flex items-center space-x-3 text-2xl font-semibold text-white hover:text-white"
                     >
                       <LogOut size={26} />
                       <span>Logout</span>

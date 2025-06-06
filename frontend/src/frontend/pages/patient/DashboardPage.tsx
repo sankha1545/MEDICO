@@ -165,6 +165,9 @@ const DashboardPage: React.FC = () => {
     fetchMedical();
   }, []);
 
+  const Name = async () => {
+    
+  }
   // Handlers
   const handleProfileSave = async (updatedValues: { name?: string; email?: string }) => {
     try {

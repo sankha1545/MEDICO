@@ -10,7 +10,19 @@ import React, {
 import axios, { AxiosInstance } from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'patient' | 'doctor';
+  provider?: string;
+  isVerified?: boolean;
+}
+
 interface AuthContextValue {
+  user: User | null;
+  isAuthenticated: boolean;
+  loading: boolean;
   sendEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp: (email: string, otp: string) => Promise<void>;
   signup: (data: {
@@ -20,39 +32,49 @@ interface AuthContextValue {
     role: 'patient' | 'doctor';
   }) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-
-  // for OAuth redirect pages to call
+  signInWithGoogle: () => void;
   loginWithToken: (token: string) => void;
-
-  // ← NEW: logout function
   logout: () => void;
-
-  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
 
+export const useAuth = () => useContext(AuthContext);
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const baseURL = import.meta.env.VITE_API_URL as string;
+  const baseURL = import.meta.env.VITE_API_URL;
+  const navigate = useNavigate();
 
   const api: AxiosInstance = axios.create({
     baseURL,
     headers: { 'Content-Type': 'application/json' },
-    withCredentials: true,
   });
 
-  // state flag for authentication
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // this hook is needed so that logout can redirect
-  const navigate = useNavigate();
-
-  // On mount, check if a token is already in localStorage
-  useEffect(() => {
-    const existing = localStorage.getItem('authToken');
-    if (existing) {
+  const fetchUser = async (token: string) => {
+    try {
+      const res = await api.get('/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUser(res.data);
       setIsAuthenticated(true);
+    } catch (err) {
+      console.error('❌ Failed to fetch user:', err);
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      fetchUser(token);
+    } else {
+      setLoading(false);
     }
   }, []);
 
@@ -76,17 +98,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signup = async (data: {
+  const signup = async ({
+    name,
+    email,
+    password,
+    role,
+  }: {
     name: string;
     email: string;
     password: string;
     role: 'patient' | 'doctor';
-  }): Promise<void> => {
+  }) => {
     try {
-      await api.post('/signup', data);
+      await api.post('/signup', { name, email, password, role });
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || 'Signup failed. Please try again.';
+      const msg = err.response?.data?.message || 'Signup failed.';
       throw new Error(msg);
     }
   };
@@ -96,29 +122,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await api.post('/login', { email, password });
       const { token } = res.data;
       localStorage.setItem('authToken', token);
-      setIsAuthenticated(true);
+      await fetchUser(token);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || 'Login failed. Please try again.';
+      const msg = err.response?.data?.message || 'Login failed.';
       throw new Error(msg);
     }
   };
 
-  const signInWithGoogle = async (): Promise<void> => {
-    // Redirect browser to your backend’s Google OAuth endpoint
+  const signInWithGoogle = () => {
     window.location.href = `${baseURL}/auth/google`;
   };
 
-  // Used by OAuthSuccessPage (or elsewhere) to ingest a token,
-  // update localStorage, and mark user as authenticated immediately.
   const loginWithToken = (token: string) => {
     localStorage.setItem('authToken', token);
-    setIsAuthenticated(true);
+    fetchUser(token);
   };
 
-  // ← NEW: Clear token, update state, and redirect to /login
   const logout = () => {
     localStorage.removeItem('authToken');
+    setUser(null);
     setIsAuthenticated(false);
     navigate('/login');
   };
@@ -126,21 +148,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <AuthContext.Provider
       value={{
+        user,
+        isAuthenticated,
+        loading,
         sendEmailOtp,
         verifyEmailOtp,
         signup,
         login,
         signInWithGoogle,
         loginWithToken,
-        logout,              // ← expose logout here
-        isAuthenticated,
+        logout,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = (): AuthContextValue => {
-  return useContext(AuthContext);
 };

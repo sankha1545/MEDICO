@@ -2,33 +2,47 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const OAuthSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { loginWithToken, user, isAuthenticated } = useAuth();
 
+  // Step 1: Handle token and login
   useEffect(() => {
-    // Log the raw search string
-    console.log('OAuthSuccessPage search:', window.location.search);
-
-    // Extract "token" from ?token=...
     const token = searchParams.get('token');
-    console.log('Parsed token:', token);
-
     if (token) {
-      // Store it (or save in context)
-      localStorage.setItem('authToken', token);
-
-      // Redirect to /dashboard
-      navigate('/');
+      (async () => {
+        try {
+          await loginWithToken(token);
+          // Redirect will happen once isAuthenticated becomes true
+        } catch (err) {
+          console.warn('OAuth login failed:', err);
+          navigate('/login');
+        }
+      })();
     } else {
-      // No token → go back to /login
-      console.warn('No token found, redirecting to login');
       navigate('/login');
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, loginWithToken, navigate]);
 
-  return <div>Logging you in…</div>;
+  // Step 2: Once logged in, redirect based on role
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'doctor') {
+        navigate('/doc-dashboard');
+      } else {
+        navigate('/home');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center text-lg font-medium text-gray-700">
+      Logging you in…
+    </div>
+  );
 };
 
 export default OAuthSuccessPage;

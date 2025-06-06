@@ -1,4 +1,4 @@
-// models/Otp.ts
+// File: backend/src/models/Otp.ts
 import { Schema, model, Document } from 'mongoose';
 
 export interface IOtp extends Document {

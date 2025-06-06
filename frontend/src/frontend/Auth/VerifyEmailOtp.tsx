@@ -1,4 +1,4 @@
-// pages/OTPverify.tsx
+// File: frontend/src/pages/OTPVerificationPage.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
@@ -15,7 +15,7 @@ interface LocationState {
 }
 
 const OTP_LENGTH = 6;
-const INITIAL_TIME = 10 * 60; // 10 minutes in seconds
+const INITIAL_TIME = 60; // 1 minute in seconds
 
 const OTPVerificationPage: React.FC = () => {
   const { verifyEmailOtp, signup } = useAuth();
@@ -43,6 +43,7 @@ const OTPVerificationPage: React.FC = () => {
 
   const inputRefs = useRef<HTMLInputElement[]>([]);
 
+  // Countdown timer
   useEffect(() => {
     if (timeLeft <= 0) return;
     const timerId = setInterval(() => {
@@ -90,10 +91,10 @@ const OTPVerificationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 1. Call verifyEmailOtp to delete OTP doc
+      // 1. Verify OTP
       await verifyEmailOtp(email, combinedOtp);
 
-      // 2. Now call signup (create user)
+      // 2. Create new user
       await signup({ name, email, password, role });
 
       setShowSuccessModal(true);
@@ -117,12 +118,6 @@ const OTPVerificationPage: React.FC = () => {
           We've sent a code to <strong>{email}</strong>. Enter it below to create your account.
         </p>
 
-        <div className="flex justify-center mb-4">
-          <span className={`text-sm font-medium ${timeLeft > 0 ? 'text-gray-700' : 'text-red-600'}`}>
-            {timeLeft > 0 ? `Time remaining: ${formatTime(timeLeft)}` : 'OTP expired'}
-          </span>
-        </div>
-
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -134,7 +129,7 @@ const OTPVerificationPage: React.FC = () => {
         )}
 
         <form onSubmit={handleVerify} className="space-y-6">
-          <div className="flex justify-between space-x-2 mb-4">
+          <div className="flex justify-between space-x-2">
             {Array.from({ length: OTP_LENGTH }).map((_, idx) => (
               <input
                 key={idx}
@@ -148,10 +143,28 @@ const OTPVerificationPage: React.FC = () => {
                   if (el) inputRefs.current[idx] = el;
                 }}
                 disabled={timeLeft <= 0 || isLoading}
-                className="w-12 h-12 text-center text-xl border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:opacity-50"
+                className="w-14 h-14 text-center text-2xl font-semibold border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:opacity-50"
                 autoFocus={idx === 0}
               />
             ))}
+          </div>
+
+          {/* Animated Timer Display */}
+          <div className="flex justify-center mt-4">
+            <motion.span
+              key={timeLeft} // re-render each second for animation reset
+              animate={{
+                scale: timeLeft <= 10 ? [1, 1.2, 1] : 1,
+                color: timeLeft <= 10 ? ['#F87171', '#E11D48', '#F87171'] : ['#374151'],
+              }}
+              transition={{
+                duration: timeLeft <= 10 ? 0.8 : 0,
+                repeat: timeLeft <= 10 ? Infinity : 0,
+              }}
+              className="text-center text-3xl font-bold"
+            >
+              {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
+            </motion.span>
           </div>
 
           <Button

@@ -3,30 +3,46 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Lock, ArrowRight } from 'lucide-react';
+import { User as UserIcon, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { FadeIn, SlideIn } from '../components/animations/Transitions';
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, loginWithToken, signInWithGoogle, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // If redirected back from Google OAuth, capture token
+  // Auto-login if redirected from Google OAuth
   useEffect(() => {
     const token = searchParams.get('token');
     if (token) {
-      localStorage.setItem('authToken', token);
-      navigate('/dashboard');
+      (async () => {
+        try {
+          await loginWithToken(token);
+        } catch {
+          setError('Google login failed');
+        }
+      })();
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, loginWithToken]);
+
+  // After user is authenticated, redirect based on role
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'doctor') {
+        navigate('/doc-dashboard');
+      } else {
+        navigate('/home');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,17 +51,12 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Redirect will happen automatically from useEffect
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    // Redirect browser to backend’s Google OAuth endpoint
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
   };
 
   return (
@@ -78,7 +89,7 @@ const LoginPage: React.FC = () => {
                 id="email"
                 label="Email Address"
                 placeholder="you@example.com"
-                icon={<User size={16} />}
+                icon={<UserIcon size={16} />}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -109,11 +120,9 @@ const LoginPage: React.FC = () => {
                     Remember me
                   </label>
                 </div>
-                <div className="text-sm">
-                  <Link to="/forgot-password" className="text-primary-500 hover:text-primary-600">
-                    Forgot password?
-                  </Link>
-                </div>
+                <Link to="/forgot-password" className="text-sm text-primary-500 hover:text-primary-600">
+                  Forgot password?
+                </Link>
               </div>
 
               <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
@@ -122,7 +131,7 @@ const LoginPage: React.FC = () => {
             </form>
 
             <div className="mt-4">
-              <Button variant="outline" onClick={handleGoogleLogin} fullWidth>
+              <Button variant="outline" onClick={signInWithGoogle} fullWidth>
                 Continue with Google
               </Button>
             </div>

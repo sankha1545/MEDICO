@@ -1,4 +1,4 @@
-// index.ts
+// File: backend/src/index.ts
 
 import express from 'express';
 import cors from 'cors';
@@ -28,11 +28,13 @@ app.use(passport.session());
 
 const PORT = process.env.PORT || 4000;
 
+// Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI!)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+// Mount all /api routes
 app.use('/api', authRoutes);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

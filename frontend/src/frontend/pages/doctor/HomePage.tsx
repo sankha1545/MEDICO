@@ -1,198 +1,393 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { format } from 'date-fns';
 import {
   Calendar,
-  Clock,
   Users,
-  FileText,
-  UserCheck,
   DollarSign,
+  Bell,
+  User,
+  Activity,
+  FileText,
+  Settings,
+  LogOut,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
+
 import {
-  SlideIn,
   FadeIn,
+  SlideIn,
   StaggeredContainer,
   staggeredItemVariants,
 } from '../../components/animations/Transitions';
-import Chatbot from '../../components/common/chatbot/chatbot';
 
-const DoctorHomePage: React.FC = () => {
-  const stats = [
-    { icon: <Calendar />, title: '8', subtitle: 'Upcoming Appointments' },
-    { icon: <Users />, title: '120', subtitle: 'Total Patients' },
-    { icon: <DollarSign />, title: '$5.2K', subtitle: 'Earnings This Month' },
-  ];
+// -----------------------------------------------------------------------------
+// Data Types
+// -----------------------------------------------------------------------------
+interface DoctorAppointment {
+  id: string;
+  patientName: string;
+  date: Date;
+  status: 'upcoming' | 'completed' | 'cancelled';
+}
 
-  const appointments = [
-    {
-      patient: 'John Doe',
-      time: '10:00 AM',
-      date: 'May 20, 2025',
-      type: 'In-Person',
-    },
-    {
-      patient: 'Jane Smith',
-      time: '11:30 AM',
-      date: 'May 20, 2025',
-      type: 'Video',
-    },
-    {
-      patient: 'Mike Johnson',
-      time: '2:00 PM',
-      date: 'May 20, 2025',
-      type: 'In-Person',
-    },
-  ];
+interface DoctorMessage {
+  id: string;
+  from: string;
+  content: string;
+  date: Date;
+  read: boolean;
+}
 
-  const recentPatients = ['Emily Clark', 'Samuel Lee', 'Olivia Brown'];
+interface PatientRecord {
+  id: string;
+  name: string;
+  lastVisit: Date;
+  condition: string;
+}
+
+// -----------------------------------------------------------------------------
+// Mock Data
+// -----------------------------------------------------------------------------
+const mockAppointments: DoctorAppointment[] = [
+  { id: 'a1', patientName: 'John Doe', date: new Date(2025, 4, 20, 10, 0), status: 'upcoming' },
+  { id: 'a2', patientName: 'Jane Smith', date: new Date(2025, 4, 21, 14, 30), status: 'upcoming' },
+  { id: 'a3', patientName: 'Mike Johnson', date: new Date(2025, 3, 15, 9, 0), status: 'completed' },
+];
+
+const mockMessages: DoctorMessage[] = [
+  { id: 'm1', from: 'Emily Clark', content: 'Question about prescription', date: new Date(2025, 4, 18, 16, 0), read: false },
+  { id: 'm2', from: 'Samuel Lee', content: 'Thank you!', date: new Date(2025, 4, 17, 9, 30), read: true },
+];
+
+const mockPatients: PatientRecord[] = [
+  { id: 'p1', name: 'Emily Clark', lastVisit: new Date(2025, 4, 18), condition: 'Hypertension' },
+  { id: 'p2', name: 'Samuel Lee', lastVisit: new Date(2025, 4, 15), condition: 'Diabetes' },
+  { id: 'p3', name: 'Olivia Brown', lastVisit: new Date(2025, 3, 30), condition: 'Asthma' },
+];
+
+// -----------------------------------------------------------------------------
+// Tabs
+// -----------------------------------------------------------------------------
+const tabs = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile'] as const;
+type TabKey = typeof tabs[number];
+
+// -----------------------------------------------------------------------------
+// Main Component
+// -----------------------------------------------------------------------------
+const DoctorDashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [showEditProfile, setShowEditProfile] = useState(false);
+
+  // Computed Stats
+  const upcomingCount = mockAppointments.filter(a => a.status === 'upcoming').length;
+  const totalPatients = mockPatients.length;
+  const earningsThisMonth = 5200; // mock value
+  const unreadMessages = mockMessages.filter(m => !m.read).length;
 
   return (
-    <main>
-      {/* Hero Section */}
-      <section className="relative pt-20 pb-20 bg-gradient-to-br from-secondary-50 to-primary-50 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <SlideIn direction="left">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-              Welcome Back, <span className="text-secondary-500">Dr. Smith</span>
-            </h1>
-            <p className="mt-4 text-lg md:text-xl text-gray-600 max-w-lg">
-              Here’s a quick overview of your schedule and patients. Stay on top of your appointments and manage your practice effortlessly.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Button as={Link} to="/appointments" variant="primary" size="lg">
-                View All Appointments
-              </Button>
-              <Button as={Link} to="/patients" variant="outline" size="lg">
-                View Patients
-              </Button>
+    <div className="min-h-screen bg-gray-900">
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <FadeIn>
+          {/* Header */}
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+            <div>
+              <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">Dr. {user?.name}</h1>
+              <p className="text-gray-400 mt-2">Welcome back! Here’s your practice at a glance.</p>
             </div>
-          </SlideIn>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 md:mt-0 border-gray-600 hover:border-gray-500 text-gray-200 hover:text-gray-100"
+              onClick={logout}
+            >
+              <LogOut className="mr-2 w-4 h-4" /> Logout
+            </Button>
+          </header>
+        </FadeIn>
 
-          {/* Stats */}
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {stats.map((stat, idx) => (
-              <motion.div
-                key={idx}
-                className="bg-white rounded-xl shadow-subtle p-6 flex items-center space-x-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + idx * 0.1 }}
-              >
-                <div className="text-secondary-500">{stat.icon}</div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">{stat.title}</div>
-                  <div className="text-sm text-gray-500">{stat.subtitle}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Upcoming Appointments Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold text-gray-900">Upcoming Appointments</h2>
-              <p className="mt-4 text-xl text-gray-600">
-                Here are your next appointments. Keep track and be prepared.
-              </p>
-            </div>
-          </FadeIn>
-
-          <div className="space-y-4">
-            {appointments.map((appt, i) => (
-              <motion.div
-                key={i}
-                className="bg-secondary-50 border border-gray-100 rounded-xl p-6 flex justify-between items-center"
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + i * 0.1 }}
-              >
-                <div>
-                  <div className="text-lg font-semibold text-gray-900">{appt.patient}</div>
-                  <div className="text-sm text-gray-500">
-                    {appt.date} at {appt.time} ({appt.type})
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {[
+            {
+              title: 'Upcoming Appointments',
+              value: upcomingCount,
+              icon: <Calendar className="w-6 h-6 text-white" />,
+              gradient: 'bg-gradient-to-br from-blue-700 to-blue-900',
+            },
+            {
+              title: 'Total Patients',
+              value: totalPatients,
+              icon: <Users className="w-6 h-6 text-white" />,
+              gradient: 'bg-gradient-to-br from-indigo-700 to-indigo-900',
+            },
+            {
+              title: 'Earnings This Month',
+              value: `$${earningsThisMonth}`,
+              icon: <DollarSign className="w-6 h-6 text-white" />,
+              gradient: 'bg-gradient-to-br from-green-700 to-green-900',
+            },
+            {
+              title: 'Unread Messages',
+              value: unreadMessages,
+              icon: <Bell className="w-6 h-6 text-white" />,
+              gradient: 'bg-gradient-to-br from-purple-700 to-purple-900',
+            },
+          ].map((stat, idx) => (
+            <SlideIn key={idx} direction="up" delay={idx * 0.1}>
+              <div className={`rounded-2xl shadow-lg overflow-hidden ${stat.gradient} text-white`}>
+                <div className="p-6 flex items-center">
+                  <div className="p-3 rounded-full bg-white bg-opacity-25 mr-4">{stat.icon}</div>
+                  <div>
+                    <p className="text-sm uppercase tracking-wide">{stat.title}</p>
+                    <p className="mt-1 text-2xl font-bold">{stat.value}</p>
                   </div>
                 </div>
-                <Button as={Link} to={`/appointments/${i}`} variant="outline" size="sm">
-                  Details
-                </Button>
-              </motion.div>
-            ))}
-          </div>
+              </div>
+            </SlideIn>
+          ))}
         </div>
-      </section>
 
-      {/* Recent Patients Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold text-gray-900">Recent Patients</h2>
-              <p className="mt-4 text-xl text-gray-600">
-                Patients you’ve recently consulted. Review their records quickly.
-              </p>
-            </div>
-          </FadeIn>
-
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-8"
-            variants={StaggeredContainer}
-            initial="hidden"
-            animate="show"
-          >
-            {recentPatients.map((name, idx) => (
-              <motion.div
-                key={idx}
-                className="bg-white border border-gray-100 rounded-xl p-8 shadow-subtle"
-                variants={staggeredItemVariants}
+        {/* Tab Navigation */}
+        <div className="bg-gray-800 rounded-xl shadow-md border border-gray-900 mb-12 overflow-hidden">
+          <div className="flex overflow-x-auto border-b border-gray-700">
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex items-center space-x-2 px-5 py-3 ${
+                  activeTab === tab
+                    ? 'border-b-2 border-blue-500 text-blue-500'
+                    : 'text-gray-400 hover:text-gray-200'
+                } transition-colors duration-150`}
               >
-                <div className="inline-flex items-center justify-center p-3 bg-secondary-100 rounded-lg mb-5">
-                  <UserCheck className="w-6 h-6 text-secondary-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{name}</h3>
-                <Button as={Link} to={`/patients/${idx}`} variant="link" size="sm">
-                  View Record
-                </Button>
-              </motion.div>
+                <span>
+                  {{
+                    overview: <Activity className="w-5 h-5" />,
+                    appointments: <Calendar className="w-5 h-5" />,
+                    patients: <Users className="w-5 h-5" />,
+                    earnings: <DollarSign className="w-5 h-5" />,
+                    messages: <Bell className="w-5 h-5" />,
+                    profile: <User className="w-5 h-5" />,
+                  }[tab]}
+                </span>
+                <span className="capitalize font-medium">{tab}</span>
+              </button>
             ))}
-          </motion.div>
-        </div>
-      </section>
+          </div>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-secondary-500 to-primary-500 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex flex-col lg:flex-row items-center justify-between">
-            <div className="mb-8 lg:mb-0">
-              <FadeIn>
-                <h2 className="text-3xl font-bold text-white mb-4">Need Assistance?</h2>
-                <p className="text-xl text-white opacity-90 max-w-xl">
-                  If you have any questions or need support, our team is here to help you 24/7.
-                </p>
-              </FadeIn>
-            </div>
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <SlideIn direction="right">
-                <Button as={Link} to="/support" variant="outline" size="lg" className="text-white border-white hover:bg-white/10">
-                  Contact Support
-                </Button>
-                <Button as={Link} to="/settings" variant="primary" size="lg">
-                  Manage Profile
-                </Button>
-              </SlideIn>
-            </div>
+          <div className="p-8">
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <StaggeredContainer>
+                <div className="space-y-8">
+                  <h2 className="text-2xl font-semibold text-gray-100">Today's Summary</h2>
+                  {mockAppointments.filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
+                    .length ? (
+                    mockAppointments
+                      .filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
+                      .map(a => (
+                        <motion.div
+                          key={a.id}
+                          variants={staggeredItemVariants}
+                          className="bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between items-center hover:shadow-md transition-shadow"
+                        >
+                          <div>
+                            <p className="font-semibold text-gray-100">{a.patientName}</p>
+                            <p className="text-gray-400 mt-1">{format(a.date, 'h:mm a')}</p>
+                          </div>
+                          <Link to={`/doctor/appointments/${a.id}`}>
+                            <Button variant="primary" size="sm">
+                              Details
+                            </Button>
+                          </Link>
+                        </motion.div>
+                      ))
+                  ) : (
+                    <p className="text-gray-400">No appointments scheduled for today.</p>
+                  )}
+                </div>
+              </StaggeredContainer>
+            )}
+
+            {/* Appointments Tab */}
+            {activeTab === 'appointments' && (
+              <div className="space-y-6">
+                {mockAppointments.map(a => (
+                  <motion.div
+                    key={a.id}
+                    variants={staggeredItemVariants}
+                    className="bg-gray-800 rounded-lg shadow-sm p-6 flex justify-between items-center hover:shadow-md transition-shadow"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-100">{a.patientName}</p>
+                      <p className="text-gray-400 mt-1">{format(a.date, 'MMMM d, yyyy h:mm a')}</p>
+                      <span
+                        className={`mt-2 inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                          a.status === 'upcoming'
+                            ? 'bg-yellow-600 text-yellow-100'
+                            : a.status === 'completed'
+                            ? 'bg-green-600 text-green-100'
+                            : 'bg-red-600 text-red-100'
+                        }`}
+                      >
+                        {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex space-x-3">
+                      {a.status === 'upcoming' ? (
+                        <>
+                          <Button variant="outline" size="sm">
+                            Reschedule
+                          </Button>
+                          <Button variant="primary" size="sm">
+                            Start Visit
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="outline" size="sm">
+                          View Notes
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Patients Tab */}
+            {activeTab === 'patients' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {mockPatients.map(p => (
+                  <motion.div
+                    key={p.id}
+                    variants={staggeredItemVariants}
+                    className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col"
+                  >
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-gray-400">
+                        {p.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-100">{p.name}</p>
+                        <p className="text-sm text-gray-400">
+                          Last visit: {format(p.lastVisit, 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-gray-300 flex-1">Condition: {p.condition}</p>
+                    <Link to={`/doctor/patients/${p.id}`} className="mt-4 inline-block">
+                      <Button variant="link" size="sm">
+                        View Record
+                      </Button>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Earnings Tab */}
+            {activeTab === 'earnings' && (
+              <div className="space-y-8">
+                <h2 className="text-2xl font-semibold text-gray-100">Earnings Overview</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <motion.div
+                    variants={staggeredItemVariants}
+                    className="bg-gray-800 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+                  >
+                    <p className="text-sm text-gray-400 uppercase tracking-wide">This Month</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-100">${earningsThisMonth}</p>
+                  </motion.div>
+                  <motion.div
+                    variants={staggeredItemVariants}
+                    className="bg-gray-800 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+                  >
+                    <p className="text-sm text-gray-400 uppercase tracking-wide">Total to Date</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-100">$32,450</p>
+                  </motion.div>
+                </div>
+              </div>
+            )}
+
+            {/* Messages Tab */}
+            {activeTab === 'messages' && (
+              <div className="space-y-4">
+                {mockMessages.map(m => (
+                  <motion.div
+                    key={m.id}
+                    variants={staggeredItemVariants}
+                    className={`bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between hover:shadow-md transition-shadow ${
+                      m.read ? 'border border-gray-700' : 'border-2 border-blue-600 bg-blue-900'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-100">{m.from}</p>
+                      <p className="text-sm text-gray-400 mt-1">{m.content}</p>
+                      <p className="text-xs text-gray-500 mt-1">{format(m.date, 'MMM d, h:mm a')}</p>
+                    </div>
+                    {!m.read && (
+                      <span className="flex-shrink-0 w-3 h-3 bg-blue-500 rounded-full mt-2"></span>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <motion.div
+                  variants={staggeredItemVariants}
+                  className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
+                >
+                  <h3 className="text-xl font-semibold text-gray-100 mb-5">Profile Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-400">Name</p>
+                      <p className="text-gray-100 font-medium">Dr. {user?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Email</p>
+                      <p className="text-gray-100 font-medium">{user?.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Specialty</p>
+                      <p className="text-gray-100 font-medium">Cardiology</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-6 border-gray-600 hover:border-gray-500 text-gray-200 hover:text-gray-100"
+                    onClick={() => setShowEditProfile(true)}
+                  >
+                    Edit Profile
+                  </Button>
+                  {showEditProfile && (
+                    <EditDoctorProfileForm user={user!} onClose={() => setShowEditProfile(false)} />
+                  )}
+                </motion.div>
+                <motion.div
+                  variants={staggeredItemVariants}
+                  className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
+                >
+                  <h3 className="text-xl font-semibold text-gray-100 mb-5">Account Settings</h3>
+                  <Link to="/doctor/settings">
+                    <Button variant="primary" size="sm">
+                      <Settings className="mr-2 w-4 h-4" /> Go to Settings
+                    </Button>
+                  </Link>
+                </motion.div>
+              </div>
+            )}
           </div>
         </div>
-        <Chatbot />
-      </section>
-    </main>
+      </div>
+    </div>
   );
 };
 
-export default DoctorHomePage;
+export default DoctorDashboard;

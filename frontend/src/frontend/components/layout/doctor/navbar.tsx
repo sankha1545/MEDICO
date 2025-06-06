@@ -42,11 +42,7 @@ export const DoctorNavbar = () => {
 
         {/* Desktop Links */}
         <div className="hidden md:flex space-x-8 items-center">
-          <NavLink to="/dashboard1">Dashboard</NavLink>
-          <NavLink to="/doctor/appointments">Appointments</NavLink>
-          <NavLink to="/doctor/patients">Patients</NavLink>
-          <NavLink to="/doctor/earnings">Earnings</NavLink>
-          <NavLink to="/doctor/reports">Reports</NavLink>
+        
 
           {isAuthenticated ? (
             <div className="relative">

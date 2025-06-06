@@ -48,7 +48,7 @@ const App: React.FC = () => (
   <AuthProvider>
     <Routes>
       {/* Redirect root to patient home */}
-      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Public patient pages */}
       <Route
@@ -199,9 +199,9 @@ const App: React.FC = () => (
 
       {/* Catch-all 404 */}
       <Route path="*" element={
-        <Layout>
+       
           <NotFoundPage />
-        </Layout>
+       
       } />
     </Routes>
   </AuthProvider>
