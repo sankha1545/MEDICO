@@ -32,13 +32,15 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
   process.exit(1);
 }
 
-// ─── Google OAuth Strategy ───────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 2) Configure Passport GoogleStrategy
+// ──────────────────────────────────────────────────────────────────────────────
 passport.use(
   new GoogleStrategy(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: GOOGLE_CALLBACK_URL,
+      callbackURL: GOOGLE_CALLBACK_URL, // ← must exactly match what’s in Google Cloud
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -49,7 +51,7 @@ passport.use(
             name: profile.displayName,
             email,
             provider: 'google',
-            role: 'patient',
+            role: 'patient', // default role
           }).save();
         }
         return done(null, user);
@@ -60,6 +62,7 @@ passport.use(
   )
 );
 
+// (Optional) Session serialize/deserialize (not needed for JWT-only)
 passport.serializeUser((user: any, done) => done(null, user.id));
 passport.deserializeUser(async (id: string, done) => {
   try {
@@ -70,7 +73,9 @@ passport.deserializeUser(async (id: string, done) => {
   }
 });
 
-// ─── Middleware to Verify JWT ─────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 3) Middleware: authenticateJWT → verifies Bearer token, sets req.user
+// ──────────────────────────────────────────────────────────────────────────────
 interface JwtPayload {
   id: string;
   iat: number;
@@ -82,9 +87,7 @@ const authenticateJWT = async (req: Request, res: Response, next: NextFunction) 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authorization header missing or malformed' });
   }
-
   const token = authHeader.split(' ')[1];
-
   try {
     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
     const user = await User.findById(payload.id);
@@ -98,7 +101,9 @@ const authenticateJWT = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-// ─── Send OTP ─────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 4) POST /api/send-email-otp
+// ──────────────────────────────────────────────────────────────────────────────
 router.post('/send-email-otp', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email required' });
@@ -123,16 +128,16 @@ router.post('/send-email-otp', async (req: Request, res: Response) => {
   }
 });
 
-// ─── Verify OTP ───────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 5) POST /api/verify-email-otp
+// ──────────────────────────────────────────────────────────────────────────────
 router.post('/verify-email-otp', async (req: Request, res: Response) => {
   const { email, otp } = req.body;
-
   try {
     const record = await Otp.findOne({ email, code: otp });
     if (!record) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
-
     await Otp.deleteOne({ _id: record._id });
     return res.sendStatus(200);
   } catch (err) {
@@ -141,7 +146,9 @@ router.post('/verify-email-otp', async (req: Request, res: Response) => {
   }
 });
 
-// ─── Signup ───────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 6) POST /api/signup
+// ──────────────────────────────────────────────────────────────────────────────
 router.post('/signup', async (req: Request, res: Response) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password || !role) {
@@ -165,7 +172,9 @@ router.post('/signup', async (req: Request, res: Response) => {
   }
 });
 
-// ─── Login ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 7) POST /api/login
+// ──────────────────────────────────────────────────────────────────────────────
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -188,9 +197,14 @@ router.post('/login', async (req: Request, res: Response) => {
     return res.status(200).json({
       token,
       user: {
+        id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        provider: user.provider,
+        isVerified: user.isVerified,
+        phone: user.phone,
+        dob: user.dob,
       },
     });
   } catch (err) {
@@ -199,10 +213,11 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// ─── Get Authenticated User ───────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// 8) GET /api/me  ← returns logged-in user info
+// ──────────────────────────────────────────────────────────────────────────────
 router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
   const user = (req as any).user as IUser;
-
   return res.json({
     id: user._id,
     name: user.name,
@@ -210,28 +225,67 @@ router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
     role: user.role,
     provider: user.provider,
     isVerified: user.isVerified,
+    phone: user.phone,
+    dob: user.dob,
   });
 });
 
-// ─── Google OAuth Flow ────────────────────────────────────────────────
-router.get('/auth/google', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-}));
+// ──────────────────────────────────────────────────────────────────────────────
+// 9) PUT /api/me  ← update name, email, phone, dob
+// ──────────────────────────────────────────────────────────────────────────────
+router.put('/me', authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as IUser;
+    const { name, email, phone, dob } = req.body;
 
-router.get('/auth/google/callback',
+    // Update only provided fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (phone !== undefined) user.phone = phone;
+    if (dob) user.dob = new Date(dob);
+
+    const updatedUser = await user.save();
+    return res.json({
+      id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      provider: updatedUser.provider,
+      isVerified: updatedUser.isVerified,
+      phone: updatedUser.phone,
+      dob: updatedUser.dob,
+    });
+  } catch (err) {
+    console.error('Error in PUT /api/me:', err);
+    return res.status(500).json({ message: 'Failed to update profile' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 10) Google OAuth routes
+// ──────────────────────────────────────────────────────────────────────────────
+router.get(
+  '/auth/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+  })
+);
+
+router.get(
+  '/auth/google/callback',
   (req, res, next) => {
-    passport.authenticate('google', {
-      session: false,
-      failureRedirect: `${FRONTEND_URL}/login`,
-    }, async (err, user, info) => {
-      if (err || !user) {
-        console.error('❌ Google OAuth error:', err || info);
-        return res.redirect(`${FRONTEND_URL}/login`);
+    passport.authenticate(
+      'google',
+      { session: false, failureRedirect: `${FRONTEND_URL}/login` },
+      async (err, user, info) => {
+        if (err || !user) {
+          console.error('❌ Google OAuth error:', err || info);
+          return res.redirect(`${FRONTEND_URL}/login`);
+        }
+        const token = jwt.sign({ id: (user as any)._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
+        return res.redirect(`${FRONTEND_URL}/oauth-success?token=${token}`);
       }
-
-      const token = jwt.sign({ id: (user as any)._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
-      return res.redirect(`${FRONTEND_URL}/oauth-success?token=${token}`);
-    })(req, res, next);
+    )(req, res, next);
   }
 );
 

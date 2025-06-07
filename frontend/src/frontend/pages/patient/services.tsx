@@ -45,7 +45,7 @@ export default function ServicePage() {
   ];
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-gray-100 flex flex-col">
+    <div className="w-full min-h-screen bg-gradient-to-br from-black via-gray-800 to-black text-gray-100 flex flex-col">
       {/* HERO SECTION */}
       <section className="relative w-full h-80 lg:h-96 overflow-hidden">
         {/* Background Image with Dark Overlay */}
@@ -55,7 +55,7 @@ export default function ServicePage() {
           animate={{ scale: 1 }}
           transition={{ duration: 8, ease: 'easeOut' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-gray-900/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/90 to-violet-950 /80" />
         <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 lg:px-8 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 40 }}

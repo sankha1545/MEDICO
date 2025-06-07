@@ -1,4 +1,4 @@
-// File: frontend/src/pages/DashboardPage.tsx
+// File: frontend/src/pages/patient/DashboardPage.tsx
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -17,7 +17,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
 import EditProfileForm from '../../components/common/editprofile/editprofileforms';
-import UpdateMedicalform, { MedicalInfo } from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
+import UpdateMedicalInfoForm, { MedicalInfo } from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
 import Chatbot from '../../components/common/chatbot/chatbot';
 
 // Framer Motion variants
@@ -35,7 +35,7 @@ const fadeInUp = {
 };
 const cardHover = { scale: 1.03, boxShadow: '0 10px 20px rgba(0,0,0,0.5)' };
 
-// Mock data
+// Mock data for appointments / notifications
 interface Appointment {
   id: string;
   doctorName: string;
@@ -52,6 +52,7 @@ interface NotificationItem {
   read: boolean;
   type: 'reminder' | 'medical' | 'message';
 }
+
 const mockAppointments: Appointment[] = [
   {
     id: '1',
@@ -81,6 +82,7 @@ const mockAppointments: Appointment[] = [
       'https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=300',
   },
 ];
+
 const mockNotifications: NotificationItem[] = [
   {
     id: '1',
@@ -101,8 +103,7 @@ const mockNotifications: NotificationItem[] = [
   {
     id: '3',
     title: 'New Message',
-    message:
-      'Dr. Michael Rodriguez has sent you a message regarding your last visit',
+    message: 'Dr. Michael Rodriguez has sent you a message regarding your last visit',
     date: new Date(2025, 4, 8, 11, 45),
     read: false,
     type: 'message',
@@ -135,9 +136,13 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon }) => (
 
 const DashboardPage: React.FC = () => {
   const { user, updateProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>(
+    'overview'
+  );
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
+
+  // State to hold medical info
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
     bloodType: '',
     allergies: '',
@@ -145,31 +150,36 @@ const DashboardPage: React.FC = () => {
     medicalConditions: '',
   });
 
-  // Fetch real medical info on mount
+  // On mount, fetch real medical info from backend
   useEffect(() => {
     const fetchMedical = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         if (!token) return;
-        const resp = await fetch('http://localhost:7000/api/medical', {
+
+        const resp = await fetch('http://localhost:4000/api/medical', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (resp.ok) {
           const data = await resp.json();
+          // Expecting { medicalInfo: { bloodType, allergies, ... } }
           setMedicalInfo(data.medicalInfo);
         }
       } catch (err) {
         console.error('Failed to fetch medical info:', err);
       }
     };
+
     fetchMedical();
   }, []);
 
-  const Name = async () => {
-    
-  }
-  // Handlers
-  const handleProfileSave = async (updatedValues: { name?: string; email?: string }) => {
+  // Handle saving profile changes
+  const handleProfileSave = async (updatedValues: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    dob?: string;
+  }) => {
     try {
       await updateProfile(updatedValues);
       setShowEditProfile(false);
@@ -178,14 +188,16 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  // Handle saving medical info from the form
   const handleMedicalSave = async (updatedMedical: MedicalInfo) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         alert('Unable to save: no authentication token found.');
         return;
       }
-      const resp = await fetch('http://localhost:7000/api/medical', {
+
+      const resp = await fetch('http://localhost:4000/api/medical', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -193,8 +205,10 @@ const DashboardPage: React.FC = () => {
         },
         body: JSON.stringify(updatedMedical),
       });
+
       if (resp.ok) {
         const data = await resp.json();
+        // Expect backend returns { medicalInfo: { ... } }
         setMedicalInfo(data.medicalInfo);
         setShowUpdateMedical(false);
       } else if (resp.status === 401) {
@@ -257,9 +271,7 @@ const DashboardPage: React.FC = () => {
                 className="bg-gray-800 rounded-2xl border border-gray-700 p-6"
               >
                 <div className="flex items-center">
-                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4 flex-shrink-0`}>
-                    {stat.icon}
-                  </div>
+                  <div className={`p-3 rounded-full ${stat.iconBg} mr-4 flex-shrink-0`}>{stat.icon}</div>
                   <div>
                     <p className="text-sm text-gray-400">{stat.title}</p>
                     <p className="text-3xl font-bold text-white mt-1">{stat.value}</p>
@@ -309,7 +321,11 @@ const DashboardPage: React.FC = () => {
                     <div className="flex justify-between items-center mb-6">
                       <h2 className="text-2xl font-semibold text-white">Upcoming Appointments</h2>
                       <Link to="/book-appointment">
-                        <Button variant="outline" size="sm" className="border-teal-400 text-teal-400 hover:bg-teal-700">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-teal-400 text-teal-400 hover:bg-teal-700"
+                        >
                           Book New
                         </Button>
                       </Link>
@@ -412,13 +428,25 @@ const DashboardPage: React.FC = () => {
                     </Link>
                   </div>
                   <div className="flex space-x-3 mb-6">
-                    <Button variant="outline" size="sm" className="border-teal-400 text-teal-400 hover:bg-teal-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-teal-400 text-teal-400 hover:bg-teal-700"
+                    >
                       Upcoming
                     </Button>
-                    <Button variant="outline" size="sm" className="border-emerald-400 text-emerald-400 hover:bg-emerald-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-emerald-400 text-emerald-400 hover:bg-emerald-700"
+                    >
                       Completed
                     </Button>
-                    <Button variant="outline" size="sm" className="border-red-400 text-red-400 hover:bg-red-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-400 text-red-400 hover:bg-red-700"
+                    >
                       Cancelled
                     </Button>
                   </div>
@@ -468,10 +496,18 @@ const DashboardPage: React.FC = () => {
                             <div className="mt-6 flex flex-wrap gap-3">
                               {a.status === 'upcoming' ? (
                                 <>
-                                  <Button variant="primary" size="sm" className="bg-emerald-500 hover:bg-emerald-600">
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    className="bg-emerald-500 hover:bg-emerald-600"
+                                  >
                                     Join Video Call
                                   </Button>
-                                  <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-400 hover:bg-indigo-700">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-indigo-400 text-indigo-400 hover:bg-indigo-700"
+                                  >
                                     Reschedule
                                   </Button>
                                   <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-700">
@@ -480,10 +516,18 @@ const DashboardPage: React.FC = () => {
                                 </>
                               ) : (
                                 <>
-                                  <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-gray-400 text-gray-400 hover:bg-gray-700"
+                                  >
                                     View Details
                                   </Button>
-                                  <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-gray-400 text-gray-400 hover:bg-gray-700"
+                                  >
                                     Download Report
                                   </Button>
                                 </>
@@ -502,7 +546,11 @@ const DashboardPage: React.FC = () => {
                 <motion.div variants={fadeInUp} className="space-y-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-semibold text-white">All Notifications</h2>
-                    <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-400 hover:bg-indigo-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-indigo-400 text-indigo-400 hover:bg-indigo-700"
+                    >
                       Mark All as Read
                     </Button>
                   </div>
@@ -540,7 +588,11 @@ const DashboardPage: React.FC = () => {
                           </div>
                           <p className="text-gray-300 mt-1">{n.message}</p>
                           <div className="mt-3 flex space-x-3">
-                            <Button variant="outline" size="sm" className="border-gray-400 text-gray-400 hover:bg-gray-700">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-400 text-gray-400 hover:bg-gray-700"
+                            >
                               {n.type === 'reminder'
                                 ? 'View Appointment'
                                 : n.type === 'medical'
@@ -548,7 +600,11 @@ const DashboardPage: React.FC = () => {
                                 : 'Read Message'}
                             </Button>
                             {!n.read && (
-                              <Button variant="ghost" size="sm" className="text-indigo-400 hover:bg-indigo-700">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-indigo-400 hover:bg-indigo-700"
+                              >
                                 Mark as Read
                               </Button>
                             )}
@@ -592,11 +648,13 @@ const DashboardPage: React.FC = () => {
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Phone Number</p>
-                          <p className="text-gray-200">+1 (555) 123-4567</p>
+                          <p className="text-gray-200">{user?.phone || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Date of Birth</p>
-                          <p className="text-gray-200">January 15, 1985</p>
+                          <p className="text-gray-200">
+                            {user?.dob ? format(new Date(user.dob), 'MMMM d, yyyy') : 'Not provided'}
+                          </p>
                         </div>
                         <Button
                           variant="outline"
@@ -609,7 +667,12 @@ const DashboardPage: React.FC = () => {
                         {showEditProfile && (
                           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
                             <EditProfileForm
-                              user={user!}
+                              user={{
+                                name: user?.name || '',
+                                email: user?.email || '',
+                                phone: user?.phone || '',
+                                dob: user?.dob || '',
+                              }}
                               onClose={() => setShowEditProfile(false)}
                               onSave={handleProfileSave}
                             />
@@ -628,19 +691,19 @@ const DashboardPage: React.FC = () => {
                       <div className="space-y-4">
                         <div>
                           <p className="text-sm text-gray-400">Blood Type</p>
-                          <p className="text-gray-200">{medicalInfo.bloodType}</p>
+                          <p className="text-gray-200">{medicalInfo.bloodType || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Allergies</p>
-                          <p className="text-gray-200">{medicalInfo.allergies}</p>
+                          <p className="text-gray-200">{medicalInfo.allergies || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Current Medications</p>
-                          <p className="text-gray-200">{medicalInfo.currentMedications}</p>
+                          <p className="text-gray-200">{medicalInfo.currentMedications || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Medical Conditions</p>
-                          <p className="text-gray-200">{medicalInfo.medicalConditions}</p>
+                          <p className="text-gray-200">{medicalInfo.medicalConditions || 'Not provided'}</p>
                         </div>
                         <Button
                           variant="outline"
@@ -652,7 +715,7 @@ const DashboardPage: React.FC = () => {
                         </Button>
                         {showUpdateMedical && (
                           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                            <UpdateMedicalform
+                            <UpdateMedicalInfoForm
                               medicalInfo={medicalInfo}
                               onClose={() => setShowUpdateMedical(false)}
                               onSave={handleMedicalSave}
@@ -698,18 +761,18 @@ const DashboardPage: React.FC = () => {
                           </p>
                         </div>
                         <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            id="sms-notifications"
-                          />
+                          <input type="checkbox" className="sr-only peer" id="sms-notifications" />
                           <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-indigo-600"></span>
                           <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
                         </div>
                       </div>
 
                       <div className="pt-4 border-t border-gray-700">
-                        <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-700 border-red-500">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500 hover:bg-red-700 border-red-500"
+                        >
                           Change Password
                         </Button>
                       </div>
