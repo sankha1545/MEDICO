@@ -1,20 +1,22 @@
 // File: frontend/src/pages/patient/DashboardPage.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
-  User as UserIcon,
   Activity,
   FileText,
   Bell,
   CheckCircle,
   AlertTriangle,
+  User as UserIcon,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
+import axios from 'axios';
 import { Button } from '../../components/common/Button';
 import EditProfileForm from '../../components/common/editprofile/editprofileforms';
 import UpdateMedicalInfoForm, { MedicalInfo } from '../../components/common/medicalinfo/UpdateMedicalInfoForm';
@@ -150,6 +152,12 @@ const DashboardPage: React.FC = () => {
     medicalConditions: '',
   });
 
+  // States for avatar upload
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>(user?.profileImageUrl || '');
+  const [error, setError] = useState<string | null>(null);
+
   // On mount, fetch real medical info from backend
   useEffect(() => {
     const fetchMedical = async () => {
@@ -172,6 +180,13 @@ const DashboardPage: React.FC = () => {
 
     fetchMedical();
   }, []);
+
+  // Update avatarPreview whenever user.profileImageUrl changes
+  useEffect(() => {
+    if (user?.profileImageUrl) {
+      setAvatarPreview(user.profileImageUrl);
+    }
+  }, [user?.profileImageUrl]);
 
   // Handle saving profile changes
   const handleProfileSave = async (updatedValues: {
@@ -225,6 +240,67 @@ const DashboardPage: React.FC = () => {
   const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
   const completedCount = mockAppointments.filter((a) => a.status === 'completed').length;
   const unreadCount = mockNotifications.filter((n) => !n.read).length;
+
+  // Avatar click opens file picker
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // When a file is selected, upload immediately
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+
+    // Show local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarPreview(objectUrl);
+
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', file);
+
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Not authenticated');
+        setUploading(false);
+        return;
+      }
+
+      // Send to correct endpoint for avatar upload
+      const res = await axios.put(
+        'http://localhost:4000/api/users/me/avatar',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // After successful upload, fetch updated user to get new profileImageUrl
+      const userRes = await axios.get('http://localhost:4000/api/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      updateProfile({}); // trigger context refresh; assumes updateProfile causes refetch
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to upload profile picture.');
+      // Revert preview to old URL if upload fails
+      if (user?.profileImageUrl) {
+        setAvatarPreview(user.profileImageUrl);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Determine which avatar to show: either preview or placeholder
+  const avatarSrc = avatarPreview || '';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-gray-100 overflow-y-auto">
@@ -620,10 +696,63 @@ const DashboardPage: React.FC = () => {
               {activeTab === 'profile' && (
                 <motion.div variants={fadeInUp} className="space-y-8">
                   <div className="flex items-center mb-6">
-                    <div className="bg-gray-700 rounded-full w-24 h-24 flex items-center justify-center mr-6">
-                      <UserIcon size={48} className="text-gray-400" />
+                    <div className="relative">
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt="Profile"
+                          onClick={handleAvatarClick}
+                          className={`w-24 h-24 rounded-full object-cover border-2 border-gray-700 cursor-pointer ${
+                            uploading ? 'opacity-50' : 'opacity-100'
+                          }`}
+                        />
+                      ) : (
+                        <div
+                          onClick={handleAvatarClick}
+                          className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center mr-6 cursor-pointer ${
+                            uploading ? 'opacity-50' : 'opacity-100'
+                          }`}
+                        >
+                          <UserIcon size={48} className="text-gray-400" />
+                        </div>
+                      )}
+
+                      {/* Hidden file input */}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+
+                      {uploading && (
+                        <div className="absolute top-0 left-0 w-24 h-24 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                          <svg
+                            className="animate-spin h-6 w-6 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"
+                            />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                    <div>
+
+                    <div className="ml-6">
                       <h2 className="text-3xl font-semibold text-white">{user?.name}</h2>
                       <p className="text-gray-400">{user?.email}</p>
                     </div>
@@ -742,12 +871,7 @@ const DashboardPage: React.FC = () => {
                           </p>
                         </div>
                         <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            id="email-notifications"
-                            defaultChecked
-                          />
+                          <input type="checkbox" className="sr-only peer" id="email-notifications" defaultChecked />
                           <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-indigo-600"></span>
                           <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
                         </div>

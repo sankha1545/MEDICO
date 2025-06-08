@@ -73,7 +73,7 @@ export default function NotFoundPage() {
         >
           <Button
             as={Link}
-            to="/"
+            to="/home"
             variant="primary"
             size="lg"
             icon={<Home size={20} />}

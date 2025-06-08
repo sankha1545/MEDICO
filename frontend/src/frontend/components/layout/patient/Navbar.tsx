@@ -172,7 +172,7 @@ export const Navbar: React.FC = () => {
               <div className="relative">
                 <motion.button
                   onClick={() => setIsProfileOpen((p) => !p)}
-                  className="flex items-center space-x-1 text-gray-800 hover:text-pink-500 transition-colors"
+                  className="flex items-center space-x-1 text-white hover:text-pink-500 transition-colors"
                   whileHover={{ scale: 1.02 }}
                   transition={{ type: 'spring', stiffness: 300 }}
                 >

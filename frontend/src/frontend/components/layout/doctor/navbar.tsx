@@ -105,7 +105,7 @@ export const DoctorNavbar = () => {
               <MobileNavLink to="/doctor/reports">Reports</MobileNavLink>
 
               {isAuthenticated ? (
-                <button onClick={logout} className="w-full flex items-center px-3 py-2 text-gray-700 hover:text-secondary-500 hover:bg-gray-50 rounded-md">
+                <button onClick={logout} className="w-full flex items-center px-3 py-2 text-white hover:text-secondary-500 hover:bg-gray-50 rounded-md">
                   <LogOut size={18} className="mr-2" /> Logout
                 </button>
               ) : (

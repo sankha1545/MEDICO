@@ -1,4 +1,4 @@
-// File: src/contexts/AuthContext.tsx
+// File: frontend/src/contexts/AuthContext.tsx
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
@@ -13,10 +13,12 @@ interface User {
   isVerified?: boolean;
   phone: string;
   dob: string; // ISO date string, e.g. "2025-06-07"
+  profileImageUrl?: string; // ← MUST store this
 }
 
 interface AuthContextValue {
   user: User | null;
+  setUser: (u: User | null) => void;
   isAuthenticated: boolean;
   loading: boolean;
   sendEmailOtp: (email: string) => Promise<void>;
@@ -46,14 +48,14 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const baseURL = import.meta.env.VITE_API_URL as string;
+  const baseURL = import.meta.env.VITE_API_URL as string; // e.g. "http://localhost:4000/api"
   const navigate = useNavigate();
 
   const api: AxiosInstance = axios.create({
     baseURL,
     headers: { 'Content-Type': 'application/json' },
   });
-
+  
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -73,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isVerified: res.data.isVerified,
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
+        profileImageUrl: res.data.profileImageUrl || '', // ← IMPORTANT
       };
       setUser(fetched);
       setIsAuthenticated(true);
@@ -138,7 +141,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { token, user: loggedInUser } = res.data;
       localStorage.setItem('authToken', token);
 
-      // Build our local User type
       const u: User = {
         id: loggedInUser.id,
         name: loggedInUser.name,
@@ -150,6 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dob: loggedInUser.dob
           ? new Date(loggedInUser.dob).toISOString().split('T')[0]
           : '',
+        profileImageUrl: loggedInUser.profileImageUrl || '', // ← NEW
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -187,7 +190,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     name?: string;
     email?: string;
     phone?: string;
-    dob?: string; // "YYYY-MM-DD"
+    dob?: string;
   }) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -198,7 +201,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Build updated User
       const updated: User = {
         id: res.data.id,
         name: res.data.name,
@@ -208,6 +210,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isVerified: res.data.isVerified,
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
+        profileImageUrl: user?.profileImageUrl || '', // preserve existing
       };
       setUser(updated);
     } catch (err: any) {
@@ -220,6 +223,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider
       value={{
         user,
+        setUser, // expose setter for DashboardPage to update profileImageUrl
         isAuthenticated,
         loading,
         sendEmailOtp,

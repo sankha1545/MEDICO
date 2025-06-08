@@ -39,7 +39,7 @@ const OAuthSuccessPage: React.FC = () => {
   }, [isAuthenticated, user, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-lg font-medium text-gray-700">
+    <div className="min-h-screen flex items-center justify-center text-lg font-medium text-white">
       Logging you in…
     </div>
   );

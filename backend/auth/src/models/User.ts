@@ -13,8 +13,6 @@ export interface IUser extends Document {
   phone?: string;
   dob?: Date;
   createdAt: Date;
-
-  // NEW: store image binary and its MIME type
   profileImage?: {
     data: Buffer;
     contentType: string;
@@ -32,8 +30,7 @@ const UserSchema: Schema = new Schema({
   phone: { type: String, default: '' },
   dob: { type: Date },
   createdAt: { type: Date, default: Date.now },
-
-  // NEW FIELD: store image data buffer and MIME type
+  // We store image binary separately in ProfileImage model, so we can remove this field if unused
   profileImage: {
     data: { type: Buffer },
     contentType: { type: String },

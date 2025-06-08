@@ -1,9 +1,9 @@
-// src/pages/doctors/DoctorsPage.tsx
+// File: src/pages/doctors/DoctorsPage.tsx
 
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, Star, Calendar, MapPin, Clock, X } from "lucide-react";
+import axios from "axios";
 import { Button } from "../../components/common/Button";
 import { Input } from "../../components/common/Input";
 import Chatbot from "../../components/common/chatbot/chatbot";
@@ -28,7 +28,6 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.15 } },
 };
 
-// Mock data
 interface Doctor {
   id: string;
   name: string;
@@ -42,52 +41,7 @@ interface Doctor {
   nextAvailable: string;
   image: string;
 }
-const mockDoctors: Doctor[] = [
-  {
-    id: "1",
-    name: "Dr. Sarah Johnson",
-    specialty: "Cardiologist",
-    rating: 4.9,
-    reviewCount: 124,
-    experience: "15 years",
-    hospitalAffiliation: "Memorial Hospital",
-    location: "New York, NY",
-    availableSlots: 5,
-    nextAvailable: "Tomorrow",
-    image:
-      "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg?auto=compress&cs=tinysrgb&w=300",
-  },
-  {
-    id: "2",
-    name: "Dr. Michael Rodriguez",
-    specialty: "Dermatologist",
-    rating: 4.7,
-    reviewCount: 98,
-    experience: "12 years",
-    hospitalAffiliation: "City Skin Clinic",
-    location: "Los Angeles, CA",
-    availableSlots: 3,
-    nextAvailable: "Today",
-    image:
-      "https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg?auto=compress&cs=tinysrgb&w=300",
-  },
-  {
-    id: "3",
-    name: "Dr. Emma Chen",
-    specialty: "Neurologist",
-    rating: 4.8,
-    reviewCount: 110,
-    experience: "10 years",
-    hospitalAffiliation: "Neurology Center",
-    location: "Chicago, IL",
-    availableSlots: 2,
-    nextAvailable: "Tomorrow",
-    image:
-      "https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=300",
-  },
-];
 
-// Mock specialties
 const specialties = [
   "All Specialties",
   "Cardiology",
@@ -102,13 +56,14 @@ const specialties = [
 ];
 
 const DoctorsPage: React.FC = () => {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("All Specialties");
   const [showFilters, setShowFilters] = useState(false);
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
   const [viewingDoctorId, setViewingDoctorId] = useState<string | null>(null);
 
-  // Booking form state
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -118,18 +73,34 @@ const DoctorsPage: React.FC = () => {
     timeSlot: "",
   });
 
-  // Filter logic
-  const filteredDoctors = mockDoctors.filter((doctor) => {
-    const matchesSearch =
-      doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSpecialty =
-      selectedSpecialty === "All Specialties" || doctor.specialty === selectedSpecialty;
-    return matchesSearch && matchesSpecialty;
-  });
+  // Fetch doctors from live API
+  useEffect(() => {
+    axios
+      .get<Doctor[]>(`${import.meta.env.VITE_API_URL}/doctors`)
+      .then((res) => {
+        setDoctors(res.data);
+        setFilteredDoctors(res.data);
+      })
+      .catch((err) => console.error("Error fetching doctors:", err));
+  }, []);
 
-  // Handlers
-  const handleBookClick = (doctorId: string) => setBookingDoctorId(doctorId);
+  // Apply search and specialty filters
+  useEffect(() => {
+    const term = searchTerm.toLowerCase();
+    const filtered = doctors.filter((doc) => {
+      const matchesSearch =
+        doc.name.toLowerCase().includes(term) ||
+        doc.specialty.toLowerCase().includes(term);
+      const matchesSpec =
+        selectedSpecialty === "All Specialties" ||
+        doc.specialty === selectedSpecialty;
+      return matchesSearch && matchesSpec;
+    });
+    setFilteredDoctors(filtered);
+  }, [searchTerm, selectedSpecialty, doctors]);
+
+  // Modal handlers
+  const handleBookClick = (id: string) => setBookingDoctorId(id);
   const closeBookingForm = () => {
     setBookingDoctorId(null);
     setFormData({
@@ -141,7 +112,7 @@ const DoctorsPage: React.FC = () => {
       timeSlot: "",
     });
   };
-  const handleViewProfileClick = (doctorId: string) => setViewingDoctorId(doctorId);
+  const handleViewProfileClick = (id: string) => setViewingDoctorId(id);
   const closeViewProfileModal = () => setViewingDoctorId(null);
 
   const handleChange = (
@@ -150,6 +121,7 @@ const DoctorsPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Booking request:", { doctorId: bookingDoctorId, ...formData });
@@ -160,7 +132,7 @@ const DoctorsPage: React.FC = () => {
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-gray-100 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
         {/* Header */}
-        <motion.div variants={fadeInUp} className="mb-8">
+        <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Find the Right Doctor</h1>
           <p className="text-gray-400 text-lg">
             Search for specialists, read reviews, and book appointments
@@ -179,6 +151,7 @@ const DoctorsPage: React.FC = () => {
             <div className="relative flex-1">
               <Search size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500" />
               <Input
+              style={{color:"#000"}}
                 placeholder="Search by name or specialty..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -200,7 +173,7 @@ const DoctorsPage: React.FC = () => {
               ))}
             </select>
 
-            {/* Filters Button */}
+            {/* Filters Toggle */}
             <Button
               variant="outline"
               onClick={() => setShowFilters((prev) => !prev)}
@@ -211,69 +184,70 @@ const DoctorsPage: React.FC = () => {
             </Button>
           </div>
 
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-6 pt-4 border-t border-gray-700"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Availability
-                  </label>
-                  <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                    <option>Any time</option>
-                    <option>Today</option>
-                    <option>Tomorrow</option>
-                  </select>
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6 pt-4 border-t border-gray-700"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Availability
+                    </label>
+                    <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                      <option>Any time</option>
+                      <option>Today</option>
+                      <option>Tomorrow</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Distance</label>
+                    <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                      <option>Any distance</option>
+                      <option>Within 5 miles</option>
+                      <option>Within 10 miles</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Rating</label>
+                    <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                      <option>Any rating</option>
+                      <option>4+ stars</option>
+                      <option>3+ stars</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Distance</label>
-                  <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                    <option>Any distance</option>
-                    <option>Within 5 miles</option>
-                    <option>Within 10 miles</option>
-                  </select>
+                <div className="mt-4 flex justify-end gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-300 hover:bg-gray-700"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedSpecialty("All Specialties");
+                      setShowFilters(false);
+                    }}
+                  >
+                    Reset
+                  </Button>
+                  <Button variant="primary" size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                    Apply
+                  </Button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Rating</label>
-                  <select className="w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                    <option>Any rating</option>
-                    <option>4+ stars</option>
-                    <option>3+ stars</option>
-                  </select>
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-300 hover:bg-gray-700"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedSpecialty("All Specialties");
-                    setShowFilters(false);
-                  }}
-                >
-                  Reset
-                </Button>
-                <Button variant="primary" size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                  Apply
-                </Button>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Results Count */}
         <motion.div variants={fadeInUp} className="mb-4 text-gray-400">
           Showing {filteredDoctors.length} doctor
-          {filteredDoctors.length !== 1 ? "s" : ""}
-          {selectedSpecialty !== "All Specialties" &&
-            ` in ${selectedSpecialty}`}
+          {filteredDoctors.length !== 1 ? "s" : ""}{" "}
+          {selectedSpecialty !== "All Specialties" && `in ${selectedSpecialty}`}
         </motion.div>
 
         {/* Doctor List or Empty State */}
@@ -315,16 +289,8 @@ const DoctorsPage: React.FC = () => {
                             <Star
                               key={i}
                               size={16}
-                              fill={
-                                i < Math.floor(doctor.rating)
-                                  ? "currentColor"
-                                  : "none"
-                              }
-                              className={
-                                i < Math.floor(doctor.rating)
-                                  ? "text-yellow-500"
-                                  : "text-gray-600"
-                              }
+                              fill={i < Math.floor(doctor.rating) ? "currentColor" : "none"}
+                              className={i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-600"}
                             />
                           ))}
                           <span className="ml-2 text-sm text-gray-400">
@@ -415,194 +381,170 @@ const DoctorsPage: React.FC = () => {
         )}
 
         {/* Booking Modal */}
-        {bookingDoctorId && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
-            >
-              <button
-                onClick={closeBookingForm}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+        <AnimatePresence>
+          {bookingDoctorId && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
               >
-                <X size={20} />
-              </button>
-              <h2 className="text-2xl font-semibold text-white mb-4">Book Appointment</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  label="Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  fullWidth
-                  className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                />
-                <Input
-                  label="Phone Number"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  fullWidth
-                  className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                />
-                <Input
-                  label="Email (optional)"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  fullWidth
-                  className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                />
-
-                <div>
-                  <label
-                    htmlFor="bloodGroup"
-                    className="block text-sm font-medium text-gray-300 mb-1"
-                  >
-                    Blood Group
-                  </label>
-                  <select
-                    id="bloodGroup"
-                    name="bloodGroup"
-                    value={formData.bloodGroup}
+                <button
+                  onClick={closeBookingForm}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+                >
+                  <X size={20} />
+                </button>
+                <h2 className="text-2xl font-semibold text-white mb-4">Book Appointment</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <Input
+                    label="Name"
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
                     required
-                    className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="">Select blood group</option>
-                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
-                      (bg) => (
+                    fullWidth
+                    className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                  <Input
+                    label="Phone Number"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                    fullWidth
+                    className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                  <Input
+                    label="Email (optional)"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    fullWidth
+                    className="bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <label htmlFor="bloodGroup" className="block text-sm font-medium text-gray-300 mb-1">
+                      Blood Group
+                    </label>
+                    <select
+                      id="bloodGroup"
+                      name="bloodGroup"
+                      value={formData.bloodGroup}
+                      onChange={handleChange}
+                      required
+                      className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="">Select blood group</option>
+                      {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
                         <option key={bg} value={bg}>
                           {bg}
                         </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="timeSlot"
-                    className="block text-sm font-medium text-gray-300 mb-1"
-                  >
-                    Time Slot
-                  </label>
-                  <select
-                    id="timeSlot"
-                    name="timeSlot"
-                    value={formData.timeSlot}
-                    onChange={handleChange}
-                    required
-                    className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="">Select Time Slot</option>
-                    {["10:00 a.m - 12:00 p.m", "3:00 p.m - 6:00 p.m"].map(
-                      (slot) => (
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="timeSlot" className="block text-sm font-medium text-gray-300 mb-1">
+                      Time Slot
+                    </label>
+                    <select
+                      id="timeSlot"
+                      name="timeSlot"
+                      value={formData.timeSlot}
+                      onChange={handleChange}
+                      required
+                      className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="">Select Time Slot</option>
+                      {["10:00 a.m - 12:00 p.m", "3:00 p.m - 6:00 p.m"].map((slot) => (
                         <option key={slot} value={slot}>
                           {slot}
                         </option>
-                      )
-                    )}
-                  </select>
-                </div>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-300 mb-1">
+                      Message
+                    </label>
+                    <textarea
+                      id="message"
+                      name="message"
+                      rows={4}
+                      value={formData.message}
+                      onChange={handleChange}
+                      className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus;border-indigo-500 text-sm"
+                      placeholder="Additional info..."
+                    />
+                  </div>
+                  <Button type="submit" variant="primary" fullWidth className="bg-indigo-600 hover:bg-indigo-700">
+                    Confirm Booking
+                  </Button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium text-gray-300 mb-1"
-                  >
-                    Message
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={4}
-                    value={formData.message}
-                    onChange={handleChange}
-                    className="block w-full px-3 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="Additional info..."
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  fullWidth
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  Confirm Booking
-                </Button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-
-        {/* View Profile Modal */}
-        {viewingDoctorId && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
-            >
-              <button
-                onClick={closeViewProfileModal}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+        {/* Profile Modal */}
+        <AnimatePresence>
+          {viewingDoctorId && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
               >
-                <X size={20} />
-              </button>
-              {filteredDoctors
-                .filter((doc) => doc.id === viewingDoctorId)
-                .map((doctor) => (
-                  <div key={doctor.id}>
-                    <h2 className="text-2xl font-semibold text-white mb-4">
-                      {doctor.name}’s Profile
-                    </h2>
-                    <div className="flex gap-6">
-                      <img
-                        src={doctor.image}
-                        alt={doctor.name}
-                        className="w-36 h-36 rounded-full object-cover border-2 border-gray-700"
-                      />
-                      <div className="space-y-4">
-                        <p className="text-lg font-medium text-indigo-400">{doctor.specialty}</p>
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={20}
-                              fill={
-                                i < Math.floor(doctor.rating) ? "currentColor" : "none"
-                              }
-                              className={
-                                i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-600"
-                              }
-                            />
-                          ))}
-                          <span className="ml-2 text-gray-300">
-                            {doctor.rating} ({doctor.reviewCount} reviews)
-                          </span>
+                <button
+                  onClick={closeViewProfileModal}
+                  className="absolute top-4 right-4 text-gray-400 hover;text-gray-200"
+                >
+                  <X size={20} />
+                </button>
+                {filteredDoctors
+                  .filter((doc) => doc.id === viewingDoctorId)
+                  .map((doctor) => (
+                    <div key={doctor.id}>
+                      <h2 className="text-2xl font-semibold text-white mb-4">{doctor.name}’s Profile</h2>
+                      <div className="flex gap-6">
+                        <img
+                          src={doctor.image}
+                          alt={doctor.name}
+                          className="w-36 h-36 rounded-full object-cover border-2 border-gray-700"
+                        />
+                        <div className="space-y-4">
+                          <p className="text-lg font-medium text-indigo-400">{doctor.specialty}</p>
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={20}
+                                fill={i < Math.floor(doctor.rating) ? "currentColor" : "none"}
+                                className={i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-600"}
+                              />
+                            ))}
+                            <span className="ml-2 text-gray-300">
+                              {doctor.rating} ({doctor.reviewCount} reviews)
+                            </span>
+                          </div>
+                          <p className="text-gray-300">Experience: {doctor.experience}</p>
+                          <p className="text-gray-300">Hospital: {doctor.hospitalAffiliation}</p>
+                          <p className="text-gray-300">Location: {doctor.location}</p>
+                          <p className="text-gray-300">Next Available: {doctor.nextAvailable}</p>
                         </div>
-                        <p className="text-gray-300">Experience: {doctor.experience}</p>
-                        <p className="text-gray-300">Hospital: {doctor.hospitalAffiliation}</p>
-                        <p className="text-gray-300">Location: {doctor.location}</p>
-                        <p className="text-gray-300">Next Available: {doctor.nextAvailable}</p>
                       </div>
                     </div>
-                  </div>
-                ))}
-            </motion.div>
-          </div>
-        )}
+                  ))}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Floating Chatbot */}

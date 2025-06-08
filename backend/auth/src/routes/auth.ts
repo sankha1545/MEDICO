@@ -1,4 +1,4 @@
-// File: backend/src/routes/auth.ts
+// File: backend/src/routes/Auth.ts
 
 import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
@@ -40,7 +40,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: GOOGLE_CALLBACK_URL, // ← must exactly match what’s in Google Cloud
+      callbackURL: GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -51,7 +51,7 @@ passport.use(
             name: profile.displayName,
             email,
             provider: 'google',
-            role: 'patient', // default role
+            role: 'patient',
           }).save();
         }
         return done(null, user);
@@ -82,7 +82,7 @@ interface JwtPayload {
   exp: number;
 }
 
-const authenticateJWT = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateJWT = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authorization header missing or malformed' });

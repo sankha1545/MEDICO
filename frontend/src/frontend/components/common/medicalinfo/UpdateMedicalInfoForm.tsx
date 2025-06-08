@@ -1,4 +1,4 @@
-// File: frontend/src/components/common/medicalinfo/UpdateMedicalform.tsx
+// File: frontend/src/components/common/medicalinfo/UpdateMedicalInfoForm.tsx
 
 import React, { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,13 +46,16 @@ const fieldVariants = {
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
-const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
+const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
   medicalInfo,
   onClose,
   onSave,
 }) => {
   const [form, setForm] = useState<MedicalInfo>(medicalInfo);
   const [isSaving, setIsSaving] = useState(false);
+
+  // READ VITE_API_URL from environment. It MUST be set to "http://localhost:4000/api"
+  const baseURL = import.meta.env.VITE_API_URL as string;
 
   const handleChange =
     (field: keyof MedicalInfo) =>
@@ -63,10 +66,18 @@ const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Not authenticated (no token found).');
+        setIsSaving(false);
+        return;
+      }
+
+      // Notice we now send to `${baseURL}/medical` (which resolves to http://localhost:4000/api/medical)
       const resp = await axios.put<{ medicalInfo: MedicalInfo }>(
-        '/api/medical',
+        `${baseURL}/medical`,
         form,
         {
           headers: {
@@ -74,11 +85,16 @@ const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
           },
         }
       );
+
       onSave(resp.data.medicalInfo);
       onClose();
     } catch (err: any) {
-      console.error('Failed to save medical info:', err);
-      alert('Failed to save. Please try again.');
+      // If the backend logs something, it will appear in your Node/Express console
+      console.error('Failed to save medical info:', err.response || err);
+      alert(
+        err.response?.data?.message ||
+          'Failed to save. Please try again.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -132,7 +148,10 @@ const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
             className="px-8 py-6 bg-white space-y-6"
             initial="hidden"
             animate="visible"
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
+            }}
           >
             <motion.div variants={fieldVariants}>
               <label className="flex items-center text-sm font-medium text-gray-700 focus-within:text-indigo-600">
@@ -217,4 +236,4 @@ const UpdateMedicalform: React.FC<UpdateMedicalInfoFormProps> = ({
   );
 };
 
-export default UpdateMedicalform;
+export default UpdateMedicalInfoForm;

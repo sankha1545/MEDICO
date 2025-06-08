@@ -7,7 +7,7 @@ import passport from 'passport';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import medicalRoutes from './routes/medical';
-import authRoutes from './routes/auth';
+import authRoutes from './routes/Auth';
 
 dotenv.config();
 
@@ -38,6 +38,10 @@ mongoose
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+// Mount authentication routes under /api
 app.use('/api', authRoutes);
+
+// Mount medical-info routes under /api/medical
+app.use('/api/medical', medicalRoutes);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
