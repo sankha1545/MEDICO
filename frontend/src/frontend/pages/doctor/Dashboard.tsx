@@ -1,8 +1,8 @@
 // File: frontend/src/pages/DoctorDashboardPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, subDays, subMonths, subYears, startOfMonth, startOfYear } from 'date-fns';
 import {
   Calendar,
   Users,
@@ -22,6 +22,15 @@ import {
   StaggeredContainer,
   staggeredItemVariants,
 } from '../../components/animations/Transitions';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
 
 // Data Types
 interface DoctorAppointment {
@@ -51,6 +60,27 @@ const mockAppointments: DoctorAppointment[] = [
   { id: 'a1', patientName: 'John Doe', date: new Date(2025, 4, 20, 10, 0), status: 'upcoming' },
   { id: 'a2', patientName: 'Jane Smith', date: new Date(2025, 4, 21, 14, 30), status: 'upcoming' },
   { id: 'a3', patientName: 'Mike Johnson', date: new Date(2025, 3, 15, 9, 0), status: 'completed' },
+  // Additional sample data for last 7 days
+  { id: 'a4', patientName: 'Alice Walker', date: subDays(new Date(), 1), status: 'completed' },
+  { id: 'a5', patientName: 'Bob Martin', date: subDays(new Date(), 2), status: 'completed' },
+  { id: 'a6', patientName: 'Carol King', date: subDays(new Date(), 2), status: 'completed' },
+  { id: 'a7', patientName: 'David Brown', date: subDays(new Date(), 3), status: 'completed' },
+  { id: 'a8', patientName: 'Eve Davis', date: subDays(new Date(), 5), status: 'completed' },
+  { id: 'a9', patientName: 'Frank Moore', date: subDays(new Date(), 6), status: 'completed' },
+  // Sample data for last 12 months
+  { id: 'a10', patientName: 'Grace Lee', date: subMonths(new Date(), 1), status: 'completed' },
+  { id: 'a11', patientName: 'Harry White', date: subMonths(new Date(), 1), status: 'completed' },
+  { id: 'a12', patientName: 'Ivy Green', date: subMonths(new Date(), 2), status: 'completed' },
+  { id: 'a13', patientName: 'Jack Black', date: subMonths(new Date(), 4), status: 'completed' },
+  { id: 'a14', patientName: 'Karen Hill', date: subMonths(new Date(), 5), status: 'completed' },
+  { id: 'a15', patientName: 'Leo Scott', date: subMonths(new Date(), 11), status: 'completed' },
+  // Sample data for last 5 years
+  { id: 'a16', patientName: 'Mia Clark', date: subYears(new Date(), 1), status: 'completed' },
+  { id: 'a17', patientName: 'Noah Cox', date: subYears(new Date(), 2), status: 'completed' },
+  { id: 'a18', patientName: 'Olivia Fox', date: subYears(new Date(), 3), status: 'completed' },
+  { id: 'a19', patientName: 'Paul Young', date: subYears(new Date(), 4), status: 'completed' },
+  { id: 'a20', patientName: 'Quinn Reed', date: subYears(new Date(), 4), status: 'completed' },
+  { id: 'a21', patientName: 'Ryan Diaz', date: subYears(new Date(), 5), status: 'completed' },
 ];
 
 const mockMessages: DoctorMessage[] = [
@@ -79,6 +109,51 @@ const DoctorDashboard: React.FC = () => {
   const totalPatients = mockPatients.length;
   const earningsThisMonth = 5200; // mock value
   const unreadMessages = mockMessages.filter(m => !m.read).length;
+
+  // Prepare data for the last 7 days (including today) – Weekly
+  const weeklyData = useMemo(() => {
+    const data: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = subDays(new Date(), i);
+      const key = format(dayDate, 'yyyy-MM-dd');
+      const formattedLabel = format(dayDate, 'MMM d');
+      const count = mockAppointments.filter(a =>
+        format(a.date, 'yyyy-MM-dd') === key
+      ).length;
+      data.push({ date: formattedLabel, count });
+    }
+    return data;
+  }, []);
+
+  // Prepare data for the last 12 months (including current month) – Monthly
+  const monthlyData = useMemo(() => {
+    const data: { month: string; count: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const monthDate = subMonths(new Date(), i);
+      const key = format(startOfMonth(monthDate), 'yyyy-MM');
+      const formattedLabel = format(monthDate, 'MMM yyyy');
+      const count = mockAppointments.filter(a =>
+        format(a.date, 'yyyy-MM') === key
+      ).length;
+      data.push({ month: formattedLabel, count });
+    }
+    return data;
+  }, []);
+
+  // Prepare data for the last 5 years (including current year) – Yearly
+  const yearlyData = useMemo(() => {
+    const data: { year: string; count: number }[] = [];
+    for (let i = 4; i >= 0; i--) {
+      const yearDate = subYears(new Date(), i);
+      const key = format(startOfYear(yearDate), 'yyyy');
+      const formattedLabel = format(yearDate, 'yyyy');
+      const count = mockAppointments.filter(a =>
+        format(a.date, 'yyyy') === key
+      ).length;
+      data.push({ year: formattedLabel, count });
+    }
+    return data;
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -176,31 +251,122 @@ const DoctorDashboard: React.FC = () => {
             {activeTab === 'overview' && (
               <StaggeredContainer>
                 <div className="space-y-8">
-                  <h2 className="text-2xl font-semibold text-gray-100">Today's Summary</h2>
-                  {mockAppointments.filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
-                    .length ? (
-                    mockAppointments
-                      .filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
-                      .map(a => (
-                        <motion.div
-                          key={a.id}
-                          variants={staggeredItemVariants}
-                          className="bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between items-center hover:shadow-md transition-shadow"
-                        >
-                          <div>
-                            <p className="font-semibold text-gray-100">{a.patientName}</p>
-                            <p className="text-gray-400 mt-1">{format(a.date, 'h:mm a')}</p>
-                          </div>
-                          <Link to={`/doctor/appointments/${a.id}`}>
-                            <Button variant="primary" size="sm">
-                              Details
-                            </Button>
-                          </Link>
-                        </motion.div>
-                      ))
-                  ) : (
-                    <p className="text-gray-400">No appointments scheduled for today.</p>
-                  )}
+                  {/* Weekly Performance Graph */}
+                  <SlideIn direction="up" delay={0.1}>
+                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 7 Days: Appointments</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={weeklyData}>
+                          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+                          <XAxis dataKey="date" stroke="#888" />
+                          <YAxis allowDecimals={false} stroke="#888" />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#2d2d2d', border: 'none' }}
+                            itemStyle={{ color: '#fff' }}
+                            labelStyle={{ color: '#aaa' }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#4ade80"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 6 }}
+                            isAnimationActive={true}
+                            animationDuration={1500}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </SlideIn>
+
+                  {/* Monthly Performance Graph */}
+                  <SlideIn direction="up" delay={0.2}>
+                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 12 Months: Appointments</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={monthlyData}>
+                          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+                          <XAxis dataKey="month" stroke="#888" />
+                          <YAxis allowDecimals={false} stroke="#888" />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#2d2d2d', border: 'none' }}
+                            itemStyle={{ color: '#fff' }}
+                            labelStyle={{ color: '#aaa' }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#60a5fa"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 6 }}
+                            isAnimationActive={true}
+                            animationDuration={1500}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </SlideIn>
+
+                  {/* Yearly Performance Graph */}
+                  <SlideIn direction="up" delay={0.3}>
+                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 5 Years: Appointments</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={yearlyData}>
+                          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+                          <XAxis dataKey="year" stroke="#888" />
+                          <YAxis allowDecimals={false} stroke="#888" />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#2d2d2d', border: 'none' }}
+                            itemStyle={{ color: '#fff' }}
+                            labelStyle={{ color: '#aaa' }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#facc15"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 6 }}
+                            isAnimationActive={true}
+                            animationDuration={1500}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </SlideIn>
+
+                  {/* Today's Summary */}
+                  <div className="space-y-8">
+                    <h2 className="text-2xl font-semibold text-gray-100">Today's Summary</h2>
+                    {mockAppointments.filter(a =>
+                      format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                    ).length ? (
+                      mockAppointments
+                        .filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
+                        .map(a => (
+                          <motion.div
+                            key={a.id}
+                            variants={staggeredItemVariants}
+                            className="bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between items-center hover:shadow-md transition-shadow"
+                          >
+                            <div>
+                              <p className="font-semibold text-gray-100">{a.patientName}</p>
+                              <p className="text-gray-400 mt-1">{format(a.date, 'h:mm a')}</p>
+                            </div>
+                            <Link to={`/doctor/appointments/${a.id}`}>
+                              <Button variant="primary" size="sm">
+                                Details
+                              </Button>
+                            </Link>
+                          </motion.div>
+                        ))
+                    ) : (
+                      <p className="text-gray-400">No appointments scheduled for today.</p>
+                    )}
+                  </div>
                 </div>
               </StaggeredContainer>
             )}
@@ -360,7 +526,7 @@ const DoctorDashboard: React.FC = () => {
                   </Button>
                   {showEditProfile && (
                     // Placeholder for an edit form
-                    <motion.div /> 
+                    <motion.div />
                   )}
                 </motion.div>
                 <motion.div

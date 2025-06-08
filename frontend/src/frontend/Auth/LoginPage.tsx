@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, loginWithToken, signInWithGoogle, user, isAuthenticated } = useAuth();
+  const { login, loginWithToken, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -33,7 +33,7 @@ const LoginPage: React.FC = () => {
     }
   }, [searchParams, loginWithToken]);
 
-  // After user is authenticated, redirect based on role
+  // Once authenticated, redirect based on role
   useEffect(() => {
     if (isAuthenticated && user) {
       if (user.role === 'doctor') {
@@ -51,7 +51,7 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-      // Redirect will happen automatically from useEffect
+      // Successful login → redirect happens in the above useEffect
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {
@@ -131,7 +131,9 @@ const LoginPage: React.FC = () => {
             </form>
 
             <div className="mt-4">
-              <Button variant="outline" onClick={signInWithGoogle} fullWidth>
+              <Button variant="outline" onClick={() => loginWithToken('')} fullWidth onClick={() => {
+                window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+              }}>
                 Continue with Google
               </Button>
             </div>

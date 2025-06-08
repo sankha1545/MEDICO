@@ -4,8 +4,8 @@ const path = require('path');
 require('dotenv').config();
 
 /**
- * Reads qa.json, validates entries, and returns:
- *   [{ question, answer }, ...]
+ * Reads qa.json, accepts either {prompt,response} or {Q,A},
+ * skips invalid entries, and returns [{ question, answer }, ...].
  */
 function parseJSONtoQA() {
   const rawPath = process.env.JSON_PATH;
@@ -17,7 +17,6 @@ function parseJSONtoQA() {
   }
 
   const raw = fs.readFileSync(fullPath, 'utf8');
-
   let arr;
   try {
     arr = JSON.parse(raw);
@@ -32,17 +31,20 @@ function parseJSONtoQA() {
 
   const cleaned = arr
     .map((item, index) => {
-      if (!item.prompt || !item.response) {
+      const question = item.prompt || item.Q;
+      const answer   = item.response || item.A;
+
+      if (!question || !answer) {
         console.warn(`⚠️ Skipping invalid entry at index ${index}`, item);
         return null;
       }
 
       return {
-        question: String(item.prompt).trim().toLowerCase(),
-        answer: String(item.response).trim(),
+        question: String(question).trim().toLowerCase(),
+        answer:   String(answer).trim(),
       };
     })
-    .filter(Boolean); // remove nulls
+    .filter(Boolean);
 
   console.log(`✅ Loaded ${cleaned.length} valid Q&A entries from JSON`);
   return cleaned;

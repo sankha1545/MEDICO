@@ -3,7 +3,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronsRight, User as UserIcon, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import {
+  ChevronsRight,
+  User as UserIcon,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -70,9 +77,12 @@ const SignUpPage: React.FC = () => {
           />
           <div className="absolute inset-0 flex flex-col justify-center p-12">
             <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl text-white max-w-md">
-              <h2 className="text-2xl font-bold mb-4">Join our healthcare community</h2>
+              <h2 className="text-2xl font-bold mb-4">
+                Join our healthcare community
+              </h2>
               <p className="mb-6">
-                Create an account to book appointments, access virtual consultations, and manage your health journey seamlessly.
+                Create an account to book appointments, access virtual consultations,
+                and manage your health journey seamlessly.
               </p>
               <motion.div
                 className="flex flex-col space-y-4"
@@ -92,7 +102,10 @@ const SignUpPage: React.FC = () => {
                   <motion.div
                     key={idx}
                     className="flex items-center space-x-2"
-                    variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
+                    variants={{
+                      hidden: { opacity: 0, x: -20 },
+                      visible: { opacity: 1, x: 0 },
+                    }}
                   >
                     <ChevronsRight size={18} />
                     <span>{benefit}</span>
@@ -129,7 +142,9 @@ const SignUpPage: React.FC = () => {
                 </span>
               </Link>
               <h1 className="text-3xl font-bold text-gray-800">Create an account</h1>
-              <p className="text-gray-600 mt-2">Sign up to get started with MedBook</p>
+              <p className="text-gray-600 mt-2">
+                Sign up to get started with MedBook
+              </p>
             </div>
 
             {error && (
@@ -183,7 +198,9 @@ const SignUpPage: React.FC = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-3 top-6 flex items-center"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -203,16 +220,24 @@ const SignUpPage: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={() =>
+                    setShowConfirmPassword(!showConfirmPassword)
+                  }
                   className="absolute inset-y-0 right-3 top-6 flex items-center"
-                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  aria-label={
+                    showConfirmPassword
+                      ? 'Hide confirm password'
+                      : 'Show confirm password'
+                  }
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">I am a:</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  I am a:
+                </label>
                 <div className="grid grid-cols-2 gap-4">
                   {(['patient', 'doctor'] as Role[]).map((r) => (
                     <button
@@ -253,21 +278,38 @@ const SignUpPage: React.FC = () => {
                 </label>
               </div>
 
-              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth className="mt-6">
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isLoading}
+                fullWidth
+                className="mt-6"
+              >
                 Create Account
               </Button>
 
               <div className="mt-4">
-                <Button type="button" variant="outline" fullWidth onClick={() => {/* Google signup not implemented here */}}>
-                  Sign Up with Google
-                </Button>
+               <Button
+  variant="outline"
+  fullWidth
+  onClick={() => {
+    loginWithToken('');
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+  }}
+>
+  Sign in with Google
+</Button>
+
               </div>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{' '}
-                <Link to="/login" className="text-primary-500 hover:text-primary-600 font-medium">
+                <Link
+                  to="/login"
+                  className="text-primary-500 hover:text-primary-600 font-medium"
+                >
                   Sign in
                 </Link>
               </p>

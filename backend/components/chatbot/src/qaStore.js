@@ -1,15 +1,24 @@
+// src/qaStore.js
 const Fuse = require('fuse.js');
-const { parseJSONtoQA } = require('./jsonParser');
+const stringSimilarity = require('string-similarity');
+const { parseJSONtoQA } = require('./jsonparser');
 require('dotenv').config();
 
-const fuseThreshold = parseFloat(process.env.FUSE_THRESHOLD || '0.6');
-let fuse = null;
+const fuseThreshold = parseFloat(process.env.FUSE_THRESHOLD  || '0.6');
+const simThreshold  = parseFloat(process.env.SIM_THRESHOLD   || '0.7');
 
+let qaList = [];
+let fuse   = null;
+
+/**
+ * Initialize the in-memory Q&A store.
+ * Builds a Fuse.js index over all questions.
+ */
 function initQAStore() {
-  const qaList = parseJSONtoQA();
+  qaList = parseJSONtoQA();
 
-  if (!Array.isArray(qaList) || qaList.length === 0) {
-    console.warn('⚠️  QA list is empty. Check your JSON source.');
+  if (qaList.length === 0) {
+    console.warn('⚠️ QA list is empty—check your JSON source');
   }
 
   fuse = new Fuse(qaList, {
@@ -23,23 +32,39 @@ function initQAStore() {
   console.log('✅ Fuse.js index initialized');
 }
 
-function findBestAnswer(rawQuestion) {
+/**
+ * Given any userQuestion string, returns the stored answer
+ * if a match is found by Fuse (≤ fuseThreshold) or by
+ * string-similarity (≥ simThreshold). Otherwise null.
+ */
+function findBestAnswer(userQuestion) {
   if (!fuse) {
-    throw new Error('QA store not initialized. Call initQAStore() first.');
+    throw new Error('QA store not initialized; call initQAStore() first');
+  }
+  const q = String(userQuestion).trim().toLowerCase();
+  if (q.length < 3) return null;
+
+  // 1) Fuse.js fuzzy search
+  const [fmatch] = fuse.search(q, { limit: 1 });
+  if (fmatch && typeof fmatch.score === 'number') {
+    console.log(`🔍 Fuse matched "${fmatch.item.question}" (score: ${fmatch.score})`);
+    if (fmatch.score <= fuseThreshold) {
+      return fmatch.item.answer;
+    }
   }
 
-  const question = String(rawQuestion).trim().toLowerCase();
-  const results = fuse.search(question, { limit: 1 });
-
-  if (!results.length) return null;
-
-  const { item, score } = results[0];
-  if (score <= fuseThreshold) {
-    return item.answer;
-  } else {
-    console.log(`❌ No close enough match (score: ${score})`);
-    return null;
+  // 2) Fallback: string-similarity ratio
+  const questions = qaList.map((e) => e.question);
+  const { bestMatch } = stringSimilarity.findBestMatch(q, questions);
+  console.log(`🔍 Sim similarity: best = "${bestMatch.target}" (rating: ${bestMatch.rating})`);
+  if (bestMatch.rating >= simThreshold) {
+    // find its answer
+    const entry = qaList.find((e) => e.question === bestMatch.target);
+    return entry?.answer ?? null;
   }
+
+  // 3) No good match
+  return null;
 }
 
 module.exports = { initQAStore, findBestAnswer };

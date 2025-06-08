@@ -13,7 +13,7 @@ interface User {
   isVerified?: boolean;
   phone: string;
   dob: string; // ISO date string, e.g. "2025-06-07"
-  profileImageUrl?: string; // ← MUST store this
+  profileImageUrl?: string;
 }
 
 interface AuthContextValue {
@@ -48,7 +48,8 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const baseURL = import.meta.env.VITE_API_URL as string; // e.g. "http://localhost:4000/api"
+  // Make sure VITE_API_URL includes the “/api” suffix, e.g. “http://localhost:4000/api”
+  const baseURL = import.meta.env.VITE_API_URL as string;
   const navigate = useNavigate();
 
   const api: AxiosInstance = axios.create({
@@ -75,7 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isVerified: res.data.isVerified,
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: res.data.profileImageUrl || '', // ← IMPORTANT
+        profileImageUrl: '', // (we aren’t storing profile images in this demo)
       };
       setUser(fetched);
       setIsAuthenticated(true);
@@ -116,19 +117,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // ─── Sign up  
-  const signup = async ({
-    name,
-    email,
-    password,
-    role,
-  }: {
+  const signup = async (data: {
     name: string;
     email: string;
     password: string;
     role: 'patient' | 'doctor';
   }) => {
     try {
-      await api.post('/signup', { name, email, password, role });
+      await api.post('/signup', data);
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Signup failed.');
     }
@@ -152,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dob: loggedInUser.dob
           ? new Date(loggedInUser.dob).toISOString().split('T')[0]
           : '',
-        profileImageUrl: loggedInUser.profileImageUrl || '', // ← NEW
+        profileImageUrl: '', // (no profile images)
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -181,12 +177,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // ─── Update Profile (name, email, phone, dob)  
-  const updateProfile = async ({
-    name,
-    email,
-    phone,
-    dob,
-  }: {
+  const updateProfile = async (data: {
     name?: string;
     email?: string;
     phone?: string;
@@ -197,11 +188,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!token) throw new Error('Not authenticated.');
       const res = await api.put(
         '/me',
-        { name, email, phone, dob },
+        data,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const updated: User = {
+      const updatedUser: User = {
         id: res.data.id,
         name: res.data.name,
         email: res.data.email,
@@ -210,9 +201,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isVerified: res.data.isVerified,
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: user?.profileImageUrl || '', // preserve existing
+        profileImageUrl: user?.profileImageUrl || '',
       };
-      setUser(updated);
+      setUser(updatedUser);
     } catch (err: any) {
       console.error('❌ updateProfile error:', err);
       throw new Error(err.response?.data?.message || 'Failed to update profile');
@@ -223,7 +214,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider
       value={{
         user,
-        setUser, // expose setter for DashboardPage to update profileImageUrl
+        setUser,
         isAuthenticated,
         loading,
         sendEmailOtp,

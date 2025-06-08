@@ -22,6 +22,7 @@ const OTPVerificationPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Retrieve data passed from SignUpPage
   const state = location.state as LocationState | undefined;
   useEffect(() => {
     if (!state || !state.email || !state.name || !state.password || !state.role) {
@@ -91,12 +92,13 @@ const OTPVerificationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 1. Verify OTP
+      // 1. Verify OTP on the backend
       await verifyEmailOtp(email, combinedOtp);
 
-      // 2. Create new user
+      // 2. Create new user (backend will mark isVerified = true)
       await signup({ name, email, password, role });
 
+      // Show success modal
       setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please try again.');
@@ -155,7 +157,9 @@ const OTPVerificationPage: React.FC = () => {
               key={timeLeft} // re-render each second for animation reset
               animate={{
                 scale: timeLeft <= 10 ? [1, 1.2, 1] : 1,
-                color: timeLeft <= 10 ? ['#F87171', '#E11D48', '#F87171'] : ['#374151'],
+                color: timeLeft <= 10
+                  ? ['#F87171', '#E11D48', '#F87171']
+                  : ['#374151'],
               }}
               transition={{
                 duration: timeLeft <= 10 ? 0.8 : 0,
@@ -198,12 +202,18 @@ const OTPVerificationPage: React.FC = () => {
             <motion.div
               className="bg-white rounded-xl shadow-xl p-6 w-11/12 max-w-md text-center"
               initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 300 } }}
+              animate={{
+                scale: 1,
+                opacity: 1,
+                transition: { type: 'spring', stiffness: 300 },
+              }}
               exit={{ scale: 0.8, opacity: 0, transition: { duration: 0.2 } }}
             >
               <CheckCircle size={48} className="mx-auto text-primary-500 mb-4" />
               <h3 className="text-xl font-semibold mb-2">Success!</h3>
-              <p className="text-gray-700 mb-6">Your account has been created successfully.</p>
+              <p className="text-gray-700 mb-6">
+                Your account has been created successfully.
+              </p>
               <Button type="button" variant="primary" fullWidth onClick={closeModal}>
                 Go to Login
               </Button>

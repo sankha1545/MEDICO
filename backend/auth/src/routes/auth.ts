@@ -10,7 +10,6 @@ import User, { IUser } from '../models/User';
 import Otp from '../models/Otp';
 import sendMail from '../utils/email';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 
 dotenv.config();
 const router = Router();
@@ -33,7 +32,7 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 2) Configure Passport GoogleStrategy
+// 1) Configure Passport GoogleStrategy
 // ──────────────────────────────────────────────────────────────────────────────
 passport.use(
   new GoogleStrategy(
@@ -45,13 +44,16 @@ passport.use(
     async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value!;
+        // Try to find an existing user by email
         let user = await User.findOne({ email });
         if (!user) {
+          // If none, create a new Google‐linked user, mark as verified immediately
           user = await new User({
             name: profile.displayName,
             email,
             provider: 'google',
             role: 'patient',
+            isVerified: true,
           }).save();
         }
         return done(null, user);
@@ -62,7 +64,7 @@ passport.use(
   )
 );
 
-// (Optional) Session serialize/deserialize (not needed for JWT-only)
+// (Optional) Session serialize/deserialize (not needed for JWT‐only)
 passport.serializeUser((user: any, done) => done(null, user.id));
 passport.deserializeUser(async (id: string, done) => {
   try {
@@ -74,7 +76,7 @@ passport.deserializeUser(async (id: string, done) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 3) Middleware: authenticateJWT → verifies Bearer token, sets req.user
+// 2) Middleware: authenticateJWT → verifies Bearer token, sets req.user
 // ──────────────────────────────────────────────────────────────────────────────
 interface JwtPayload {
   id: string;
@@ -102,19 +104,22 @@ export const authenticateJWT = async (req: Request, res: Response, next: NextFun
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 4) POST /api/send-email-otp
+// 3) POST /api/send-email-otp
 // ──────────────────────────────────────────────────────────────────────────────
 router.post('/send-email-otp', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email required' });
 
   try {
+    // Generate 6‐digit code
     const code = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MIN * 60 * 1000);
 
+    // Delete any existing OTP for this email, then save new one
     await Otp.findOneAndDelete({ email });
     await new Otp({ email, code, expiresAt }).save();
 
+    // Send email containing the OTP code
     await sendMail({
       to: email,
       subject: 'Your MedBook Verification Code',
@@ -129,7 +134,7 @@ router.post('/send-email-otp', async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 5) POST /api/verify-email-otp
+// 4) POST /api/verify-email-otp
 // ──────────────────────────────────────────────────────────────────────────────
 router.post('/verify-email-otp', async (req: Request, res: Response) => {
   const { email, otp } = req.body;
@@ -138,6 +143,7 @@ router.post('/verify-email-otp', async (req: Request, res: Response) => {
     if (!record) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
+    // Remove that OTP record so it cannot be reused
     await Otp.deleteOne({ _id: record._id });
     return res.sendStatus(200);
   } catch (err) {
@@ -147,7 +153,7 @@ router.post('/verify-email-otp', async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 6) POST /api/signup
+// 5) POST /api/signup
 // ──────────────────────────────────────────────────────────────────────────────
 router.post('/signup', async (req: Request, res: Response) => {
   const { name, email, password, role } = req.body;
@@ -156,15 +162,27 @@ router.post('/signup', async (req: Request, res: Response) => {
   }
 
   try {
+    // Check if email is already in use
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email already in use' });
     }
 
+    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    await new User({ name, email, passwordHash, role }).save();
+    // Create the user, marking isVerified = true (since we've already verified OTP on the client)
+    const newUser = new User({
+      name,
+      email,
+      passwordHash,
+      role,
+      isVerified: true,
+      provider: 'local',
+    });
+    await newUser.save();
+
     return res.sendStatus(201);
   } catch (err) {
     console.error('Error in /signup:', err);
@@ -173,7 +191,7 @@ router.post('/signup', async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 7) POST /api/login
+// 6) POST /api/login
 // ──────────────────────────────────────────────────────────────────────────────
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -182,16 +200,24 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   try {
+    // Find user by email
     const user = await User.findOne({ email });
     if (!user || !user.passwordHash) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
+    // Prevent login if not verified
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Email not verified' });
+    }
+
+    // Compare password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
+    // Sign a JWT
     const token = jwt.sign({ id: user._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
 
     return res.status(200).json({
@@ -214,7 +240,7 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 8) GET /api/me  ← returns logged-in user info
+// 7) GET /api/me  ← returns logged-in user info
 // ──────────────────────────────────────────────────────────────────────────────
 router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
   const user = (req as any).user as IUser;
@@ -231,7 +257,7 @@ router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 9) PUT /api/me  ← update name, email, phone, dob
+// 8) PUT /api/me  ← update name, email, phone, dob
 // ──────────────────────────────────────────────────────────────────────────────
 router.put('/me', authenticateJWT, async (req: Request, res: Response) => {
   try {
@@ -262,7 +288,7 @@ router.put('/me', authenticateJWT, async (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 10) Google OAuth routes
+// 9) Google OAuth routes
 // ──────────────────────────────────────────────────────────────────────────────
 router.get(
   '/auth/google',
@@ -282,6 +308,7 @@ router.get(
           console.error('❌ Google OAuth error:', err || info);
           return res.redirect(`${FRONTEND_URL}/login`);
         }
+        // Sign JWT for this Google user
         const token = jwt.sign({ id: (user as any)._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
         return res.redirect(`${FRONTEND_URL}/oauth-success?token=${token}`);
       }
