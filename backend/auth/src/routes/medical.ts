@@ -2,7 +2,7 @@
 
 import { Router, Request, Response } from 'express';
 import MedicalInfo, { IMedicalInfo } from '../models/MedicalInfo';
-import User, { IUser } from '../models/User';
+import User, { IUser } from '../models/Patient';
 import { authenticateJWT } from './Auth';
 
 const router = Router();

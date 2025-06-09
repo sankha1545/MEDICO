@@ -2,7 +2,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
-import User from '../models/User';
+import User from '../models/Patient';
 
 const router = Router();
 

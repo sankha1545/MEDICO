@@ -1,4 +1,4 @@
-// File: frontend/src/pages/DoctorDashboardPage.tsx
+// File: frontend/pages/doctor/DoctorDashboardPage.tsx
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -10,8 +10,9 @@ import {
   Bell,
   User,
   Activity,
-  Settings,
+  Settings as SettingsIcon,
   LogOut,
+  Pencil,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -31,6 +32,8 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
+
+import EditProfileForm from '../../components/common/editprofile/editprofileformsdoc';
 
 // Data Types
 interface DoctorAppointment {
@@ -60,21 +63,21 @@ const mockAppointments: DoctorAppointment[] = [
   { id: 'a1', patientName: 'John Doe', date: new Date(2025, 4, 20, 10, 0), status: 'upcoming' },
   { id: 'a2', patientName: 'Jane Smith', date: new Date(2025, 4, 21, 14, 30), status: 'upcoming' },
   { id: 'a3', patientName: 'Mike Johnson', date: new Date(2025, 3, 15, 9, 0), status: 'completed' },
-  // Additional sample data for last 7 days
+  // Last 7 days
   { id: 'a4', patientName: 'Alice Walker', date: subDays(new Date(), 1), status: 'completed' },
   { id: 'a5', patientName: 'Bob Martin', date: subDays(new Date(), 2), status: 'completed' },
   { id: 'a6', patientName: 'Carol King', date: subDays(new Date(), 2), status: 'completed' },
   { id: 'a7', patientName: 'David Brown', date: subDays(new Date(), 3), status: 'completed' },
   { id: 'a8', patientName: 'Eve Davis', date: subDays(new Date(), 5), status: 'completed' },
   { id: 'a9', patientName: 'Frank Moore', date: subDays(new Date(), 6), status: 'completed' },
-  // Sample data for last 12 months
+  // Last 12 months
   { id: 'a10', patientName: 'Grace Lee', date: subMonths(new Date(), 1), status: 'completed' },
   { id: 'a11', patientName: 'Harry White', date: subMonths(new Date(), 1), status: 'completed' },
   { id: 'a12', patientName: 'Ivy Green', date: subMonths(new Date(), 2), status: 'completed' },
   { id: 'a13', patientName: 'Jack Black', date: subMonths(new Date(), 4), status: 'completed' },
   { id: 'a14', patientName: 'Karen Hill', date: subMonths(new Date(), 5), status: 'completed' },
   { id: 'a15', patientName: 'Leo Scott', date: subMonths(new Date(), 11), status: 'completed' },
-  // Sample data for last 5 years
+  // Last 5 years
   { id: 'a16', patientName: 'Mia Clark', date: subYears(new Date(), 1), status: 'completed' },
   { id: 'a17', patientName: 'Noah Cox', date: subYears(new Date(), 2), status: 'completed' },
   { id: 'a18', patientName: 'Olivia Fox', date: subYears(new Date(), 3), status: 'completed' },
@@ -98,62 +101,67 @@ const mockPatients: PatientRecord[] = [
 const tabs = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile'] as const;
 type TabKey = typeof tabs[number];
 
-// Main Component
 const DoctorDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(user?.profileImageUrl);
 
-  // Computed Stats
+  const currentSpecialty = user?.specialty || 'Cardiology';
   const upcomingCount = mockAppointments.filter(a => a.status === 'upcoming').length;
   const totalPatients = mockPatients.length;
-  const earningsThisMonth = 5200; // mock value
+  const earningsThisMonth = 5200;
   const unreadMessages = mockMessages.filter(m => !m.read).length;
 
-  // Prepare data for the last 7 days (including today) – Weekly
   const weeklyData = useMemo(() => {
     const data: { date: string; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
-      const dayDate = subDays(new Date(), i);
-      const key = format(dayDate, 'yyyy-MM-dd');
-      const formattedLabel = format(dayDate, 'MMM d');
-      const count = mockAppointments.filter(a =>
-        format(a.date, 'yyyy-MM-dd') === key
-      ).length;
-      data.push({ date: formattedLabel, count });
+      const day = subDays(new Date(), i);
+      const key = format(day, 'yyyy-MM-dd');
+      const label = format(day, 'MMM d');
+      const count = mockAppointments.filter(a => format(a.date, 'yyyy-MM-dd') === key).length;
+      data.push({ date: label, count });
     }
     return data;
   }, []);
 
-  // Prepare data for the last 12 months (including current month) – Monthly
   const monthlyData = useMemo(() => {
     const data: { month: string; count: number }[] = [];
     for (let i = 11; i >= 0; i--) {
-      const monthDate = subMonths(new Date(), i);
-      const key = format(startOfMonth(monthDate), 'yyyy-MM');
-      const formattedLabel = format(monthDate, 'MMM yyyy');
-      const count = mockAppointments.filter(a =>
-        format(a.date, 'yyyy-MM') === key
-      ).length;
-      data.push({ month: formattedLabel, count });
+      const m = subMonths(new Date(), i);
+      const key = format(startOfMonth(m), 'yyyy-MM');
+      const label = format(m, 'MMM yyyy');
+      const count = mockAppointments.filter(a => format(a.date, 'yyyy-MM') === key).length;
+      data.push({ month: label, count });
     }
     return data;
   }, []);
 
-  // Prepare data for the last 5 years (including current year) – Yearly
   const yearlyData = useMemo(() => {
     const data: { year: string; count: number }[] = [];
     for (let i = 4; i >= 0; i--) {
-      const yearDate = subYears(new Date(), i);
-      const key = format(startOfYear(yearDate), 'yyyy');
-      const formattedLabel = format(yearDate, 'yyyy');
-      const count = mockAppointments.filter(a =>
-        format(a.date, 'yyyy') === key
-      ).length;
-      data.push({ year: formattedLabel, count });
+      const y = subYears(new Date(), i);
+      const key = format(startOfYear(y), 'yyyy');
+      const label = format(y, 'yyyy');
+      const count = mockAppointments.filter(a => format(a.date, 'yyyy') === key).length;
+      data.push({ year: label, count });
     }
     return data;
   }, []);
+
+  const handleSaveProfile = (
+    name: string,
+    email: string,
+    specialty: string,
+    profileImageFile: File | null
+  ) => {
+    if (profileImageFile) {
+      const newUrl = URL.createObjectURL(profileImageFile);
+      setProfileImageUrl(newUrl);
+    }
+    updateUserProfile({ name, email, specialty, profileImageFile });
+    setShowEditProfile(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -161,10 +169,36 @@ const DoctorDashboard: React.FC = () => {
         <FadeIn>
           {/* Header */}
           <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
-            <div>
-              <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">Dr. {user?.name}</h1>
-              <p className="text-gray-400 mt-2">Welcome back! Here’s your practice at a glance.</p>
+            <div className="flex items-center space-x-4">
+              {/* Profile Image */}
+              <div className="w-16 h-16 bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
+                {profileImageUrl ? (
+                  <img
+                    src={profileImageUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-full h-full p-4 text-gray-500" />
+                )}
+              </div>
+
+              <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">
+                Dr. {user?.name}
+              </h1>
+
+              {/* Edit Profile Button */}
+              <motion.button
+                onClick={() => setShowEditProfile(true)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+              >
+                <Pencil className="w-5 h-5" />
+                <span className="font-medium">Edit Profile</span>
+              </motion.button>
             </div>
+
             <Button
               variant="outline"
               size="sm"
@@ -175,6 +209,18 @@ const DoctorDashboard: React.FC = () => {
             </Button>
           </header>
         </FadeIn>
+
+        {/* EditProfileForm Modal */}
+        {showEditProfile && (
+          <EditProfileForm
+            currentName={user?.name || ''}
+            currentEmail={user?.email || ''}
+            currentSpecialty={currentSpecialty}
+            currentProfileImageUrl={profileImageUrl}
+            onCancel={() => setShowEditProfile(false)}
+            onSave={handleSaveProfile}
+          />
+        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
@@ -251,10 +297,12 @@ const DoctorDashboard: React.FC = () => {
             {activeTab === 'overview' && (
               <StaggeredContainer>
                 <div className="space-y-8">
-                  {/* Weekly Performance Graph */}
+                  {/* Weekly Graph */}
                   <SlideIn direction="up" delay={0.1}>
                     <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 7 Days: Appointments</h3>
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                        Last 7 Days: Appointments
+                      </h3>
                       <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={weeklyData}>
                           <CartesianGrid stroke="#444" strokeDasharray="3 3" />
@@ -280,10 +328,12 @@ const DoctorDashboard: React.FC = () => {
                     </div>
                   </SlideIn>
 
-                  {/* Monthly Performance Graph */}
+                  {/* Monthly Graph */}
                   <SlideIn direction="up" delay={0.2}>
                     <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 12 Months: Appointments</h3>
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                        Last 12 Months: Appointments
+                      </h3>
                       <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={monthlyData}>
                           <CartesianGrid stroke="#444" strokeDasharray="3 3" />
@@ -309,10 +359,12 @@ const DoctorDashboard: React.FC = () => {
                     </div>
                   </SlideIn>
 
-                  {/* Yearly Performance Graph */}
+                  {/* Yearly Graph */}
                   <SlideIn direction="up" delay={0.3}>
                     <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">Last 5 Years: Appointments</h3>
+                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                        Last 5 Years: Appointments
+                      </h3>
                       <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={yearlyData}>
                           <CartesianGrid stroke="#444" strokeDasharray="3 3" />
@@ -356,11 +408,9 @@ const DoctorDashboard: React.FC = () => {
                               <p className="font-semibold text-gray-100">{a.patientName}</p>
                               <p className="text-gray-400 mt-1">{format(a.date, 'h:mm a')}</p>
                             </div>
-                            <Link to={`/doctor/appointments/${a.id}`}>
-                              <Button variant="primary" size="sm">
-                                Details
-                              </Button>
-                            </Link>
+                            <Button variant="primary" size="sm">
+                              Details
+                            </Button>
                           </motion.div>
                         ))
                     ) : (
@@ -502,41 +552,42 @@ const DoctorDashboard: React.FC = () => {
                   className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
                 >
                   <h3 className="text-xl font-semibold text-gray-100 mb-5">Profile Details</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-400">Name</p>
-                      <p className="text-gray-100 font-medium">Dr. {user?.name}</p>
+                  <div className="flex items-center space-x-6">
+                    <div className="w-20 h-20 bg-gray-700 rounded-full overflow-hidden">
+                      {profileImageUrl ? (
+                        <img
+                          src={profileImageUrl}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-full h-full p-4 text-gray-500" />
+                      )}
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Email</p>
-                      <p className="text-gray-100 font-medium">{user?.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Specialty</p>
-                      <p className="text-gray-100 font-medium">Cardiology</p>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-400">Name</p>
+                        <p className="text-gray-100 font-medium">Dr. {user?.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Email</p>
+                        <p className="text-gray-100 font-medium">{user?.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Specialty</p>
+                        <p className="text-gray-100 font-medium">{currentSpecialty}</p>
+                      </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-6 border-gray-600 hover:border-gray-500 text-gray-200 hover:text-gray-100"
-                    onClick={() => setShowEditProfile(true)}
-                  >
-                    Edit Profile
-                  </Button>
-                  {showEditProfile && (
-                    // Placeholder for an edit form
-                    <motion.div />
-                  )}
                 </motion.div>
                 <motion.div
                   variants={staggeredItemVariants}
                   className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
                 >
                   <h3 className="text-xl font-semibold text-gray-100 mb-5">Account Settings</h3>
-                  <Link to="/doctor/settings">
+                  <Link to="/doc-settings">
                     <Button variant="primary" size="sm">
-                      <Settings className="mr-2 w-4 h-4" /> Go to Settings
+                      <SettingsIcon className="mr-2 w-4 h-4" /> Go to Settings
                     </Button>
                   </Link>
                 </motion.div>

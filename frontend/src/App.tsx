@@ -30,6 +30,7 @@ import HelpCenter from './frontend/components/footerlinks/HelpCentre';
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
+import SettingsPage from './frontend/components/common/settingspage';
 
 // Common
 import Bookappointment from './frontend/components/common/bookappointment/bookappointment';
@@ -65,7 +66,7 @@ const App: React.FC = () => (
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
 
-      {/* OAuth Success (Google redirect lands here with ?token=…) */}
+      {/* OAuth Success */}
       <Route path="/oauth-success" element={<OAuthSuccessPage />} />
 
       {/* More public patient pages */}
@@ -196,13 +197,19 @@ const App: React.FC = () => (
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/doc-settings"
+        element={
+          <ProtectedRoute>
+            <Layout1>
+              <SettingsPage onBack={() => { window.history.back(); }} />
+            </Layout1>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch-all 404 */}
-      <Route path="*" element={
-       
-          <NotFoundPage />
-       
-      } />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   </AuthProvider>
 );

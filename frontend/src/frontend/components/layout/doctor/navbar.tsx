@@ -98,9 +98,9 @@ export const DoctorNavbar = () => {
             className="md:hidden bg-white shadow-lg"
           >
             <div className="px-4 pt-2 pb-3 space-y-1">
-              <MobileNavLink to="/doctor/dashboard">Dashboard</MobileNavLink>
-              <MobileNavLink to="/doctor/appointments">Appointments</MobileNavLink>
-              <MobileNavLink to="/doctor/patients">Patients</MobileNavLink>
+              <MobileNavLink to="/doctor/dashboard">Home</MobileNavLink>
+              <MobileNavLink to="/doctor/appointments">Dashboard</MobileNavLink>
+              <MobileNavLink to="/doctor/patients"></MobileNavLink>
               <MobileNavLink to="/doctor/earnings">Earnings</MobileNavLink>
               <MobileNavLink to="/doctor/reports">Reports</MobileNavLink>
 

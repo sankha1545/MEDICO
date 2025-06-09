@@ -1,13 +1,11 @@
-// File: backend/src/models/User.ts
-
 import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IUser extends Document {
-  googleId?: string;
+export interface IDoctor extends Document {
   name: string;
   email: string;
   passwordHash?: string;
-  role: 'patient' | 'doctor';
+  role: 'doctor';
+  specialty?: string;
   isVerified: boolean;
   provider: 'local' | 'google';
   phone?: string;
@@ -19,22 +17,22 @@ export interface IUser extends Document {
   };
 }
 
-const UserSchema: Schema = new Schema({
-  googleId: { type: String, unique: true, sparse: true },
+const DoctorSchema = new Schema<IDoctor>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  passwordHash: { type: String }, // only for local signups
-  role: { type: String, enum: ['patient', 'doctor'], default: 'patient' },
+  passwordHash: { type: String },
+  role: { type: String, enum: ['doctor'], default: 'doctor' },
+  specialty: { type: String, default: '' },
   isVerified: { type: Boolean, default: false },
   provider: { type: String, enum: ['local', 'google'], default: 'local' },
   phone: { type: String, default: '' },
   dob: { type: Date },
   createdAt: { type: Date, default: Date.now },
-  // We store image binary separately in ProfileImage model, so we can remove this field if unused
   profileImage: {
     data: { type: Buffer },
     contentType: { type: String },
   },
 });
 
-export default mongoose.model<IUser>('User', UserSchema);
+// TTL index for profileImage if needed, etc.
+export default mongoose.model<IDoctor>('Doctor', DoctorSchema);

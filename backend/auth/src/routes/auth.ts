@@ -1,39 +1,50 @@
-// File: backend/src/routes/Auth.ts
+// auth.ts
+// Authentication and user management routes for MedBook, with email OTP, local auth, Google OAuth, and password reset flows.
 
-import { Router, Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import jwt from 'jsonwebtoken';
-import User, { IUser } from '../models/User';
+import multer from 'multer';
+import Patient, { IPatient } from '../models/Patient';
+import Doctor, { IDoctor } from '../models/Doctor';
 import Otp from '../models/Otp';
 import sendMail from '../utils/email';
 import dotenv from 'dotenv';
 
 dotenv.config();
-const router = Router();
+const router: Router = express.Router();
+
+// Constants
 const OTP_EXPIRY_MIN = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'yoursecret';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-const {
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  GOOGLE_CALLBACK_URL,
-  JWT_SECRET = 'yoursecret',
-  FRONTEND_URL = 'http://localhost:5173',
-  MONGO_URI,
-} = process.env;
+// Multer setup for doctor profile images (2MB limit)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
+// Ensure Google OAuth vars
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL } = process.env;
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
-  console.error(
-    '❌ Missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, or GOOGLE_CALLBACK_URL in .env'
-  );
+  console.error('❌ Missing Google OAuth environment variables');
   process.exit(1);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 1) Configure Passport GoogleStrategy
-// ──────────────────────────────────────────────────────────────────────────────
+// Utility: generate and email OTP
+async function generateAndSendOtp(email: string, subject: string, textPrefix: string) {
+  const code = crypto.randomInt(100000, 999999).toString();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MIN * 60000);
+  await Otp.findOneAndDelete({ email });
+  await new Otp({ email, code, expiresAt }).save();
+  await sendMail({ to: email, subject, text: `${textPrefix} ${code}. Expires in ${OTP_EXPIRY_MIN} minutes.` });
+}
+
+// Passport Google OAuth strategy (creates/fetches patient)
 passport.use(
   new GoogleStrategy(
     {
@@ -41,279 +52,205 @@ passport.use(
       clientSecret: GOOGLE_CLIENT_SECRET,
       callbackURL: GOOGLE_CALLBACK_URL,
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (_accessToken, _refreshToken, profile, done) => {
       try {
-        const email = profile.emails?.[0]?.value!;
-        // Try to find an existing user by email
-        let user = await User.findOne({ email });
+        const email = profile.emails?.[0].value;
+        if (!email) throw new Error('No profile email');
+        let user = await Patient.findOne({ email });
         if (!user) {
-          // If none, create a new Google‐linked user, mark as verified immediately
-          user = await new User({
-            name: profile.displayName,
-            email,
-            provider: 'google',
-            role: 'patient',
-            isVerified: true,
-          }).save();
+          user = await new Patient({ name: profile.displayName, email, provider: 'google', role: 'patient', isVerified: true }).save();
         }
-        return done(null, user);
+        done(null, user);
       } catch (err) {
-        return done(err as Error, undefined);
+        done(err as Error, undefined);
       }
     }
   )
 );
 
-// (Optional) Session serialize/deserialize (not needed for JWT‐only)
 passport.serializeUser((user: any, done) => done(null, user.id));
 passport.deserializeUser(async (id: string, done) => {
   try {
-    const u = await User.findById(id);
-    done(null, u!);
+    let u = await Doctor.findById(id) as any;
+    if (!u) u = await Patient.findById(id);
+    done(null, u);
   } catch (err) {
     done(err as Error, undefined);
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 2) Middleware: authenticateJWT → verifies Bearer token, sets req.user
-// ──────────────────────────────────────────────────────────────────────────────
-interface JwtPayload {
-  id: string;
-  iat: number;
-  exp: number;
-}
-
-export const authenticateJWT = async (req: Request, res: Response, next: NextFunction) => {
+// JWT auth middleware
+interface JwtPayload { id: string; role: 'patient' | 'doctor'; iat: number; exp: number; }
+export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Authorization header missing or malformed' });
-  }
+  if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
   const token = authHeader.split(' ')[1];
+  let payload: JwtPayload;
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const user = await User.findById(payload.id);
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-    (req as any).user = user;
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+  } catch {
+    return res.status(401).json({ message: 'Invalid token' });
   }
+  const Model = payload.role === 'doctor' ? Doctor : Patient;
+  Model.findById(payload.id).then(user => {
+    if (!user) return res.status(401).json({ message: 'User not found' });
+    (req as any).user = user;
+    (req as any).role = payload.role;
+    next();
+  });
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 3) POST /api/send-email-otp
-// ──────────────────────────────────────────────────────────────────────────────
-router.post('/send-email-otp', async (req: Request, res: Response) => {
+// ─── Routes ─────────────────────────────────────────────────────────────────
+
+// Send email OTP for verification
+router.post('/send-email-otp', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email required' });
-
   try {
-    // Generate 6‐digit code
-    const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MIN * 60 * 1000);
-
-    // Delete any existing OTP for this email, then save new one
-    await Otp.findOneAndDelete({ email });
-    await new Otp({ email, code, expiresAt }).save();
-
-    // Send email containing the OTP code
-    await sendMail({
-      to: email,
-      subject: 'Your MedBook Verification Code',
-      text: `Your verification code is ${code}. It expires in ${OTP_EXPIRY_MIN} minutes.`,
-    });
-
-    return res.sendStatus(200);
+    await generateAndSendOtp(email, 'Your MedBook Verification Code', 'Your code:');
+    res.sendStatus(200);
   } catch (err) {
-    console.error('Error sending OTP email:', err);
-    return res.status(500).json({ message: 'Failed to send OTP email' });
+    console.error('Error sending OTP:', err);
+    res.status(500).json({ message: 'Failed to send OTP' });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 4) POST /api/verify-email-otp
-// ──────────────────────────────────────────────────────────────────────────────
-router.post('/verify-email-otp', async (req: Request, res: Response) => {
+// Verify email OTP
+router.post('/verify-email-otp', async (req, res) => {
   const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' });
   try {
     const record = await Otp.findOne({ email, code: otp });
-    if (!record) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
-    // Remove that OTP record so it cannot be reused
+    if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
     await Otp.deleteOne({ _id: record._id });
-    return res.sendStatus(200);
+    res.sendStatus(200);
   } catch (err) {
     console.error('Error verifying OTP:', err);
-    return res.status(500).json({ message: 'OTP verification failed' });
+    res.status(500).json({ message: 'OTP verification failed' });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 5) POST /api/signup
-// ──────────────────────────────────────────────────────────────────────────────
-router.post('/signup', async (req: Request, res: Response) => {
-  const { name, email, password, role } = req.body;
-  if (!name || !email || !password || !role) {
-    return res.status(400).json({ message: 'All signup fields are required' });
-  }
-
+// Signup
+router.post('/signup', async (req, res) => {
+  const { name, email, password, role } = req.body as { name: string; email: string; password: string; role: 'patient' | 'doctor'; };
+  if (!name || !email || !password || !role) return res.status(400).json({ message: 'All fields required' });
   try {
-    // Check if email is already in use
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: 'Email already in use' });
-    }
-
-    // Hash the password
+    const Model = role === 'doctor' ? Doctor : Patient;
+    if (await Model.findOne({ email })) return res.status(400).json({ message: 'Email in use' });
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
-    // Create the user, marking isVerified = true (since we've already verified OTP on the client)
-    const newUser = new User({
-      name,
-      email,
-      passwordHash,
-      role,
-      isVerified: true,
-      provider: 'local',
-    });
-    await newUser.save();
-
-    return res.sendStatus(201);
+    const newUser = await new Model({ name, email, passwordHash, role, provider: 'local', isVerified: true }).save();
+    res.sendStatus(201);
   } catch (err) {
-    console.error('Error in /signup:', err);
-    return res.status(500).json({ message: 'Signup failed' });
+    console.error('Signup error:', err);
+    res.status(500).json({ message: 'Signup failed' });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 6) POST /api/login
-// ──────────────────────────────────────────────────────────────────────────────
-router.post('/login', async (req: Request, res: Response) => {
+// Login
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password required' });
-  }
-
+  if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
   try {
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user || !user.passwordHash) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+    let user = await Patient.findOne({ email });
+    let role: 'patient' | 'doctor' = 'patient';
+    if (!user) {
+      const doc = await Doctor.findOne({ email });
+      if (doc) { user = doc as any; role = 'doctor'; }
     }
-
-    // Prevent login if not verified
-    if (!user.isVerified) {
-      return res.status(403).json({ message: 'Email not verified' });
-    }
-
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-
-    // Sign a JWT
-    const token = jwt.sign({ id: user._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
-
-    return res.status(200).json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        provider: user.provider,
-        isVerified: user.isVerified,
-        phone: user.phone,
-        dob: user.dob,
-      },
-    });
+    if (!user || !user.passwordHash) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user.isVerified) return res.status(403).json({ message: 'Email not verified' });
+    if (!(await bcrypt.compare(password, user.passwordHash))) return res.status(400).json({ message: 'Invalid credentials' });
+    const token = jwt.sign({ id: user._id.toString(), role }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token, user });
   } catch (err) {
-    console.error('Error in /login:', err);
-    return res.status(500).json({ message: 'Login failed' });
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Login failed' });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 7) GET /api/me  ← returns logged-in user info
-// ──────────────────────────────────────────────────────────────────────────────
-router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
-  const user = (req as any).user as IUser;
-  return res.json({
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    provider: user.provider,
-    isVerified: user.isVerified,
-    phone: user.phone,
-    dob: user.dob,
-  });
+// Get current user
+router.get('/me', authenticateJWT, (req, res) => {
+  const user = (req as any).user;
+  res.json(user);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 8) PUT /api/me  ← update name, email, phone, dob
-// ──────────────────────────────────────────────────────────────────────────────
-router.put('/me', authenticateJWT, async (req: Request, res: Response) => {
+// Update profile
+router.put('/me', authenticateJWT, upload.single('profileImage'), async (req, res) => {
+  const user = (req as any).user as IPatient | IDoctor;
+  const { name, email, phone, dob, specialty } = req.body;
   try {
-    const user = (req as any).user as IUser;
-    const { name, email, phone, dob } = req.body;
-
-    // Update only provided fields
     if (name) user.name = name;
     if (email) user.email = email;
-    if (phone !== undefined) user.phone = phone;
+    if (phone) user.phone = phone;
     if (dob) user.dob = new Date(dob);
-
-    const updatedUser = await user.save();
-    return res.json({
-      id: updatedUser._id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      role: updatedUser.role,
-      provider: updatedUser.provider,
-      isVerified: updatedUser.isVerified,
-      phone: updatedUser.phone,
-      dob: updatedUser.dob,
-    });
+    if ('specialty' in user && specialty) (user as IDoctor).specialty = specialty;
+    if (req.file && 'profileImage' in user) {
+      (user as IDoctor).profileImage = { data: req.file.buffer, contentType: req.file.mimetype };
+    }
+    const updated = await user.save();
+    res.json(updated);
   } catch (err) {
-    console.error('Error in PUT /api/me:', err);
-    return res.status(500).json({ message: 'Failed to update profile' });
+    console.error('Update profile error:', err);
+    res.status(500).json({ message: 'Update failed' });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 9) Google OAuth routes
-// ──────────────────────────────────────────────────────────────────────────────
-router.get(
-  '/auth/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-  })
-);
+// Google OAuth endpoints
+router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/auth/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/login` }), (req, res) => {
+  const user = req.user as IPatient;
+  const token = jwt.sign({ id: user._id.toString(), role: 'patient' }, JWT_SECRET, { expiresIn: '1d' });
+  res.redirect(`${FRONTEND_URL}/oauth-success?token=${token}`);
+});
 
-router.get(
-  '/auth/google/callback',
-  (req, res, next) => {
-    passport.authenticate(
-      'google',
-      { session: false, failureRedirect: `${FRONTEND_URL}/login` },
-      async (err, user, info) => {
-        if (err || !user) {
-          console.error('❌ Google OAuth error:', err || info);
-          return res.redirect(`${FRONTEND_URL}/login`);
-        }
-        // Sign JWT for this Google user
-        const token = jwt.sign({ id: (user as any)._id.toString() }, JWT_SECRET, { expiresIn: '1d' });
-        return res.redirect(`${FRONTEND_URL}/oauth-success?token=${token}`);
-      }
-    )(req, res, next);
+// Password-reset: send OTP
+router.post('/send-reset-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: 'Email required' });
+  const exists = await Patient.exists({ email }) || await Doctor.exists({ email });
+  if (!exists) return res.status(404).json({ message: 'Account not found' });
+  try {
+    await generateAndSendOtp(email, 'Password Reset Code', 'Your reset code:');
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Reset OTP error:', err);
+    res.status(500).json({ message: 'Failed to send reset OTP' });
   }
-);
+});
+
+// Verify reset OTP
+router.post('/verify-reset-otp', async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' });
+  try {
+    const record = await Otp.findOne({ email, code: otp });
+    if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Verify reset OTP error:', err);
+    res.status(500).json({ message: 'OTP verification failed' });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  if (!email || !otp || !newPassword) return res.status(400).json({ message: 'Email, OTP, and newPassword required' });
+  try {
+    const record = await Otp.findOne({ email, code: otp });
+    if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    let user = (await Patient.findOne({ email })) as any || await Doctor.findOne({ email }) as any;
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    await Otp.deleteOne({ _id: record._id });
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Password reset failed' });
+  }
+});
 
 export default router;

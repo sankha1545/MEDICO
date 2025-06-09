@@ -1,7 +1,7 @@
 // File: backend/src/models/MedicalInfo.ts
 
 import mongoose, { Document, Schema } from 'mongoose';
-import { IUser } from './User';
+import { IUser } from './Patient';
 
 export interface IMedicalInfo extends Document {
   user: IUser['_id'];
