@@ -1,10 +1,8 @@
-// File: backend/src/models/MedicalInfo.ts
-
 import mongoose, { Document, Schema } from 'mongoose';
-import { IUser } from './Patient';
+import { IPatient } from './Patient';
 
 export interface IMedicalInfo extends Document {
-  user: IUser['_id'];
+  user: IPatient['_id'];
   bloodType: string;
   allergies: string;
   currentMedications: string;
@@ -13,13 +11,13 @@ export interface IMedicalInfo extends Document {
   updatedAt: Date;
 }
 
-const MedicalInfoSchema: Schema = new Schema(
+const MedicalInfoSchema = new Schema<IMedicalInfo>(
   {
     user: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Patient',
       required: true,
-      unique: true, // One-to-one: each user has exactly one medical-info document
+      unique: true, // one record per user
     },
     bloodType: { type: String, default: '' },
     allergies: { type: String, default: '' },
@@ -27,7 +25,8 @@ const MedicalInfoSchema: Schema = new Schema(
     medicalConditions: { type: String, default: '' },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields automatically
+    timestamps: true,
+    collection: 'medicalinfos',
   }
 );
 

@@ -1,6 +1,6 @@
-// frontend/src/contexts/AuthContext.tsx
+// File: frontend/src/contexts/AuthContext.tsx
 // Manages authentication state and actions: login, signup, email OTP, Google OAuth,
-// profile updates, and password reset flows.
+// profile updates (including specialty & profile image), and password reset flows.
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
@@ -14,8 +14,9 @@ interface User {
   provider?: string;
   isVerified?: boolean;
   phone: string;
-  dob: string; // ISO date string
+  dob: string; // ISO date string (YYYY-MM-DD)
   profileImageUrl?: string;
+  specialty?: string;
 }
 
 interface AuthContextValue {
@@ -35,11 +36,13 @@ interface AuthContextValue {
   signInWithGoogle: () => void;
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: {
+  updateUserProfile: (data: {
     name?: string;
     email?: string;
     phone?: string;
     dob?: string;
+    specialty?: string;
+    profileImageFile?: File | null;
   }) => Promise<void>;
   sendPasswordResetOtp: (email: string) => Promise<void>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
@@ -47,26 +50,27 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
-
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const baseURL = import.meta.env.VITE_API_URL as string;
   const navigate = useNavigate();
 
+  // Axios instance for all API calls
   const api: AxiosInstance = axios.create({
     baseURL,
-    headers: { 'Content-Type': 'application/json' },
   });
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch current user if token present
+  // Fetch current user if token is present
   const fetchUser = async (token: string) => {
     try {
-      const res = await api.get('/me', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const u: User = {
         id: res.data.id,
         name: res.data.name,
@@ -77,6 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
         profileImageUrl: res.data.profileImageUrl || '',
+        specialty: res.data.specialty || '',
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -90,11 +95,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (token) fetchUser(token);
-    else setLoading(false);
+    if (token) {
+      fetchUser(token);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  // Email OTP flows
+  // Send email OTP for signup/verification
   const sendEmailOtp = async (email: string) => {
     try {
       await api.post('/send-email-otp', { email });
@@ -103,6 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Verify email OTP
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-email-otp', { email, otp });
@@ -111,8 +120,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Authentication
-  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor'; }) => {
+  // Sign up new user (patient or doctor)
+  const signup = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'patient' | 'doctor';
+  }) => {
     try {
       await api.post('/signup', data);
     } catch (err: any) {
@@ -120,11 +134,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Log in with email/password
   const login = async (email: string, password: string) => {
     try {
       const res = await api.post('/login', { email, password });
       const token: string = res.data.token;
       localStorage.setItem('authToken', token);
+
       const u: User = {
         id: res.data.user.id,
         name: res.data.user.name,
@@ -135,6 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         phone: res.data.user.phone || '',
         dob: res.data.user.dob ? new Date(res.data.user.dob).toISOString().split('T')[0] : '',
         profileImageUrl: res.data.user.profileImageUrl || '',
+        specialty: res.data.user.specialty || '',
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -143,15 +160,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Google OAuth redirection
   const signInWithGoogle = () => {
     window.location.href = `${baseURL}/auth/google`;
   };
 
+  // Login with token from Google OAuth flow
   const loginWithToken = async (token: string) => {
     localStorage.setItem('authToken', token);
     await fetchUser(token);
   };
 
+  // Logout user
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
@@ -159,12 +179,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
-  // Profile update
-  const updateProfile = async (data: { name?: string; email?: string; phone?: string; dob?: string; }) => {
+  // Update user profile (name, email, phone, dob, specialty, profileImageFile)
+  const updateUserProfile = async (data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    dob?: string;
+    specialty?: string;
+    profileImageFile?: File | null;
+  }) => {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) throw new Error('Not authenticated.');
-      const res = await api.put('/me', data, { headers: { Authorization: `Bearer ${token}` } });
+      const formData = new FormData();
+
+      if (data.name) formData.append('name', data.name);
+      if (data.email) formData.append('email', data.email);
+      if (data.phone) formData.append('phone', data.phone);
+      if (data.dob) formData.append('dob', data.dob);
+      if (data.specialty) formData.append('specialty', data.specialty);
+      if (data.profileImageFile) {
+        formData.append('profileImage', data.profileImageFile);
+      }
+
+      const res = await api.put('/me', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Update local user state with returned data
       const u: User = {
         id: res.data.id,
         name: res.data.name,
@@ -175,15 +220,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         phone: res.data.phone || '',
         dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
         profileImageUrl: res.data.profileImageUrl || '',
+        specialty: res.data.specialty || '',
       };
       setUser(u);
     } catch (err: any) {
-      console.error('updateProfile error:', err);
+      console.error('updateUserProfile error:', err);
       throw new Error(err.response?.data?.message || 'Failed to update profile');
     }
   };
 
-  // Password-reset flows
+  // Send password‐reset OTP
   const sendPasswordResetOtp = async (email: string) => {
     try {
       await api.post('/send-reset-otp', { email });
@@ -192,6 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Verify password‐reset OTP
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-reset-otp', { email, otp });
@@ -200,6 +247,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Reset password after OTP verification
   const resetPassword = async (email: string, otp: string, newPassword: string) => {
     try {
       await api.post('/reset-password', { email, otp, newPassword });
@@ -223,7 +271,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signInWithGoogle,
         loginWithToken,
         logout,
-        updateProfile,
+        updateUserProfile,
         sendPasswordResetOtp,
         verifyPasswordResetOtp,
         resetPassword,
@@ -233,3 +281,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     </AuthContext.Provider>
   );
 };
+
+/*
+  Analysis:
+  - updateUserProfile now sends a FormData payload with fields name/email/phone/dob/specialty/profileImage.
+  - After PUT /me, we update `user.profileImageUrl` (which the backend returns as a base64 data URI).
+  - The dashboard uses that `profileImageUrl` to render the new photo immediately.
+*/

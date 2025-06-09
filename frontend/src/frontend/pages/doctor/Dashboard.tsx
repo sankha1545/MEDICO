@@ -1,4 +1,4 @@
-// File: frontend/pages/doctor/DoctorDashboardPage.tsx
+// File: frontend/src/pages/doctor/DoctorDashboardPage.tsx
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -35,7 +35,7 @@ import {
 
 import EditProfileForm from '../../components/common/editprofile/editprofileformsdoc';
 
-// Data Types
+// Data Types for demonstration (mocked)
 interface DoctorAppointment {
   id: string;
   patientName: string;
@@ -58,7 +58,7 @@ interface PatientRecord {
   condition: string;
 }
 
-// Mock Data
+// Mock Data (replace with API calls in a real implementation)
 const mockAppointments: DoctorAppointment[] = [
   { id: 'a1', patientName: 'John Doe', date: new Date(2025, 4, 20, 10, 0), status: 'upcoming' },
   { id: 'a2', patientName: 'Jane Smith', date: new Date(2025, 4, 21, 14, 30), status: 'upcoming' },
@@ -97,7 +97,6 @@ const mockPatients: PatientRecord[] = [
   { id: 'p3', name: 'Olivia Brown', lastVisit: new Date(2025, 3, 30), condition: 'Asthma' },
 ];
 
-// Tabs
 const tabs = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile'] as const;
 type TabKey = typeof tabs[number];
 
@@ -105,69 +104,101 @@ const DoctorDashboard: React.FC = () => {
   const { user, logout, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
-  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(user?.profileImageUrl);
+
+  // Hold the profileImageUrl locally (initialized from context's user)
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(
+    user?.profileImageUrl || ''
+  );
 
   const currentSpecialty = user?.specialty || 'Cardiology';
-  const upcomingCount = mockAppointments.filter(a => a.status === 'upcoming').length;
+  const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
   const totalPatients = mockPatients.length;
   const earningsThisMonth = 5200;
-  const unreadMessages = mockMessages.filter(m => !m.read).length;
+  const unreadMessages = mockMessages.filter((m) => !m.read).length;
 
+  // Weekly chart data (last 7 days)
   const weeklyData = useMemo(() => {
     const data: { date: string; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const day = subDays(new Date(), i);
       const key = format(day, 'yyyy-MM-dd');
       const label = format(day, 'MMM d');
-      const count = mockAppointments.filter(a => format(a.date, 'yyyy-MM-dd') === key).length;
+      const count = mockAppointments.filter(
+        (a) => format(a.date, 'yyyy-MM-dd') === key
+      ).length;
       data.push({ date: label, count });
     }
     return data;
   }, []);
 
+  // Monthly chart data (last 12 months)
   const monthlyData = useMemo(() => {
     const data: { month: string; count: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const m = subMonths(new Date(), i);
       const key = format(startOfMonth(m), 'yyyy-MM');
       const label = format(m, 'MMM yyyy');
-      const count = mockAppointments.filter(a => format(a.date, 'yyyy-MM') === key).length;
+      const count = mockAppointments.filter(
+        (a) => format(a.date, 'yyyy-MM') === key
+      ).length;
       data.push({ month: label, count });
     }
     return data;
   }, []);
 
+  // Yearly chart data (last 5 years)
   const yearlyData = useMemo(() => {
     const data: { year: string; count: number }[] = [];
     for (let i = 4; i >= 0; i--) {
       const y = subYears(new Date(), i);
       const key = format(startOfYear(y), 'yyyy');
       const label = format(y, 'yyyy');
-      const count = mockAppointments.filter(a => format(a.date, 'yyyy') === key).length;
+      const count = mockAppointments.filter(
+        (a) => format(a.date, 'yyyy') === key
+      ).length;
       data.push({ year: label, count });
     }
     return data;
   }, []);
 
-  const handleSaveProfile = (
+  // Handle saving updated profile details
+  const handleSaveProfile = async (
     name: string,
     email: string,
     specialty: string,
     profileImageFile: File | null
   ) => {
-    if (profileImageFile) {
-      const newUrl = URL.createObjectURL(profileImageFile);
-      setProfileImageUrl(newUrl);
+    try {
+      // Call context method updateUserProfile
+      await updateUserProfile({
+        name,
+        email,
+        specialty,
+        profileImageFile,
+      });
+
+      // After successful update, update local profileImageUrl
+      if (profileImageFile) {
+        // Create a temporary URL so we can preview immediately
+        const newUrl = URL.createObjectURL(profileImageFile);
+        setProfileImageUrl(newUrl);
+      } else if (user?.profileImageUrl) {
+        // Keep existing URL from context if no new file
+        setProfileImageUrl(user.profileImageUrl);
+      }
+
+      setShowEditProfile(false);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      // You could show a toast or error message here
     }
-    updateUserProfile({ name, email, specialty, profileImageFile });
-    setShowEditProfile(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
         <FadeIn>
-          {/* Header */}
+          {/* Header with profile image, name, and edit/logout */}
           <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
             <div className="flex items-center space-x-4">
               {/* Profile Image */}
@@ -267,7 +298,7 @@ const DoctorDashboard: React.FC = () => {
         {/* Tab Navigation */}
         <div className="bg-gray-800 rounded-xl shadow-md border border-gray-700 mb-12 overflow-hidden">
           <div className="flex overflow-x-auto border-b border-gray-700">
-            {tabs.map(tab => (
+            {tabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -393,12 +424,16 @@ const DoctorDashboard: React.FC = () => {
                   {/* Today's Summary */}
                   <div className="space-y-8">
                     <h2 className="text-2xl font-semibold text-gray-100">Today's Summary</h2>
-                    {mockAppointments.filter(a =>
-                      format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                    {mockAppointments.filter(
+                      (a) =>
+                        format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
                     ).length ? (
                       mockAppointments
-                        .filter(a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
-                        .map(a => (
+                        .filter(
+                          (a) =>
+                            format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                        )
+                        .map((a) => (
                           <motion.div
                             key={a.id}
                             variants={staggeredItemVariants}
@@ -406,7 +441,9 @@ const DoctorDashboard: React.FC = () => {
                           >
                             <div>
                               <p className="font-semibold text-gray-100">{a.patientName}</p>
-                              <p className="text-gray-400 mt-1">{format(a.date, 'h:mm a')}</p>
+                              <p className="text-gray-400 mt-1">
+                                {format(a.date, 'h:mm a')}
+                              </p>
                             </div>
                             <Button variant="primary" size="sm">
                               Details
@@ -424,7 +461,7 @@ const DoctorDashboard: React.FC = () => {
             {/* Appointments Tab */}
             {activeTab === 'appointments' && (
               <div className="space-y-6">
-                {mockAppointments.map(a => (
+                {mockAppointments.map((a) => (
                   <motion.div
                     key={a.id}
                     variants={staggeredItemVariants}
@@ -432,7 +469,9 @@ const DoctorDashboard: React.FC = () => {
                   >
                     <div>
                       <p className="font-semibold text-gray-100">{a.patientName}</p>
-                      <p className="text-gray-400 mt-1">{format(a.date, 'MMMM d, yyyy h:mm a')}</p>
+                      <p className="text-gray-400 mt-1">
+                        {format(a.date, 'MMMM d, yyyy h:mm a')}
+                      </p>
                       <span
                         className={`mt-2 inline-block text-xs font-medium px-2 py-1 rounded-full ${
                           a.status === 'upcoming'
@@ -469,7 +508,7 @@ const DoctorDashboard: React.FC = () => {
             {/* Patients Tab */}
             {activeTab === 'patients' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mockPatients.map(p => (
+                {mockPatients.map((p) => (
                   <motion.div
                     key={p.id}
                     variants={staggeredItemVariants}
@@ -523,7 +562,7 @@ const DoctorDashboard: React.FC = () => {
             {/* Messages Tab */}
             {activeTab === 'messages' && (
               <div className="space-y-4">
-                {mockMessages.map(m => (
+                {mockMessages.map((m) => (
                   <motion.div
                     key={m.id}
                     variants={staggeredItemVariants}
@@ -534,7 +573,9 @@ const DoctorDashboard: React.FC = () => {
                     <div>
                       <p className="font-semibold text-gray-100">{m.from}</p>
                       <p className="text-sm text-gray-400 mt-1">{m.content}</p>
-                      <p className="text-xs text-gray-500 mt-1">{format(m.date, 'MMM d, h:mm a')}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {format(m.date, 'MMM d, h:mm a')}
+                      </p>
                     </div>
                     {!m.read && (
                       <span className="flex-shrink-0 w-3 h-3 bg-blue-500 rounded-full mt-2"></span>
@@ -601,3 +642,11 @@ const DoctorDashboard: React.FC = () => {
 };
 
 export default DoctorDashboard;
+
+/*
+  Analysis:
+  - `handleSaveProfile` calls `updateUserProfile({ name, email, specialty, profileImageFile })`.
+  - After successful update, the backend returns updated `profileImageUrl` (base64 data URI). Context sets `user.profileImageUrl`.
+  - We also immediately set a local preview URL (`URL.createObjectURL(profileImageFile)`) so that the doctor sees the new photo as soon as they save, without waiting for data reload.
+  - The dashboard’s <img src={profileImageUrl} /> now renders the new image.
+*/

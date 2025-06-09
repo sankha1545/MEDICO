@@ -9,7 +9,7 @@ interface EditProfileFormProps {
   currentName: string;
   currentEmail: string;
   currentSpecialty: string;
-  currentProfileImageUrl?: string; // existing profile image URL (if any)
+  currentProfileImageUrl?: string; // existing profile image URL (from backend)
   onCancel: () => void;
   onSave: (
     name: string,
@@ -47,6 +47,7 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentProfileImageUrl);
   const [error, setError] = useState<string>('');
 
+  // Handle file input change: update local file and preview URL
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -55,6 +56,7 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({
     }
   };
 
+  // Form submission: validate and call onSave
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -64,7 +66,6 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({
       return;
     }
 
-    // Basic email validation
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email)) {
       setError('Please enter a valid email address.');
@@ -228,3 +229,12 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({
 };
 
 export default EditProfileForm;
+
+/*
+  Analysis:
+  - This component renders a modal form with fields for name, email, specialty, and profile image.
+  - When “Upload Photo” is clicked, an <input type="file" /> lets the user choose an image; 
+    onChange, we store that File in state and set a preview URL via URL.createObjectURL.
+  - On submit, we call onSave(name, email, specialty, profileImageFile). The parent (DashboardPage)
+    will send these values (including the File) as multipart/form-data to the backend.
+*/
