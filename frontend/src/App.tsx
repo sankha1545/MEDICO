@@ -36,6 +36,9 @@ import SettingsPage from './frontend/components/common/settingspage';
 import Bookappointment from './frontend/components/common/bookappointment/bookappointment';
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 
+// ─── Import PatientSettingsPage ───
+import PatientSettingsPage from './frontend/components/common/settingsdoc';
+
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -146,7 +149,7 @@ const App: React.FC = () => (
         }
       />
 
-      {/* Protected patient-only */}
+      {/* ─── Protected patient-only routes ─── */}
       <Route
         path="/dashboard"
         element={
@@ -178,7 +181,19 @@ const App: React.FC = () => (
         }
       />
 
-      {/* Doctor pages */}
+      {/* ─── Add the patient “/settings” route ─── */}
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PatientSettingsPage onBack={() => window.history.back()} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ─── Doctor pages ─── */}
       <Route
         path="/doc-home"
         element={

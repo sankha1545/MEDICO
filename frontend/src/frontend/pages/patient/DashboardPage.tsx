@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   User as UserIcon,
   Upload,
+  Settings as SettingsIcon, // ← import the Settings (cog) icon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -307,9 +308,25 @@ const DashboardPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
           {/* Header */}
-          <motion.header variants={fadeInUp} className="mb-8">
-            <h1 className="text-4xl font-bold text-white">Welcome, {user?.name}</h1>
-            <p className="text-gray-400 mt-2">Here’s an overview of your health and appointments.</p>
+          <motion.header variants={fadeInUp}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold text-white">Welcome, {user?.name}</h1>
+                <p className="text-gray-400 mt-2">Here’s an overview of your health and appointments.</p>
+              </div>
+
+              {/* ─── Settings Button ─── */}
+              <Link to="/settings">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-2 border-gray-600 text-gray-200 hover:border-gray-500 hover:text-gray-100"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                  <span>Settings</span>
+                </Button>
+              </Link>
+            </div>
           </motion.header>
 
           {/* Stats Cards */}
@@ -389,7 +406,7 @@ const DashboardPage: React.FC = () => {
             </div>
 
             <div className="p-6">
-              {/* Overview Tab */}
+              {/* ─── Overview Tab ─── */}
               {activeTab === 'overview' && (
                 <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-10">
                   {/* Upcoming Appointments */}
@@ -492,7 +509,7 @@ const DashboardPage: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Appointments Tab */}
+              {/* ─── Appointments Tab ─── */}
               {activeTab === 'appointments' && (
                 <motion.div variants={fadeInUp} className="space-y-6">
                   <div className="flex justify-between items-center mb-6">
@@ -617,7 +634,7 @@ const DashboardPage: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Notifications Tab */}
+              {/* ─── Notifications Tab ─── */}
               {activeTab === 'notifications' && (
                 <motion.div variants={fadeInUp} className="space-y-6">
                   <div className="flex justify-between items-center mb-6">
@@ -692,7 +709,7 @@ const DashboardPage: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Profile Tab */}
+              {/* ─── Profile Tab ─── */}
               {activeTab === 'profile' && (
                 <motion.div variants={fadeInUp} className="space-y-8">
                   <div className="flex items-center mb-6">
@@ -897,7 +914,7 @@ const DashboardPage: React.FC = () => {
                           size="sm"
                           className="text-red-500 hover:bg-red-700 border-red-500"
                         >
-                          Change Password
+                          Settings
                         </Button>
                       </div>
                     </div>
