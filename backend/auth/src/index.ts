@@ -1,3 +1,5 @@
+// File: backend/src/index.ts
+
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -7,6 +9,7 @@ import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth';
 import medicalRoutes from './routes/medical';
+import appointmentRoutes from './routes/appointment';
 
 dotenv.config();
 const app = express();
@@ -37,6 +40,7 @@ mongoose
 // Mount routes
 app.use('/api', authRoutes);
 app.use('/api/medical', medicalRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

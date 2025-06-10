@@ -36,8 +36,11 @@ import SettingsPage from './frontend/components/common/settingspage';
 import Bookappointment from './frontend/components/common/bookappointment/bookappointment';
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 
-// ─── Import PatientSettingsPage ───
+// Patient Settings
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
+
+// Payment page (new)
+import PaymentPage from './frontend/pages/patient/paymentspage';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -51,7 +54,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const App: React.FC = () => (
   <AuthProvider>
     <Routes>
-      {/* Redirect root to patient home */}
+      {/* Redirect root to login */}
       <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Public patient pages */}
@@ -181,13 +184,25 @@ const App: React.FC = () => (
         }
       />
 
-      {/* ─── Add the patient “/settings” route ─── */}
+      {/* Patient Settings page */}
       <Route
         path="/settings"
         element={
           <ProtectedRoute>
             <Layout>
               <PatientSettingsPage onBack={() => window.history.back()} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Payment page (protected) */}
+      <Route
+        path="/payment/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PaymentPage />
             </Layout>
           </ProtectedRoute>
         }

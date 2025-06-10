@@ -1,3 +1,5 @@
+// File: backend/src/models/Doctor.ts
+
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IDoctor extends Document {
@@ -10,9 +12,12 @@ export interface IDoctor extends Document {
   specialty: string;
   phone?: string;
   dob?: Date;
-  profileImage?: { data: Buffer; contentType: string };
-  rating: number;
-  reviewCount: number;
+  profileImage?: {
+    data: Buffer;
+    contentType: string;
+  };
+  rating: number;          // Average rating across all patient‐ratings
+  reviewCount: number;     // Total count of ratings received
   experience: string;
   hospitalAffiliation: string;
   location: string;
@@ -39,6 +44,7 @@ const DoctorSchema = new Schema<IDoctor>(
       data: Buffer,
       contentType: String,
     },
+    // Rating fields: running average + count
     rating: { type: Number, default: 4.5 },
     reviewCount: { type: Number, default: 0 },
     experience: { type: String, default: '' },

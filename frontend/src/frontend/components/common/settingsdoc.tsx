@@ -15,14 +15,18 @@ import {
   LogOut,
   Trash2,
 } from 'lucide-react';
+import axios from 'axios';
 import { Button } from './Button';
 import { SlideIn } from '../animations/Transitions';
+import { useNavigate } from 'react-router-dom';
 
 interface PatientSettingsPageProps {
   onBack: () => void;
 }
 
 const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => {
+  const navigate = useNavigate();
+
   // ─── 1. Health Records & History ───
   const [uploadedReport, setUploadedReport] = useState<File | null>(null);
   const [insuranceInfo, setInsuranceInfo] = useState('');
@@ -82,12 +86,56 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
   const [sessionMessage, setSessionMessage] = useState('');
 
   const logoutOtherDevices = () => setSessionMessage('Logged out from other devices.');
-  const clearActivityLogs   = () => setSessionMessage('Activity logs cleared.');
+  const clearActivityLogs = () => setSessionMessage('Activity logs cleared.');
 
   // ─── 7. Danger Zone ───
   const [accountDeactivated, setAccountDeactivated] = useState(false);
-  const [recordsDeleted, setRecordsDeleted]       = useState(false);
-  const [accountDeleted, setAccountDeleted]       = useState(false);
+  const [recordsDeleted, setRecordsDeleted] = useState(false);
+  const [accountDeleted, setAccountDeleted] = useState(false);
+
+  // ─── API Interaction ───
+  const authToken = localStorage.getItem('authToken') || '';
+
+  const deactivateAccount = async () => {
+    if (!window.confirm('Are you sure you want to deactivate your account?')) {
+      return;
+    }
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/user/deactivate`,
+        {},
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      setAccountDeactivated(true);
+      // After deactivation, log the user out completely
+      localStorage.removeItem('authToken');
+      navigate('/login');
+    } catch (err) {
+      console.error('Error deactivating account:', err);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete your account as all your data will be erased completely?'
+      )
+    ) {
+      return;
+    }
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/user`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      setAccountDeleted(true);
+      // Show a modal or alert, then redirect to signup
+      alert('Your account has been successfully deleted.');
+      localStorage.removeItem('authToken');
+      navigate('/signup');
+    } catch (err) {
+      console.error('Error deleting account:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
@@ -161,9 +209,7 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
               <Button size="sm" onClick={saveInsurance}>
                 Save
               </Button>
-              {insuranceSaved && (
-                <span className="text-green-400">Insurance saved</span>
-              )}
+              {insuranceSaved && <span className="text-green-400">Insurance saved</span>}
             </div>
           </section>
         </SlideIn>
@@ -207,9 +253,7 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
               <Button size="sm" onClick={saveBillingInsurance}>
                 Add
               </Button>
-              {billingSaved && (
-                <span className="text-green-400">Details added</span>
-              )}
+              {billingSaved && <span className="text-green-400">Details added</span>}
             </div>
           </section>
         </SlideIn>
@@ -457,9 +501,7 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
               </Button>
             </div>
 
-            {sessionMessage && (
-              <p className="text-green-400 mt-2">{sessionMessage}</p>
-            )}
+            {sessionMessage && <p className="text-green-400 mt-2">{sessionMessage}</p>}
           </section>
         </SlideIn>
 
@@ -474,17 +516,11 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
             {/* Deactivate Account */}
             <div className="flex justify-between items-center">
               <span className="text-red-400">Deactivate Account</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setAccountDeactivated(true)}
-              >
+              <Button variant="destructive" size="sm" onClick={deactivateAccount}>
                 Deactivate
               </Button>
             </div>
-            {accountDeactivated && (
-              <p className="text-red-400 text-sm">Account deactivated.</p>
-            )}
+            {accountDeactivated && <p className="text-red-400 text-sm">Account deactivated.</p>}
 
             {/* Delete Medical Records */}
             <div className="flex justify-between items-center">
@@ -492,7 +528,16 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => setRecordsDeleted(true)}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Are you sure you want to delete all your medical records? This cannot be undone.'
+                    )
+                  ) {
+                    setRecordsDeleted(true);
+                    // Here you could call an endpoint to delete only medical records if desired
+                  }
+                }}
               >
                 Delete
               </Button>
@@ -504,11 +549,7 @@ const PatientSettingsPage: React.FC<PatientSettingsPageProps> = ({ onBack }) => 
             {/* Permanently Delete Account */}
             <div className="flex justify-between items-center">
               <span className="text-red-400">Permanently Delete Account</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setAccountDeleted(true)}
-              >
+              <Button variant="destructive" size="sm" onClick={deleteAccount}>
                 Delete
               </Button>
             </div>
