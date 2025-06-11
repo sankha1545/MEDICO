@@ -39,20 +39,24 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
 
 // Utility: generate and email OTP
 async function generateAndSendOtp(email: string, subject: string, textPrefix: string) {
-  const code = crypto.randomInt(100000, 999999).toString();
+  const code = crypto.randomInt(100000, 999999).toString().padStart(6, '0');
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MIN * 60000);
   await Otp.findOneAndDelete({ email });
   await new Otp({ email, code, expiresAt }).save();
-  await sendMail({ to: email, subject, text: `${textPrefix} ${code}. Expires in ${OTP_EXPIRY_MIN} minutes.` });
+  await sendMail({
+    to: email,
+    subject,
+    text: `${textPrefix} ${code}. Expires in ${OTP_EXPIRY_MIN} minutes.`,
+  });
 }
 
 // Passport Google OAuth strategy (patient)
 passport.use(
   new GoogleStrategy(
     {
-      clientID: GOOGLE_CLIENT_ID,
-      clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: GOOGLE_CALLBACK_URL,
+      clientID: GOOGLE_CLIENT_ID!,
+      clientSecret: GOOGLE_CLIENT_SECRET!,
+      callbackURL: GOOGLE_CALLBACK_URL!,
     },
     async (_accessToken, _refreshToken, profile, done) => {
       try {
@@ -112,12 +116,8 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
   Model.findById(payload.id)
     .then(user => {
       if (!user) return res.status(401).json({ message: 'User not found' });
-      // If patient, ensure account is still active
-      if (payload.role === 'patient') {
-        const patientUser = user as IPatient;
-        if (!patientUser.isActive) {
-          return res.status(403).json({ message: 'Account is deactivated' });
-        }
+      if (!('isActive' in user) || !(user as any).isActive) {
+        return res.status(403).json({ message: 'Account is deactivated' });
       }
       ;(req as any).user = user;
       (req as any).role = payload.role;
@@ -151,6 +151,10 @@ router.post('/verify-email-otp', async (req, res) => {
   try {
     const record = await Otp.findOne({ email, code: otp });
     if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (record.expiresAt < new Date()) {
+      await Otp.deleteOne({ _id: record._id });
+      return res.status(400).json({ message: 'OTP expired' });
+    }
     await Otp.deleteOne({ _id: record._id });
     return res.sendStatus(200);
   } catch (err) {
@@ -172,19 +176,36 @@ router.post('/signup', async (req, res) => {
   }
   try {
     const Model = role === 'doctor' ? Doctor : Patient;
-    // Prevent duplicate email
     if (await Model.findOne({ email })) {
       return res.status(400).json({ message: 'Email in use' });
     }
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const newUser =
-      role === 'doctor'
-        ? await new Doctor({ name, email, passwordHash, role, provider: 'local', isVerified: true }).save()
-        : await new Patient({ name, email, passwordHash, role, provider: 'local', isVerified: true }).save();
+    if (role === 'doctor') {
+      await new Doctor({
+        name,
+        email,
+        passwordHash,
+        role,
+        provider: 'local',
+        isVerified: true,
+      }).save();
+    } else {
+      await new Patient({
+        name,
+        email,
+        passwordHash,
+        role,
+        provider: 'local',
+        isVerified: true,
+      }).save();
+    }
     return res.sendStatus(201);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Signup error:', err);
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
     return res.status(500).json({ message: 'Signup failed' });
   }
 });
@@ -194,11 +215,9 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
   try {
-    // Try patient first
     let user = await Patient.findOne({ email });
     let role: 'patient' | 'doctor' = 'patient';
     if (!user) {
-      // If not found, try doctor
       const doc = await Doctor.findOne({ email });
       if (doc) {
         user = doc as any;
@@ -208,8 +227,7 @@ router.post('/login', async (req, res) => {
     if (!user || !user.passwordHash) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    // Prevent login if patient is deactivated:
-    if (role === 'patient' && !(user as IPatient).isActive) {
+    if (!(user as any).isActive) {
       return res.status(403).json({ message: 'Account is deactivated' });
     }
     if (!user.isVerified) {
@@ -220,7 +238,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user._id.toString(), role }, JWT_SECRET, { expiresIn: '1d' });
-    return res.json({ token, user });
+    const safeUser = (user.toJSON && user.toJSON()) || user;
+    return res.json({ token, user: safeUser });
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ message: 'Login failed' });
@@ -243,14 +262,16 @@ router.put('/me', authenticateJWT, upload.single('profileImage'), async (req, re
     if (phone) user.phone = phone;
     if (dob) user.dob = new Date(dob);
     if ('specialty' in user && specialty) (user as IDoctor).specialty = specialty;
-    // If doctor or patient has profileImage
     if (req.file && 'profileImage' in user) {
       (user as any).profileImage = { data: req.file.buffer, contentType: req.file.mimetype };
     }
     const updated = await user.save();
     return res.json(updated);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Update profile error:', err);
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
     return res.status(500).json({ message: 'Update failed' });
   }
 });
@@ -292,6 +313,10 @@ router.post('/verify-reset-otp', async (req, res) => {
   try {
     const record = await Otp.findOne({ email, code: otp });
     if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (record.expiresAt < new Date()) {
+      await Otp.deleteOne({ _id: record._id });
+      return res.status(400).json({ message: 'OTP expired' });
+    }
     return res.sendStatus(200);
   } catch (err) {
     console.error('Verify reset OTP error:', err);
@@ -308,6 +333,10 @@ router.post('/reset-password', async (req, res) => {
   try {
     const record = await Otp.findOne({ email, code: otp });
     if (!record) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (record.expiresAt < new Date()) {
+      await Otp.deleteOne({ _id: record._id });
+      return res.status(400).json({ message: 'OTP expired' });
+    }
     let user = (await Patient.findOne({ email })) as any;
     if (!user) {
       user = (await Doctor.findOne({ email })) as any;
@@ -325,24 +354,14 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// ─── NEW ROUTES: Deactivate & Delete Account ─────────────────────────────────
+// ─── Deactivate & Delete Account ─────────────────────────────────
 
 // PUT /api/user/deactivate
-// Marks the currently logged‐in patient as inactive (isActive=false).
-// Protected: must be a patient and authenticated.
 router.put('/user/deactivate', authenticateJWT, async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
-  const role = (req as any).role as 'patient' | 'doctor';
-
-  // Only patients can call this endpoint
-  if (role !== 'patient') {
-    return res.status(403).json({ message: 'Only patients can deactivate their account' });
-  }
-
   try {
-    const patient = user as IPatient;
-    patient.isActive = false;
-    await patient.save();
+    (user as any).isActive = false;
+    await user.save();
     return res.json({ message: 'Account has been deactivated.' });
   } catch (err) {
     console.error('Error deactivating account:', err);
@@ -351,28 +370,59 @@ router.put('/user/deactivate', authenticateJWT, async (req, res) => {
 });
 
 // DELETE /api/user
-// Permanently deletes the current patient’s account and associated data.
-// Protected: must be a patient and authenticated.
+// Body: { password: string }
 router.delete('/user', authenticateJWT, async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
   const role = (req as any).role as 'patient' | 'doctor';
-
-  // Only patients can delete their own account here
-  if (role !== 'patient') {
-    return res.status(403).json({ message: 'Only patients can delete their account' });
+  const { password } = req.body as { password?: string };
+  if (!password) {
+    return res.status(400).json({ message: 'Password required for deletion' });
   }
-
   try {
-    const patient = user as IPatient;
-    const patientId = patient._id;
-
-    // Delete patient's medical info
-    await MedicalInfo.deleteMany({ user: patientId });
-    // Delete patient's appointments
-    await Appointment.deleteMany({ patient: patientId });
-    // Finally delete the patient itself
-    await Patient.deleteOne({ _id: patientId });
-
+    const now = new Date();
+    if ((user as any).deleteLockedUntil && (user as any).deleteLockedUntil > now) {
+      const diffMs = (user as any).deleteLockedUntil.getTime() - now.getTime();
+      const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+      return res.status(403).json({
+        message: `Delete disabled due to multiple failed attempts. Try again in ${hoursLeft} hour(s).`,
+      });
+    }
+    if (!(user as any).passwordHash) {
+      return res.status(400).json({ message: 'No local password set. Cannot confirm deletion.' });
+    }
+    const isMatch = await (user as any).comparePassword(password);
+    if (!isMatch) {
+      (user as any).deleteAttempts = ((user as any).deleteAttempts || 0) + 1;
+      if ((user as any).deleteAttempts >= 3) {
+        const lockUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        (user as any).deleteLockedUntil = lockUntil;
+        (user as any).deleteAttempts = 0;
+        await user.save();
+        return res.status(403).json({
+          message: 'Too many failed attempts. Delete disabled for 24 hours.',
+        });
+      } else {
+        await user.save();
+        const attemptsLeft = 3 - (user as any).deleteAttempts;
+        return res.status(400).json({
+          message: `Incorrect password. ${attemptsLeft} attempt(s) remaining.`,
+        });
+      }
+    }
+    // Correct password: proceed to delete related data and user
+    if (role === 'patient') {
+      // Delete patient's medical info
+      await MedicalInfo.deleteMany({ user: user._id });
+      // Delete patient's appointments
+      await Appointment.deleteMany({ patient: user._id });
+      // ... any other cleanup
+      await Patient.deleteOne({ _id: user._id });
+    } else if (role === 'doctor') {
+      // Delete doctor's appointments
+      await Appointment.deleteMany({ doctor: user._id });
+      // ... any other cleanup
+      await Doctor.deleteOne({ _id: user._id });
+    }
     return res.json({ message: 'Account has been deleted successfully.' });
   } catch (err) {
     console.error('Error deleting account:', err);

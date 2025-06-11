@@ -1,6 +1,4 @@
 // File: frontend/src/contexts/AuthContext.tsx
-// Manages authentication state and actions: login, signup, email OTP, Google OAuth,
-// profile updates (including specialty & profile image), and password reset flows.
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
@@ -14,7 +12,7 @@ interface User {
   provider?: string;
   isVerified?: boolean;
   phone: string;
-  dob: string; // ISO date string (YYYY-MM-DD)
+  dob: string;
   profileImageUrl?: string;
   specialty?: string;
 }
@@ -47,6 +45,8 @@ interface AuthContextValue {
   sendPasswordResetOtp: (email: string) => Promise<void>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
+
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
@@ -56,32 +56,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const baseURL = import.meta.env.VITE_API_URL as string;
   const navigate = useNavigate();
 
-  // Axios instance for all API calls
   const api: AxiosInstance = axios.create({
     baseURL,
+  });
+  api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('authToken');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
   });
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch current user if token is present
-  const fetchUser = async (token: string) => {
+  const fetchUser = async () => {
     try {
-      const res = await api.get('/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get('/me');
+      const resUser: any = res.data;
       const u: User = {
-        id: res.data.id,
-        name: res.data.name,
-        email: res.data.email,
-        role: res.data.role,
-        provider: res.data.provider,
-        isVerified: res.data.isVerified,
-        phone: res.data.phone || '',
-        dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: res.data.profileImageUrl || '',
-        specialty: res.data.specialty || '',
+        id: resUser._id || resUser.id,
+        name: resUser.name,
+        email: resUser.email,
+        role: resUser.role,
+        provider: resUser.provider,
+        isVerified: resUser.isVerified,
+        phone: resUser.phone || '',
+        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
+        profileImageUrl: resUser.profileImageUrl || '',
+        specialty: resUser.specialty || '',
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -96,13 +100,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (token) {
-      fetchUser(token);
+      fetchUser();
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line
   }, []);
 
-  // Send email OTP for signup/verification
   const sendEmailOtp = async (email: string) => {
     try {
       await api.post('/send-email-otp', { email });
@@ -111,7 +115,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Verify email OTP
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-email-otp', { email, otp });
@@ -120,7 +123,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Sign up new user (patient or doctor)
   const signup = async (data: {
     name: string;
     email: string;
@@ -134,24 +136,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Log in with email/password
   const login = async (email: string, password: string) => {
     try {
       const res = await api.post('/login', { email, password });
       const token: string = res.data.token;
       localStorage.setItem('authToken', token);
-
+      const resUser: any = res.data.user;
       const u: User = {
-        id: res.data.user.id,
-        name: res.data.user.name,
-        email: res.data.user.email,
-        role: res.data.user.role,
-        provider: res.data.user.provider,
-        isVerified: res.data.user.isVerified,
-        phone: res.data.user.phone || '',
-        dob: res.data.user.dob ? new Date(res.data.user.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: res.data.user.profileImageUrl || '',
-        specialty: res.data.user.specialty || '',
+        id: resUser._id || resUser.id,
+        name: resUser.name,
+        email: resUser.email,
+        role: resUser.role,
+        provider: resUser.provider,
+        isVerified: resUser.isVerified,
+        phone: resUser.phone || '',
+        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
+        profileImageUrl: resUser.profileImageUrl || '',
+        specialty: resUser.specialty || '',
       };
       setUser(u);
       setIsAuthenticated(true);
@@ -160,18 +161,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Google OAuth redirection
   const signInWithGoogle = () => {
     window.location.href = `${baseURL}/auth/google`;
   };
 
-  // Login with token from Google OAuth flow
   const loginWithToken = async (token: string) => {
     localStorage.setItem('authToken', token);
-    await fetchUser(token);
+    await fetchUser();
   };
 
-  // Logout user
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
@@ -179,7 +177,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
-  // Update user profile (name, email, phone, dob, specialty, profileImageFile)
   const updateUserProfile = async (data: {
     name?: string;
     email?: string;
@@ -189,10 +186,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     profileImageFile?: File | null;
   }) => {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated.');
       const formData = new FormData();
-
       if (data.name) formData.append('name', data.name);
       if (data.email) formData.append('email', data.email);
       if (data.phone) formData.append('phone', data.phone);
@@ -201,26 +195,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data.profileImageFile) {
         formData.append('profileImage', data.profileImageFile);
       }
-
       const res = await api.put('/me', formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
       });
-
-      // Update local user state with returned data
+      const resUser: any = res.data;
       const u: User = {
-        id: res.data.id,
-        name: res.data.name,
-        email: res.data.email,
-        role: res.data.role,
-        provider: res.data.provider,
-        isVerified: res.data.isVerified,
-        phone: res.data.phone || '',
-        dob: res.data.dob ? new Date(res.data.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: res.data.profileImageUrl || '',
-        specialty: res.data.specialty || '',
+        id: resUser._id || resUser.id,
+        name: resUser.name,
+        email: resUser.email,
+        role: resUser.role,
+        provider: resUser.provider,
+        isVerified: resUser.isVerified,
+        phone: resUser.phone || '',
+        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
+        profileImageUrl: resUser.profileImageUrl || '',
+        specialty: resUser.specialty || '',
       };
       setUser(u);
     } catch (err: any) {
@@ -229,7 +220,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Send password‐reset OTP
   const sendPasswordResetOtp = async (email: string) => {
     try {
       await api.post('/send-reset-otp', { email });
@@ -238,7 +228,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Verify password‐reset OTP
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-reset-otp', { email, otp });
@@ -247,13 +236,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Reset password after OTP verification
   const resetPassword = async (email: string, otp: string, newPassword: string) => {
     try {
       await api.post('/reset-password', { email, otp, newPassword });
       navigate('/login');
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Password reset failed');
+    }
+  };
+
+  // Delete account with password confirmation
+  const deleteAccount = async (password: string) => {
+    try {
+      await api.delete('/user', { data: { password } });
+      localStorage.removeItem('authToken');
+      setUser(null);
+      setIsAuthenticated(false);
+      navigate('/signup');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to delete account';
+      throw new Error(msg);
     }
   };
 
@@ -275,16 +277,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         sendPasswordResetOtp,
         verifyPasswordResetOtp,
         resetPassword,
+        deleteAccount,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
-
-/*
-  Analysis:
-  - updateUserProfile now sends a FormData payload with fields name/email/phone/dob/specialty/profileImage.
-  - After PUT /me, we update `user.profileImageUrl` (which the backend returns as a base64 data URI).
-  - The dashboard uses that `profileImageUrl` to render the new photo immediately.
-*/

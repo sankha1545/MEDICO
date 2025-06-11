@@ -1,4 +1,4 @@
-// File: frontend/components/common/settingspage.tsx
+// File: frontend/components/common/SettingsPage.tsx
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from './Button';
 import { SlideIn } from '../animations/Transitions';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -27,6 +28,8 @@ interface SettingsPageProps {
 const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
+  const { deleteAccount } = useAuth();
+
   // 1. Availability & Schedule
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [breakTime, setBreakTime] = useState({ start: '', end: '' });
@@ -86,8 +89,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
   const [ehrKey, setEhrKey] = useState('');
   const [syncFrequency, setSyncFrequency] = useState('daily');
 
-  // 11. Account Management
-  const [deactivate, setDeactivate] = useState(false);
+  // 11. Account Management: enhanced delete flow for doctor
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
+  const [deactivated, setDeactivated] = useState(false);
+
+  // Delete flow states:
+  //  - deleteStage: 'none' | 'confirm' | 'password' | 'locked'
+  const [deleteStage, setDeleteStage] = useState<'none' | 'confirm' | 'password' | 'locked'>('none');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const toggleDay = (day: string) => {
     setAvailableDays((prev) =>
@@ -111,6 +121,62 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
       const file = e.target.files[0];
       setCertificates((prev) => [...prev, file.name]);
       setNewCertificate(file);
+    }
+  };
+
+  // Handle deactivate account (doctor)
+  const handleDeactivate = async () => {
+    try {
+      await fetch('/api/user/deactivate', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setDeactivated(true);
+      setDeactivateConfirm(false);
+    } catch (err) {
+      console.error('Deactivate error', err);
+      alert('Failed to deactivate account.');
+    }
+  };
+
+  // Start delete flow: first confirm
+  const initiateDelete = () => {
+    setDeleteError(null);
+    setPasswordInput('');
+    setDeleteStage('confirm');
+  };
+
+  // After user confirms “Yes, delete”, move to password prompt
+  const confirmDeleteYes = () => {
+    setDeleteStage('password');
+    setDeleteError(null);
+    setPasswordInput('');
+  };
+
+  // Cancel delete at any stage
+  const cancelDelete = () => {
+    setDeleteStage('none');
+    setDeleteError(null);
+    setPasswordInput('');
+  };
+
+  // Submit password for deletion
+  const submitDeletePassword = async () => {
+    setDeleteError(null);
+    try {
+      await deleteAccount(passwordInput);
+      // On success, deleteAccount navigates away
+    } catch (err: any) {
+      const msg = err.message || 'Delete failed';
+      // If backend indicates lockout
+      if (msg.toLowerCase().includes('disabled for')) {
+        setDeleteStage('locked');
+        setDeleteError(msg);
+      } else {
+        // Incorrect password with attempts remaining
+        setDeleteError(msg);
+        // Stay in 'password' stage for retry
+      }
     }
   };
 
@@ -147,7 +213,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Availability & Schedule
             </h2>
 
-            {/* Weekly Schedule Setup */}
+            {/* Weekly Schedule */}
             <div className="space-y-2">
               <p className="text-gray-400 font-medium">Weekly Schedule:</p>
               <div className="flex flex-wrap gap-2">
@@ -167,7 +233,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Break Time Configuration */}
+            {/* Break Time */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">Break Time:</p>
               <input
@@ -200,7 +266,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </select>
             </div>
 
-            {/* Custom Date Exceptions */}
+            {/* Date Exceptions */}
             <div className="space-y-2">
               <p className="text-gray-400 font-medium">Date Exceptions:</p>
               <div className="flex space-x-2">
@@ -237,6 +303,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   isClosed ? 'bg-red-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Emergency Closure"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -292,7 +359,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Time Gap Between Appointments */}
+            {/* Gap Between */}
             <div className="flex items-center space-x-4">
               <p className="text-gray-400 font-medium">Gap Between (min):</p>
               <input
@@ -304,7 +371,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               />
             </div>
 
-            {/* Max Appointments Per Day */}
+            {/* Max per Day */}
             <div className="flex items-center space-x-4">
               <p className="text-gray-400 font-medium">Max/Day:</p>
               <input
@@ -316,7 +383,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               />
             </div>
 
-            {/* Automatic Appointment Confirmation */}
+            {/* Auto-confirm */}
             <div className="flex items-center justify-between">
               <span className="text-gray-400 font-medium">Auto-confirm:</span>
               <button
@@ -324,6 +391,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   autoConfirm ? 'bg-green-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Auto-confirm"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -333,7 +401,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </button>
             </div>
 
-            {/* Buffer Time Settings */}
+            {/* Buffer Time */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">Buffer Time (min):</p>
               <input
@@ -404,7 +472,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Discount Offers / Packages */}
+            {/* Discount / Packages */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">Discount / Packages:</p>
               <input
@@ -419,7 +487,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </Button>
             </div>
 
-            {/* Bank Account / UPI Settings */}
+            {/* Bank / UPI */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">Bank / UPI:</p>
               <input
@@ -469,7 +537,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Notifications
             </h2>
 
-            {/* Email & SMS Preferences */}
+            {/* Email & SMS */}
             <div className="space-y-2">
               <p className="text-gray-400 font-medium">Email & SMS:</p>
               <div className="flex space-x-4">
@@ -534,6 +602,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   notifyMessages ? 'bg-green-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Patient Messages Notifications"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -554,6 +623,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   systemAlerts ? 'bg-green-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle System Alerts"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -574,6 +644,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   pushNotif ? 'bg-indigo-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Push Notifications"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -594,6 +665,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   soundAlerts ? 'bg-indigo-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Sound/Popup Alerts"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -646,6 +718,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   enable2FA ? 'bg-indigo-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle 2FA"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -657,7 +730,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
           </section>
         </SlideIn>
 
-        {/* 6. Telemedicine & Video Call Setup */}
+        {/* 6. Video Call Setup */}
         <SlideIn direction="up" delay={0.6}>
           <section className="bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
             <h2 className="text-xl font-semibold text-gray-100 flex items-center">
@@ -693,7 +766,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Communication Settings
             </h2>
 
-            {/* Auto-response Messages */}
+            {/* Auto-response */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">Auto-response:</p>
               <input
@@ -715,6 +788,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   chatAvailable ? 'bg-green-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Chat Availability"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -734,7 +808,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Analytics Preferences
             </h2>
 
-            {/* Enable Patient Analytics */}
+            {/* Enable Analytics */}
             <div className="flex items-center justify-between">
               <span className="text-gray-400 font-medium flex items-center space-x-1">
                 <Database className="w-5 h-5 text-gray-400" />
@@ -745,6 +819,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
                   enableAnalytics ? 'bg-indigo-500' : 'bg-gray-600'
                 }`}
+                aria-label="Toggle Analytics"
               >
                 <div
                   className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
@@ -754,7 +829,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               </button>
             </div>
 
-            {/* Daily/Weekly Report Emails */}
+            {/* Report Emails */}
             <div className="space-y-2">
               <p className="text-gray-400 font-medium">Report Emails:</p>
               <div className="flex space-x-4">
@@ -793,7 +868,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Document Management
             </h2>
 
-            {/* Upload/Manage Certificates */}
+            {/* Certificates & Licenses */}
             <div className="space-y-2">
               <p className="text-gray-400 font-medium">Certificates & Licenses:</p>
               <input
@@ -838,7 +913,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               EHR / EMR Integration
             </h2>
 
-            {/* Link to EHR System */}
+            {/* EHR API Key */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2">
               <p className="text-gray-400 font-medium">EHR API Key:</p>
               <input
@@ -861,7 +936,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 onChange={(e) => setSyncFrequency(e.target.value)}
                 className="bg-gray-700 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="realtime">Real-time</option>
+                <option value="real-time">Real-time</option>
                 <option value="hourly">Hourly</option>
                 <option value="daily">Daily</option>
               </select>
@@ -877,24 +952,90 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
               Account Management
             </h2>
 
-            {/* Deactivate / Delete Account */}
-            <div className="flex items-center space-x-4">
-              <Button variant="destructive" size="sm" onClick={() => setDeactivate(true)}>
-                Deactivate / Delete Account
-              </Button>
-              {deactivate && <p className="text-red-400">Account deactivated.</p>}
-            </div>
+            {/* Deactivate Account */}
+            {!deactivated ? (
+              <>
+                {!deactivateConfirm ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeactivateConfirm(true)}
+                    className="border-red-600 hover:border-red-500"
+                  >
+                    Deactivate Account
+                  </Button>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <span className="text-gray-200">Are you sure you want to deactivate?</span>
+                    <Button variant="outline" size="sm" onClick={() => setDeactivateConfirm(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={handleDeactivate}>
+                      Yes, Deactivate
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-yellow-400">Account deactivated.</p>
+            )}
 
-            {/* Download My Data */}
-            <div className="flex items-center space-x-4">
-              <p className="text-gray-400 font-medium flex items-center space-x-1">
-                <Download className="w-5 h-5 text-gray-400" />
-                <span>Download My Data</span>
-              </p>
-              <Button variant="outline" size="sm">
-                Download
+            {/* Delete Account */}
+            {deleteStage === 'none' && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={initiateDelete}
+                className="border-red-600 hover:border-red-500"
+              >
+                Delete Account
               </Button>
-            </div>
+            )}
+
+            {deleteStage === 'confirm' && (
+              <div className="flex items-center space-x-4">
+                <span className="text-gray-200">
+                  Permanent delete? This will remove your doctor account and all associated data.
+                </span>
+                <Button variant="outline" size="sm" onClick={cancelDelete}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" size="sm" onClick={confirmDeleteYes}>
+                  Yes, Delete
+                </Button>
+              </div>
+            )}
+
+            {deleteStage === 'password' && (
+              <div className="flex flex-col space-y-2">
+                <p className="text-gray-200">Enter your password to confirm deletion:</p>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="bg-gray-700 text-gray-100 rounded-lg px-4 py-2 w-full md:w-1/3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Password"
+                />
+                {deleteError && <p className="text-red-400">{deleteError}</p>}
+                <div className="flex items-center space-x-4">
+                  <Button variant="outline" size="sm" onClick={cancelDelete}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={submitDeletePassword}>
+                    Confirm Delete
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {deleteStage === 'locked' && (
+              <div className="flex flex-col space-y-2">
+                <p className="text-red-400">
+                  {deleteError ||
+                    'Delete disabled due to multiple failed attempts. Please try again later.'}
+                </p>
+              </div>
+            )}
           </section>
         </SlideIn>
       </div>

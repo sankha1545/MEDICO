@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -9,31 +10,10 @@ import {
   Clock,
   X,
 } from 'lucide-react';
-import axios from 'axios';
-import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
 import Chatbot from '../../components/common/chatbot/chatbot';
 import BookAppointment from '../../components/common/bookappointment/bookappointment';
-
-// Framer Motion variants
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
-};
-const cardVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.9 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { delay: 0.3 + i * 0.15, duration: 0.6, ease: 'easeOut' },
-  }),
-  hover: { scale: 1.03, boxShadow: '0 10px 20px rgba(0,0,0,0.5)' },
-};
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.15 } },
-};
 
 interface Doctor {
   id: string;
@@ -69,6 +49,26 @@ const specialties = [
   'Dentistry',
 ];
 
+// Motion variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.9 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { delay: 0.3 + i * 0.15, duration: 0.6, ease: 'easeOut' },
+  }),
+  hover: { scale: 1.03, boxShadow: '0 10px 20px rgba(0,0,0,0.5)' },
+};
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15 } },
+};
+
 const DoctorsPage: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
@@ -78,12 +78,13 @@ const DoctorsPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const [viewingDoctorId, setViewingDoctorId] = useState<string | null>(null);
-  const [selectedDoctorProfile, setSelectedDoctorProfile] = useState<DoctorDetail | null>(null);
+  const [selectedDoctorProfile, setSelectedDoctorProfile] =
+    useState<DoctorDetail | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
 
-  // Fetch doctors list on mount
+  // Fetch doctors on mount
   useEffect(() => {
     axios
       .get<Doctor[]>(`${import.meta.env.VITE_API_URL}/medical/doctors`)
@@ -94,7 +95,7 @@ const DoctorsPage: React.FC = () => {
       .catch(err => console.error('Error fetching doctors:', err));
   }, []);
 
-  // Apply search & specialty filters
+  // Filter logic
   useEffect(() => {
     const term = searchTerm.toLowerCase();
     setFilteredDoctors(
@@ -131,7 +132,6 @@ const DoctorsPage: React.FC = () => {
     setSelectedDoctorProfile(null);
   };
 
-  // When user clicks Book Appointment, open the imported form for that doctor
   const handleBookClick = (id: string) => setBookingDoctorId(id);
   const closeBookingForm = () => setBookingDoctorId(null);
 
@@ -185,7 +185,7 @@ const DoctorsPage: React.FC = () => {
 
             <Button
               variant="outline"
-              onClick={() => setShowFilters(prev => !prev)}
+              onClick={() => setShowFilters(f => !f)}
               icon={<Filter size={18} className="text-gray-300" />}
               className="border-gray-600 text-gray-300 hover:bg-gray-700"
             >
@@ -210,13 +210,19 @@ const DoctorsPage: React.FC = () => {
 
         {/* Results Count */}
         <motion.div variants={fadeInUp} className="mb-4 text-gray-400">
-          Showing {filteredDoctors.length} doctor{filteredDoctors.length !== 1 ? 's' : ''}{' '}
+          Showing {filteredDoctors.length} doctor
+          {filteredDoctors.length !== 1 ? 's' : ''}{' '}
           {selectedSpecialty !== 'All Specialties' && `in ${selectedSpecialty}`}
         </motion.div>
 
         {/* Doctor List */}
         {filteredDoctors.length > 0 ? (
-          <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            className="space-y-8"
+          >
             {filteredDoctors.map((doctor, idx) => (
               <motion.div
                 key={doctor.id}
@@ -228,7 +234,7 @@ const DoctorsPage: React.FC = () => {
                 className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 overflow-hidden"
               >
                 <div className="md:flex">
-                  {/* Doctor info left */}
+                  {/* Left: Image */}
                   <div className="md:w-1/4 lg:w-1/5">
                     <motion.img
                       src={doctor.image}
@@ -239,20 +245,27 @@ const DoctorsPage: React.FC = () => {
                       transition={{ duration: 0.5 }}
                     />
                   </div>
+                  {/* Right: Details */}
                   <div className="p-6 flex-1 flex flex-col">
                     {/* Header */}
                     <div className="flex justify-between items-start">
                       <div>
-                        <h2 className="text-2xl font-semibold text-white">Dr. {doctor.name}</h2>
+                        <h2 className="text-2xl font-semibold text-white">
+                          Dr. {doctor.name}
+                        </h2>
                         <p className="text-indigo-400">{doctor.specialty}</p>
                         <div className="flex items-center mt-2">
                           {[...Array(5)].map((_, i) => (
                             <StarIcon
                               key={i}
                               size={16}
-                              fill={i < Math.floor(doctor.rating) ? 'currentColor' : 'none'}
+                              fill={
+                                i < Math.floor(doctor.rating) ? 'currentColor' : 'none'
+                              }
                               className={
-                                i < Math.floor(doctor.rating) ? 'text-yellow-500' : 'text-gray-600'
+                                i < Math.floor(doctor.rating)
+                                  ? 'text-yellow-500'
+                                  : 'text-gray-600'
                               }
                             />
                           ))}
@@ -272,7 +285,7 @@ const DoctorsPage: React.FC = () => {
                       </motion.div>
                     </div>
 
-                    {/* Stats grid */}
+                    {/* Stats Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 flex-1">
                       <div>
                         <p className="text-sm text-gray-400">Experience</p>
@@ -280,7 +293,9 @@ const DoctorsPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-400">Hospital</p>
-                        <p className="text-gray-100">{doctor.hospitalAffiliation}</p>
+                        <p className="text-gray-100">
+                          {doctor.hospitalAffiliation}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-400">Location</p>
@@ -295,7 +310,9 @@ const DoctorsPage: React.FC = () => {
                     <div className="mt-6 flex flex-wrap justify-between gap-4">
                       <div className="flex items-center">
                         <Calendar size={18} className="text-indigo-400 mr-2" />
-                        <span className="text-gray-400">{doctor.availableSlots} slots available</span>
+                        <span className="text-gray-400">
+                          {doctor.availableSlots} slots available
+                        </span>
                       </div>
                       <div className="flex space-x-3">
                         <Button
@@ -320,11 +337,16 @@ const DoctorsPage: React.FC = () => {
             ))}
           </motion.div>
         ) : (
-          <motion.div variants={fadeInUp} className="text-center py-16 bg-gray-800 rounded-2xl border border-gray-700">
+          <motion.div
+            variants={fadeInUp}
+            className="text-center py-16 bg-gray-800 rounded-2xl border border-gray-700"
+          >
             <Search size={32} className="mx-auto text-gray-600 mb-4" />
-            <h3 className="text-2xl font-medium text-gray-100 mb-2">No doctors found</h3>
+            <h3 className="text-2xl font-medium text-gray-100 mb-2">
+              No doctors found
+            </h3>
             <p className="text-gray-400 mb-6">
-              We couldn't find any doctors. Try different keywords or filters.
+              We couldn’t find any doctors. Try different keywords or filters.
             </p>
             <Button
               variant="outline"
@@ -341,14 +363,17 @@ const DoctorsPage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Imported Booking Form */}
+        {/* Booking Form Modal */}
         <AnimatePresence>
           {bookingDoctorId && (
-            <BookAppointment doctorId={bookingDoctorId} onClose={closeBookingForm} />
+            <BookAppointment
+              doctorId={bookingDoctorId}
+              onClose={closeBookingForm}
+            />
           )}
         </AnimatePresence>
 
-        {/* Profile Modal (unchanged) */}
+        {/* Profile Modal */}
         <AnimatePresence>
           {viewingDoctorId && (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
@@ -365,7 +390,7 @@ const DoctorsPage: React.FC = () => {
                 >
                   <X size={20} />
                 </button>
-                {/* Profile content here */}
+                {/* TODO: render selectedDoctorProfile content here */}
               </motion.div>
             </div>
           )}

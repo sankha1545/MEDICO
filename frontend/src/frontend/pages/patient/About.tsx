@@ -1,223 +1,364 @@
-// src/frontend/pages/patient/About.tsx
+import React, { Suspense } from 'react';
 import { motion } from 'framer-motion';
-import Chatbot from '../../components/common/chatbot/chatbot';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Float, Text3D, Center } from '@react-three/drei';
+import {
+  Heart,
+  Shield,
+  Users,
+  Award,
+  Zap,
+  Globe,
+  TrendingUp,
+  Star,
+  CheckCircle,
+  Target,
+} from 'lucide-react';
+import DNAHelix from '../../components/animations/3D/DNAHelix';
+import MedicalParticles from '../../components/animations/3D/MedicalParticles';
 
-import company1 from '../../assets/company  (1).svg';
-import company2 from '../../assets/company  (2).svg';
-import company3 from '../../assets/company  (3).svg';
-import company4 from '../../assets/company  (4).svg';
-import company5 from '../../assets/company  (5).svg';
-import company6 from '../../assets/company  (6).svg';
-import company7 from '../../assets/company  (7).svg';
-import company8 from '../../assets/company  (8).svg';
-import company9 from '../../assets/company  (9).svg';
-import company10 from '../../assets/company  (10).svg';
-
-export default function About() {
+const EnhancedAbout: React.FC = () => {
   const milestones = [
-    { year: '2010', text: 'Founded by a team of healthcare visionaries.' },
-    { year: '2015', text: 'Partnered with 100+ clinics across the globe.' },
-    { year: '2020', text: 'Unveiled AI-powered diagnosis tools.' },
-    { year: '2023', text: 'Over 2 million patients empowered.' },
+    {
+      year: '2018',
+      title: 'Founded',
+      description: 'MedicoX was born from a vision to revolutionize healthcare accessibility',
+      icon: <Zap className="w-6 h-6" />,
+      color: 'from-blue-500 to-cyan-500',
+    },
+    {
+      year: '2020',
+      title: 'AI Integration',
+      description: 'Launched our AI-powered diagnosis and recommendation system',
+      icon: <Target className="w-6 h-6" />,
+      color: 'from-purple-500 to-pink-500',
+    },
+    {
+      year: '2022',
+      title: 'Global Expansion',
+      description: 'Expanded to serve patients across 15 countries worldwide',
+      icon: <Globe className="w-6 h-6" />,
+      color: 'from-green-500 to-emerald-500',
+    },
+    {
+      year: '2024',
+      title: 'Million Patients',
+      description: 'Reached the milestone of serving over 1 million patients',
+      icon: <Users className="w-6 h-6" />,
+      color: 'from-orange-500 to-red-500',
+    },
   ];
 
-  const team = [
-    { name: 'Dr. Aisha Khan', role: 'Chief Medical Officer', img: '/team/aisha.jpg' },
-    { name: 'Ravi Menon', role: 'Head of Technology', img: '/team/ravi.jpg' },
-    { name: 'Sofia Martinez', role: 'Head of Community', img: '/team/sofia.jpg' },
-    { name: 'Liam O’Connor', role: 'UX Lead', img: '/team/liam.jpg' },
+  const values = [
+    {
+      icon: <Heart className="w-8 h-8" />,
+      title: 'Compassionate Care',
+      description: 'Every patient interaction is guided by empathy and understanding',
+      color: 'from-red-500 to-pink-500',
+    },
+    {
+      icon: <Shield className="w-8 h-8" />,
+      title: 'Privacy & Security',
+      description: 'Your health data is protected with enterprise-grade security',
+      color: 'from-blue-500 to-cyan-500',
+    },
+    {
+      icon: <Zap className="w-8 h-8" />,
+      title: 'Innovation',
+      description: 'Continuously pushing the boundaries of digital healthcare',
+      color: 'from-purple-500 to-indigo-500',
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: 'Accessibility',
+      description: 'Making quality healthcare accessible to everyone, everywhere',
+      color: 'from-green-500 to-emerald-500',
+    },
   ];
 
-  const partners = [
-    { src: company1, alt: 'Company 1' },
-    { src: company2, alt: 'Company 2' },
-    { src: company3, alt: 'Company 3' },
-    { src: company4, alt: 'Company 4' },
-    { src: company5, alt: 'Company 5' },
-    { src: company6, alt: 'Company 6' },
-    { src: company7, alt: 'Company 7' },
-    { src: company8, alt: 'Company 8' },
-    { src: company9, alt: 'Company 9' },
-    { src: company10, alt: 'Company 10' },
+  const stats = [
+    { value: '1M+', label: 'Patients Served', icon: <Users className="w-6 h-6" /> },
+    { value: '5K+', label: 'Healthcare Providers', icon: <Award className="w-6 h-6" /> },
+    { value: '15', label: 'Countries', icon: <Globe className="w-6 h-6" /> },
+    { value: '99.9%', label: 'Uptime', icon: <TrendingUp className="w-6 h-6" /> },
   ];
 
-  // Duplicate once for seamless loop
-  const marqueePartners = [...partners, ...partners];
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6 },
+    },
+  };
 
   return (
-    <div className="w-full bg-gray-900 text-white flex flex-col">
-      {/* HERO SECTION */}
-      <section className="w-full bg-gray-900 py-20 px-4 sm:px-6 lg:px-8 text-center">
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-4xl sm:text-5xl font-extrabold text-emerald-400 mb-4"
-        >
-          About MedicoX
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg text-gray-300 max-w-2xl mx-auto"
-        >
-          Connecting millions to quality healthcare—fast, secure, and compassionate.
-        </motion.p>
-      </section>
-
-      {/* MISSION & VISION */}
-      <section className="w-full bg-gray-800 py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="bg-gray-900 p-8 rounded-2xl shadow-md"
-          >
-            <h2 className="text-2xl font-semibold text-teal-300 mb-3">Our Mission</h2>
-            <p className="text-gray-400">
-              Empowering patients with seamless access to healthcare professionals through technology and empathy.
-            </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-gray-900 p-8 rounded-2xl shadow-md"
-          >
-            <h2 className="text-2xl font-semibold text-teal-300 mb-3">Our Vision</h2>
-            <p className="text-gray-400">
-              To be the global leader in accessible, personalized, and digital-first healthcare experiences.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* TIMELINE */}
-      <section className="w-full bg-gray-900 py-24 px-4 sm:px-6 lg:px-8">
-        <h3 className="text-3xl font-bold text-center text-white mb-12">Our Journey</h3>
-        <div className="relative max-w-4xl mx-auto">
-          <div className="absolute left-1/2 transform -translate-x-1 bg-emerald-600 w-1 h-full" />
-          {milestones.map((m, idx) => (
-            <motion.div
-              key={m.year}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.2 }}
-              className={`mb-12 flex w-full ${idx % 2 === 0 ? 'justify-start' : 'justify-end'}`}
-            >
-              <div className="bg-gray-800 p-6 rounded-xl shadow-lg w-80 hover:scale-105 transition">
-                <span className="text-emerald-400 font-bold text-xl">{m.year}</span>
-                <p className="text-gray-300 mt-2">{m.text}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* TEAM SECTION */}
-      <section className="w-full bg-gray-800 py-24 px-4 sm:px-6 lg:px-8">
-        <h3 className="text-3xl font-bold text-center text-white mb-12">Meet the Team</h3>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {team.map((member, idx) => (
-            <motion.div
-              key={member.name}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.15 }}
-              className="bg-gray-900 p-6 rounded-2xl shadow-md text-center hover:bg-gray-700 transition"
-            >
-              <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 border-2 border-emerald-500">
-                <img
-                  src={member.img}
-                  alt={member.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <h4 className="text-xl font-semibold text-white">{member.name}</h4>
-              <p className="text-gray-400 mt-1">{member.role}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* OUR PARTNERS (SEAMLESS MARQUEE) */}
-      <section className="w-full bg-gray-900 py-20 px-4 sm:px-6 lg:px-8">
-        <h3 className="text-3xl font-bold text-center text-white mb-12">Our Partners</h3>
-        <div className="relative overflow-hidden">
-          <div className="marquee-container">
-            <div className="marquee-track">
-              {marqueePartners.map((partner, idx) => (
-                <div key={idx} className="marquee-item flex-shrink-0 mx-8">
-                  <img
-                    src={partner.src}
-                    alt={partner.alt}
-                    className="w-40 h-auto object-contain"
-                    style={{ transform: 'rotateY(-15deg)' }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CALL TO ACTION */}
-      <section className="w-full bg-gray-900 py-16 px-4 sm:px-6 lg:px-8 text-center">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-3xl font-bold text-white mb-6"
-        >
-          Ready to Experience Next-Gen Healthcare?
-        </motion.h2>
-        <motion.a
-          href="/book-appointment"
-          initial={{ opacity: 0, scale: 0.8 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="inline-flex items-center px-10 py-4 bg-teal-500 hover:bg-teal-600 rounded-full text-lg font-semibold shadow-2xl transform hover:scale-105 transition"
-        >
-          Book an Appointment
-        </motion.a>
-      </section>
-
-      {/* PERSISTENT CHATBOT */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Chatbot />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
+      {/* 3D Background */}
+      <div className="fixed inset-0 z-0 opacity-30">
+        <Canvas>
+          <Suspense fallback={null}>
+            <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.3} />
+            <ambientLight intensity={0.3} />
+            <directionalLight position={[10, 10, 5]} intensity={0.5} />
+            
+            <MedicalParticles />
+            
+            <Float speed={1} rotationIntensity={0.2} floatIntensity={0.2}>
+              <group position={[5, 0, -3]} scale={0.8}>
+                <DNAHelix />
+              </group>
+            </Float>
+          </Suspense>
+        </Canvas>
       </div>
 
-      <style jsx>{`
-        .marquee-container {
-          width: 100%;
-          overflow: hidden;
-        }
-        .marquee-track {
-          display: flex;
-          width: calc(20 * 10rem); /* 20 items * 10rem item width (8rem image + margins) */
-          animation: marquee 20s linear infinite;
-        }
-        .marquee-item {
-          width: 10rem; /* 8rem image + 2rem total margins (mx-8) */
-          flex-shrink: 0;
-        }
-        @keyframes marquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
+      <div className="relative z-10 p-6 max-w-7xl mx-auto">
+        {/* Hero Section */}
+        <motion.div
+          className="text-center mb-20"
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <motion.h1 
+            className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            About MedicoX
+          </motion.h1>
+          <motion.p 
+            className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+          >
+            Revolutionizing healthcare through technology, compassion, and innovation. 
+            We're building the future of patient care, one connection at a time.
+          </motion.p>
+        </motion.div>
+
+        {/* Stats Section */}
+        <motion.div
+          className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-20"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {stats.map((stat, index) => (
+            <motion.div
+              key={index}
+              className="text-center"
+              variants={itemVariants}
+              whileHover={{ scale: 1.05, y: -10 }}
+            >
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  {stat.icon}
+                </div>
+                <motion.div
+                  className="text-3xl md:text-4xl font-bold text-white mb-2"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 + 0.5 }}
+                >
+                  {stat.value}
+                </motion.div>
+                <div className="text-gray-300">{stat.label}</div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Mission & Vision */}
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <motion.div
+            className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl border border-white/10 p-8"
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6">
+              <Target className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-6 text-white">Our Mission</h2>
+            <p className="text-gray-300 text-lg leading-relaxed">
+              To democratize healthcare by leveraging cutting-edge technology to connect patients 
+              with the right care at the right time, making quality healthcare accessible, 
+              affordable, and convenient for everyone.
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-3xl border border-white/10 p-8"
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mb-6">
+              <Star className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-6 text-white">Our Vision</h2>
+            <p className="text-gray-300 text-lg leading-relaxed">
+              To create a world where distance, time, and resources are no longer barriers 
+              to receiving exceptional healthcare. We envision a future where every person 
+              has instant access to personalized, AI-enhanced medical care.
+            </p>
+          </motion.div>
+        </motion.div>
+
+        {/* Values Section */}
+        <motion.div
+          className="mb-20"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <h2 className="text-4xl font-bold text-center mb-12 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Our Core Values
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {values.map((value, index) => (
+              <motion.div
+                key={index}
+                className="group relative"
+                initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                whileHover={{ scale: 1.05 }}
+              >
+                <div className={`relative p-8 bg-gradient-to-br ${value.color} rounded-2xl backdrop-blur-sm border border-white/10 overflow-hidden`}>
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  />
+                  
+                  <div className="relative z-10">
+                    <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                      {value.icon}
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-4">{value.title}</h3>
+                    <p className="text-white/90 leading-relaxed">{value.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Timeline */}
+        <motion.div
+          className="mb-20"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <h2 className="text-4xl font-bold text-center mb-12 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Our Journey
+          </h2>
+          
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
+            
+            {milestones.map((milestone, index) => (
+              <motion.div
+                key={index}
+                className={`relative flex items-center mb-16 ${
+                  index % 2 === 0 ? 'justify-start' : 'justify-end'
+                }`}
+                initial={{ opacity: 0, x: index % 2 === 0 ? -100 : 100 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.2 }}
+              >
+                <div className={`w-5/12 ${index % 2 === 0 ? 'pr-8' : 'pl-8'}`}>
+                  <motion.div
+                    className={`bg-gradient-to-br ${milestone.color} rounded-2xl p-6 backdrop-blur-sm border border-white/10`}
+                    whileHover={{ scale: 1.05, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                        {milestone.icon}
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-white">{milestone.year}</div>
+                        <div className="text-lg font-semibold text-white/90">{milestone.title}</div>
+                      </div>
+                    </div>
+                    <p className="text-white/80">{milestone.description}</p>
+                  </motion.div>
+                </div>
+                
+                {/* Timeline dot */}
+                <motion.div
+                  className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-white rounded-full border-4 border-blue-500 z-10"
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, delay: index * 0.2 + 0.3 }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* CTA Section */}
+        <motion.div
+          className="text-center bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl border border-white/10 p-12"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <h2 className="text-4xl font-bold mb-6 text-white">Join Our Healthcare Revolution</h2>
+          <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+            Be part of the future of healthcare. Experience the difference that technology, 
+            compassion, and innovation can make in your health journey.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <motion.button
+              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-lg text-white"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Start Your Journey
+            </motion.button>
+            
+            <motion.button
+              className="px-8 py-4 border border-white/30 rounded-xl font-bold text-lg text-white hover:bg-white/10 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Learn More
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
-}
+};
+
+export default EnhancedAbout;

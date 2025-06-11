@@ -40,8 +40,7 @@ import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
 
 // Payment page (new)
-import PaymentPage from './frontend/pages/patient/paymentspage';
-
+import PaymentPage from './frontend/pages/patient/paymentspage';import AnimatedCursor from './frontend/components/common/cursor';
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -52,7 +51,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => (
+  
   <AuthProvider>
+   
     <Routes>
       {/* Redirect root to login */}
       <Route path="/" element={<Navigate to="/login" replace />} />

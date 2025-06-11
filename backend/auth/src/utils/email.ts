@@ -1,3 +1,5 @@
+// File: backend/src/utils/email.ts
+
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -23,13 +25,13 @@ export default async function sendMail({ to, subject, text, html }: MailOptions)
     },
   });
 
-  const mailData = {
+  const mailData: any = {
     from: `MedBook <${process.env.SMTP_USER}>`,
     to,
     subject,
     text,
-    ...(html ? { html } : {}),
   };
+  if (html) mailData.html = html;
 
   try {
     const info = await transporter.sendMail(mailData);
