@@ -1,3 +1,5 @@
+// File: src/pages/DoctorsPage1.tsx
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +16,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import Chatbot from '../../components/common/chatbot/chatbot';
 import BookAppointment from '../../components/common/bookappointment/bookappointment';
+import { BackgroundAnimation } from '../../components/animations/BackGroundAnimations'; // adjust path as needed
 
 interface Doctor {
   id: string;
@@ -49,7 +52,7 @@ const specialties = [
   'Dentistry',
 ];
 
-// Motion variants
+// Motion variants (adapted from DoctorsPage.tsx)
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
@@ -69,7 +72,7 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.15 } },
 };
 
-const DoctorsPage: React.FC = () => {
+const DoctorsPage1: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
   const [searchInput, setSearchInput] = useState('');
@@ -136,273 +139,369 @@ const DoctorsPage: React.FC = () => {
   const closeBookingForm = () => setBookingDoctorId(null);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-gray-100 overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
-        {/* Header */}
-        <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Find the Right Doctor</h1>
-          <p className="text-gray-400 text-lg">
-            Search for specialists, read reviews, and book appointments
-          </p>
-        </motion.div>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background animations behind content */}
+      <BackgroundAnimation />
 
-        {/* Search & Filters */}
-        <motion.div
-          variants={fadeInUp}
-          initial="hidden"
-          animate="visible"
-          className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-6 mb-10"
-        >
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1">
-              <Input
-                placeholder="Search by name or specialty..."
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && onSearch()}
-                className="pl-10 bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                fullWidth
-              />
-              <button
-                onClick={onSearch}
-                className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-200"
-              >
-                <Search size={20} />
-              </button>
-            </div>
-
-            <select
-              value={selectedSpecialty}
-              onChange={e => setSelectedSpecialty(e.target.value)}
-              className="appearance-none px-4 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+      <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+          {/* Animated Header */}
+          <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="mb-8 text-center">
+            <motion.h1
+              className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2"
+              animate={{
+                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+              }}
+              transition={{ duration: 5, repeat: Infinity }}
             >
-              {specialties.map(s => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(f => !f)}
-              icon={<Filter size={18} className="text-gray-300" />}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              Find the Right Doctor
+            </motion.h1>
+            <motion.p
+              className="text-gray-300 text-lg"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
             >
-              Filters
-            </Button>
-          </div>
-
-          <AnimatePresence>
-            {showFilters && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="mt-6 pt-4 border-t border-gray-700"
-              >
-                {/* Filters panel - keep as is */}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Results Count */}
-        <motion.div variants={fadeInUp} className="mb-4 text-gray-400">
-          Showing {filteredDoctors.length} doctor
-          {filteredDoctors.length !== 1 ? 's' : ''}{' '}
-          {selectedSpecialty !== 'All Specialties' && `in ${selectedSpecialty}`}
-        </motion.div>
-
-        {/* Doctor List */}
-        {filteredDoctors.length > 0 ? (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="space-y-8"
-          >
-            {filteredDoctors.map((doctor, idx) => (
-              <motion.div
-                key={doctor.id}
-                custom={idx}
-                variants={cardVariants}
-                initial="hidden"
-                animate="visible"
-                whileHover="hover"
-                className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 overflow-hidden"
-              >
-                <div className="md:flex">
-                  {/* Left: Image */}
-                  <div className="md:w-1/4 lg:w-1/5">
-                    <motion.img
-                      src={doctor.image}
-                      alt={doctor.name}
-                      className="w-full h-56 md:h-full object-cover"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                  {/* Right: Details */}
-                  <div className="p-6 flex-1 flex flex-col">
-                    {/* Header */}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h2 className="text-2xl font-semibold text-white">
-                          Dr. {doctor.name}
-                        </h2>
-                        <p className="text-indigo-400">{doctor.specialty}</p>
-                        <div className="flex items-center mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <StarIcon
-                              key={i}
-                              size={16}
-                              fill={
-                                i < Math.floor(doctor.rating) ? 'currentColor' : 'none'
-                              }
-                              className={
-                                i < Math.floor(doctor.rating)
-                                  ? 'text-yellow-500'
-                                  : 'text-gray-600'
-                              }
-                            />
-                          ))}
-                          <span className="ml-2 text-sm text-gray-400">
-                            {doctor.rating} ({doctor.reviewCount} reviews)
-                          </span>
-                        </div>
-                      </div>
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.6 }}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-700 text-green-200"
-                      >
-                        <Clock size={14} className="mr-1" />
-                        Available {doctor.nextAvailable}
-                      </motion.div>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 flex-1">
-                      <div>
-                        <p className="text-sm text-gray-400">Experience</p>
-                        <p className="text-gray-100">{doctor.experience}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Hospital</p>
-                        <p className="text-gray-100">
-                          {doctor.hospitalAffiliation}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Location</p>
-                        <div className="flex items-center">
-                          <MapPin size={14} className="text-gray-500 mr-1" />
-                          <p className="text-gray-100">{doctor.location}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="mt-6 flex flex-wrap justify-between gap-4">
-                      <div className="flex items-center">
-                        <Calendar size={18} className="text-indigo-400 mr-2" />
-                        <span className="text-gray-400">
-                          {doctor.availableSlots} slots available
-                        </span>
-                      </div>
-                      <div className="flex space-x-3">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleViewProfileClick(doctor.id)}
-                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                        >
-                          View Profile
-                        </Button>
-                        <Button
-                          variant="primary"
-                          onClick={() => handleBookClick(doctor.id)}
-                          className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          Book Appointment
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+              Search for specialists, read reviews, and book appointments
+            </motion.p>
           </motion.div>
-        ) : (
+
+          {/* Search & Filters with animations */}
           <motion.div
             variants={fadeInUp}
-            className="text-center py-16 bg-gray-800 rounded-2xl border border-gray-700"
+            initial="hidden"
+            animate="visible"
+            className="bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50 p-6 mb-10"
           >
-            <Search size={32} className="mx-auto text-gray-600 mb-4" />
-            <h3 className="text-2xl font-medium text-gray-100 mb-2">
-              No doctors found
-            </h3>
-            <p className="text-gray-400 mb-6">
-              We couldn’t find any doctors. Try different keywords or filters.
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchInput('');
-                setSearchTerm('');
-                setSelectedSpecialty('All Specialties');
-                setShowFilters(false);
-              }}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-            >
-              Clear Filters
-            </Button>
-          </motion.div>
-        )}
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              {/* Search Input */}
+              <div className="relative flex-1 w-full">
+                <motion.div whileHover={{ scale: 1.02 }} className="relative">
+                  <Search
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    size={20}
+                  />
+                  <Input
+                    placeholder="Search by name or specialty..."
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onSearch()}
+                    className="pl-10 bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                    fullWidth
+                  />
+                  <motion.button
+                    onClick={onSearch}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                  >
+                    <Search size={20} />
+                  </motion.button>
+                </motion.div>
+              </div>
 
-        {/* Booking Form Modal */}
-        <AnimatePresence>
-          {bookingDoctorId && (
-            <BookAppointment
-              doctorId={bookingDoctorId}
-              onClose={closeBookingForm}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* Profile Modal */}
-        <AnimatePresence>
-          {viewingDoctorId && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
+              {/* Specialty Dropdown */}
+              <motion.select
+                whileHover={{ scale: 1.02 }}
+                value={selectedSpecialty}
+                onChange={e => setSelectedSpecialty(e.target.value)}
+                className="appearance-none px-4 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               >
-                <button
-                  onClick={closeViewProfileModal}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+                {specialties.map(s => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </motion.select>
+
+              {/* Filters Toggle */}
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(f => !f)}
+                  icon={<Filter size={18} className="text-gray-300" />}
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
                 >
-                  <X size={20} />
-                </button>
-                {/* TODO: render selectedDoctorProfile content here */}
+                  Filters
+                </Button>
               </motion.div>
             </div>
+
+            {/* Advanced Filters Panel (empty placeholder) */}
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-6 pt-4 border-t border-gray-700"
+                >
+                  {/* TODO: Customize advanced filters here */}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Results Count */}
+          <motion.div variants={fadeInUp} className="mb-4 text-gray-300">
+            Showing{' '}
+            <span className="text-blue-400 font-semibold">{filteredDoctors.length}</span>{' '}
+            doctor{filteredDoctors.length !== 1 ? 's' : ''}{' '}
+            {selectedSpecialty !== 'All Specialties' && (
+              <>in <span className="text-purple-400">{selectedSpecialty}</span></>
+            )}
+          </motion.div>
+
+          {/* Doctor List */}
+          {filteredDoctors.length > 0 ? (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="space-y-8"
+            >
+              {filteredDoctors.map((doctor, idx) => (
+                <motion.div
+                  key={doctor.id}
+                  custom={idx}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover="hover"
+                  className="bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50 overflow-hidden"
+                >
+                  <div className="md:flex">
+                    {/* Left: Image */}
+                    <div className="md:w-1/4 lg:w-1/5 relative">
+                      <motion.img
+                        src={doctor.image}
+                        alt={doctor.name}
+                        className="w-full h-56 md:h-full object-cover"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                      />
+                      {/* gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    </div>
+                    {/* Right: Details */}
+                    <div className="p-6 flex-1 flex flex-col">
+                      {/* Header */}
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <motion.h2
+                            className="text-2xl md:text-3xl font-semibold text-white"
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            Dr. {doctor.name}
+                          </motion.h2>
+                          <p className="text-indigo-400">{doctor.specialty}</p>
+                          <div className="flex items-center mt-2">
+                            {[...Array(5)].map((_, i) => (
+                              <motion.div
+                                key={i}
+                                initial={{ opacity: 0, scale: 0 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: i * 0.1 }}
+                              >
+                                <StarIcon
+                                  size={16}
+                                  fill={
+                                    i < Math.floor(doctor.rating) ? 'currentColor' : 'none'
+                                  }
+                                  className={
+                                    i < Math.floor(doctor.rating)
+                                      ? 'text-yellow-500'
+                                      : 'text-gray-600'
+                                  }
+                                />
+                              </motion.div>
+                            ))}
+                            <span className="ml-2 text-sm text-gray-400">
+                              {doctor.rating} ({doctor.reviewCount} reviews)
+                            </span>
+                          </div>
+                        </div>
+                        <motion.div
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.6 }}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-700 text-green-200"
+                        >
+                          <Clock size={14} className="mr-1" />
+                          Available {doctor.nextAvailable}
+                        </motion.div>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 flex-1">
+                        <div>
+                          <p className="text-sm text-gray-400">Experience</p>
+                          <p className="text-gray-100">{doctor.experience}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Hospital</p>
+                          <p className="text-gray-100">{doctor.hospitalAffiliation}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Location</p>
+                          <div className="flex items-center">
+                            <MapPin size={14} className="text-gray-500 mr-1" />
+                            <p className="text-gray-100">{doctor.location}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="mt-6 flex flex-wrap justify-between gap-4">
+                        <div className="flex items-center">
+                          <Calendar size={18} className="text-indigo-400 mr-2" />
+                          <span className="text-gray-400">
+                            {doctor.availableSlots} slots available
+                          </span>
+                        </div>
+                        <div className="flex space-x-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleViewProfileClick(doctor.id)}
+                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                          >
+                            View Profile
+                          </Button>
+                          <Button
+                            variant="primary"
+                            onClick={() => handleBookClick(doctor.id)}
+                            className="bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            Book Appointment
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={fadeInUp}
+              className="text-center py-16 bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50"
+            >
+              <Search size={32} className="mx-auto text-gray-600 mb-4" />
+              <h3 className="text-2xl font-medium text-gray-100 mb-2">
+                No doctors found
+              </h3>
+              <p className="text-gray-400 mb-6">
+                We couldn’t find any doctors. Try different keywords or filters.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchTerm('');
+                  setSelectedSpecialty('All Specialties');
+                  setShowFilters(false);
+                }}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              >
+                Clear Filters
+              </Button>
+            </motion.div>
           )}
-        </AnimatePresence>
-      </div>
+
+          {/* Booking Form Modal */}
+          <AnimatePresence>
+            {bookingDoctorId && (
+              <BookAppointment
+                doctorId={bookingDoctorId}
+                onClose={closeBookingForm}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Profile Modal */}
+          <AnimatePresence>
+            {viewingDoctorId && (
+              <div
+                className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50"
+                onClick={closeViewProfileModal}
+              >
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    onClick={closeViewProfileModal}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+                  >
+                    <X size={20} />
+                  </button>
+                  {profileLoading && (
+                    <p className="text-gray-300">Loading...</p>
+                  )}
+                  {!profileLoading && selectedDoctorProfile && (
+                    <div className="space-y-4">
+                      {selectedDoctorProfile.profileImageUrl && (
+                        <img
+                          src={selectedDoctorProfile.profileImageUrl}
+                          alt={selectedDoctorProfile.name}
+                          className="w-24 h-24 rounded-full mx-auto"
+                        />
+                      )}
+                      <h2 className="text-xl md:text-2xl font-semibold text-white text-center">
+                        Dr. {selectedDoctorProfile.name}
+                      </h2>
+                      <p className="text-gray-400 text-center">
+                        {selectedDoctorProfile.specialty}
+                      </p>
+                      {selectedDoctorProfile.bio && (
+                        <div>
+                          <h3 className="text-white font-medium">Bio</h3>
+                          <p className="text-gray-300">{selectedDoctorProfile.bio}</p>
+                        </div>
+                      )}
+                      {selectedDoctorProfile.qualifications && (
+                        <div>
+                          <h3 className="text-white font-medium">Qualifications</h3>
+                          <ul className="list-disc list-inside text-gray-300">
+                            {selectedDoctorProfile.qualifications.map((q, i) => (
+                              <li key={i}>{q}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedDoctorProfile.languages && (
+                        <div>
+                          <h3 className="text-white font-medium">Languages</h3>
+                          <p className="text-gray-300">
+                            {selectedDoctorProfile.languages.join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      {/* Add more fields as needed */}
+                    </div>
+                  )}
+                  {!profileLoading && !selectedDoctorProfile && (
+                    <p className="text-gray-300">No profile data available.</p>
+                  )}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
 
       {/* Floating Chatbot */}
       <div className="fixed bottom-6 right-6 z-50">
         <Chatbot />
       </div>
-    </main>
+    </div>
   );
 };
 
-export default DoctorsPage;
+export default DoctorsPage1;

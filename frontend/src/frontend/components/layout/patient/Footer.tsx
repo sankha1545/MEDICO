@@ -1,267 +1,247 @@
-// src/frontend/components/common/footer/Footer.tsx
-import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
+  Mail,
+  Phone,
+  MapPin,
+  HeartPulse,
+} from 'lucide-react';
 
-export const Footer = () => {
+export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
-  // Framer Motion variants for sections
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.2, duration: 0.6, ease: 'easeOut' },
-    }),
-  };
+  const socialLinks = [
+    { icon: Facebook, href: 'https://facebook.com', label: 'Facebook' },
+    { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
+    { icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
+    { icon: Linkedin, href: 'https://linkedin.com', label: 'LinkedIn' },
+  ];
 
-  const socialVariants = {
-    hover: { scale: 1.2, rotate: 10, transition: { duration: 0.3, ease: 'easeInOut' } },
-    tap: { scale: 0.9, rotate: 0 },
-  };
+  const quickLinks = [
+    { label: 'About Us', href: '/about' },
+    { label: 'Our Services', href: '/services' },
+    { label: 'Find Doctors', href: '/doctors' },
+    { label: 'Book Appointment', href: '/appointments' },
+    { label: 'Health Blog', href: '/blog' },
+  ];
 
-  const linkVariants = {
-    hover: { x: 5, color: '#A78BFA', transition: { duration: 0.3 } },
-  };
+  const supportLinks = [
+    { label: 'FAQs', href: '/faq' },
+    { label: 'Privacy Policy', href: '/privacypolicy' },
+    { label: 'Terms of Service', href: '/tos' },
+    { label: 'Contact Us', href: '/contact' },
+    { label: 'Help Center', href: '/helpcentre' },
+  ];
 
   return (
-    <footer className="relative bg-gradient-to-tr from-gray-900 to-gray-800 text-white overflow-hidden pt-16 pb-12">
-      {/* Decorative Floating Blobs */}
+    <footer className="relative text-white overflow-hidden">
+      {/* Animated background elements */}
       <motion.div
-        className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-purple-700 opacity-20"
-        animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.05, 0.2] }}
-        transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }}
+        className="absolute -top-20 -left-20 w-80 h-80 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-3xl"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.1, 0.3],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
       />
       <motion.div
-        className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full bg-indigo-700 opacity-20"
-        animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.05, 0.2] }}
-        transition={{ repeat: Infinity, duration: 10, delay: 1, ease: 'easeInOut' }}
+        className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-3xl"
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.1, 0.3],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: 'easeInOut',
+          delay: 2,
+        }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Company Info */}
           <motion.div
-            custom={0}
-            initial="hidden"
-            animate="visible"
-            variants={sectionVariants}
-            className="space-y-4"
+            className="space-y-6"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
           >
-            <Link to="/" className="flex items-center space-x-2 mb-4">
+            <div className="flex items-center space-x-3">
               <motion.div
-                className="text-primary-400"
-                whileHover={{ scale: 1.2, rotate: 15 }}
-                transition={{ duration: 0.4 }}
+                whileHover={{ rotate: 360, scale: 1.1 }}
+                transition={{ duration: 0.6 }}
               >
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                </svg>
+                <HeartPulse size={32} className="text-blue-400" />
               </motion.div>
-              <motion.span
-                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-secondary-400"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
-              >
-                MedBook
-              </motion.span>
-            </Link>
-            <motion.p
-              className="text-gray-300 text-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
-            >
-              Simplifying healthcare access with intuitive online appointment booking and trusted doctor consultations.
-            </motion.p>
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                MedicoX
+              </span>
+            </div>
+            <p className="text-gray-300 leading-relaxed">
+              Revolutionizing healthcare access with cutting-edge technology and compassionate care. Your health, our priority.
+            </p>
             <div className="flex space-x-4">
-              <SocialLink href="https://facebook.com" icon={<Facebook size={20} />} label="Facebook" />
-              <SocialLink href="https://twitter.com" icon={<Twitter size={20} />} label="Twitter" />
-              <SocialLink href="https://instagram.com" icon={<Instagram size={20} />} label="Instagram" />
-              <SocialLink href="https://linkedin.com" icon={<Linkedin size={20} />} label="LinkedIn" />
+              {socialLinks.map((social, idx) => (
+                <motion.a
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-gray-300 hover:text-white hover:bg-blue-500/20 transition-all duration-300"
+                  whileHover={{ scale: 1.2, rotate: 10 }}
+                  whileTap={{ scale: 0.9 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1, duration: 0.6 }}
+                  viewport={{ once: true }}
+                >
+                  <social.icon size={18} />
+                </motion.a>
+              ))}
             </div>
           </motion.div>
 
           {/* Quick Links */}
           <motion.div
-            custom={1}
-            initial="hidden"
-            animate="visible"
-            variants={sectionVariants}
-            className="space-y-4"
+            className="space-y-6"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            viewport={{ once: true }}
           >
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-            <motion.ul
-              initial="hidden"
-              animate="visible"
-              variants={{
-                visible: { transition: { staggerChildren: 0.1, delayChildren: 0.3 } },
-              }}
-            >
-              {[
-                { to: '/about', label: 'About Us' },
-                { to: '/services', label: 'Our Services' },
-                { to: '/doctors', label: 'Find Doctors' },
-                { to: '/appointments', label: 'Book Appointment' },
-                { to: '/blog', label: 'Health Blog' },
-              ].map((link, idx) => (
-                <motion.li key={idx} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-                  <FooterLink to={link.to}>{link.label}</FooterLink>
+            <h3 className="text-xl font-semibold text-white">Quick Links</h3>
+            <ul className="space-y-3">
+              {quickLinks.map((link, idx) => (
+                <motion.li
+                  key={link.label}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1, duration: 0.6 }}
+                  viewport={{ once: true }}
+                >
+                  <motion.a
+                    href={link.href}
+                    className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center group"
+                    whileHover={{ x: 5 }}
+                  >
+                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {link.label}
+                  </motion.a>
                 </motion.li>
               ))}
-            </motion.ul>
+            </ul>
           </motion.div>
 
           {/* Support */}
           <motion.div
-            custom={2}
-            initial="hidden"
-            animate="visible"
-            variants={sectionVariants}
-            className="space-y-4"
+            className="space-y-6"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            viewport={{ once: true }}
           >
-            <h3 className="text-lg font-semibold mb-4">Support</h3>
-            <motion.ul
-              initial="hidden"
-              animate="visible"
-              variants={{
-                visible: { transition: { staggerChildren: 0.1, delayChildren: 0.5 } },
-              }}
-            >
-              {[
-                { to: '/faq', label: 'FAQs' },
-                { to: '/PrivacyPolicy', label: 'Privacy Policy' },
-                { to: '/TOS', label: 'Terms of Service' },
-                { to: '/contact', label: 'Contact Us' },
-                { to: '/helpcentre', label: 'Help Center' },
-              ].map((link, idx) => (
-                <motion.li key={idx} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-                  <FooterLink to={link.to}>{link.label}</FooterLink>
+            <h3 className="text-xl font-semibold text-white">Support</h3>
+            <ul className="space-y-3">
+              {supportLinks.map((link, idx) => (
+                <motion.li
+                  key={link.label}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1, duration: 0.6 }}
+                  viewport={{ once: true }}
+                >
+                  <motion.a
+                    href={link.href}
+                    className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center group"
+                    whileHover={{ x: 5 }}
+                  >
+                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {link.label}
+                  </motion.a>
                 </motion.li>
               ))}
-            </motion.ul>
+            </ul>
           </motion.div>
 
           {/* Contact Info */}
           <motion.div
-            custom={3}
-            initial="hidden"
-            animate="visible"
-            variants={sectionVariants}
-            className="space-y-4"
+            className="space-y-6"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            viewport={{ once: true }}
           >
-            <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-            <ul className="space-y-4">
-              <motion.li
-                className="flex items-start"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.7, duration: 0.6 }}
+            <h3 className="text-xl font-semibold text-white">Contact Us</h3>
+            <div className="space-y-4">
+              <motion.div
+                className="flex items-start space-x-3"
+                whileHover={{ x: 5 }}
+                transition={{ duration: 0.3 }}
               >
-                <MapPin size={18} className="text-primary-400 mr-2 mt-1 flex-shrink-0" />
+                <MapPin size={20} className="text-blue-400 mt-1 flex-shrink-0" />
                 <span className="text-gray-300 text-sm">
                   123 Healthcare Avenue, Medical District, New York, NY 10001
                 </span>
-              </motion.li>
-              <motion.li
-                className="flex items-center"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
+              </motion.div>
+              <motion.div
+                className="flex items-center space-x-3"
+                whileHover={{ x: 5 }}
+                transition={{ duration: 0.3 }}
               >
-                <Phone size={18} className="text-primary-400 mr-2 flex-shrink-0" />
+                <Phone size={20} className="text-blue-400 flex-shrink-0" />
                 <span className="text-gray-300 text-sm">+1 (555) 987-6543</span>
-              </motion.li>
-              <motion.li
-                className="flex items-center"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.9, duration: 0.6 }}
+              </motion.div>
+              <motion.div
+                className="flex items-center space-x-3"
+                whileHover={{ x: 5 }}
+                transition={{ duration: 0.3 }}
               >
-                <Mail size={18} className="text-primary-400 mr-2 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">contact@medbook.com</span>
-              </motion.li>
-            </ul>
+                <Mail size={20} className="text-blue-400 flex-shrink-0" />
+                <span className="text-gray-300 text-sm">contact@medicox.com</span>
+              </motion.div>
+            </div>
           </motion.div>
         </div>
 
+        {/* Bottom Bar */}
         <motion.div
-          className="border-t border-gray-700 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400"
+          className="border-t border-gray-700 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1, duration: 0.6 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          viewport={{ once: true }}
         >
-          <p>© {currentYear} MedBook. All rights reserved.</p>
+          <p className="text-gray-400 text-sm">
+            © {currentYear} MedicoX. All rights reserved.
+          </p>
           <div className="flex space-x-6 mt-4 md:mt-0">
-            <FooterTextLink to="/privacy">Privacy</FooterTextLink>
-            <FooterTextLink to="/terms">Terms</FooterTextLink>
-            <FooterTextLink to="/cookies">Cookies</FooterTextLink>
+            {['Privacy', 'Terms', 'Cookies'].map((item, idx) => (
+              <motion.a
+                key={item}
+                href={`/${item.toLowerCase()}`}
+                className="text-gray-400 hover:text-blue-400 text-sm transition-colors duration-300"
+                whileHover={{ y: -2 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1, duration: 0.6 }}
+                viewport={{ once: true }}
+              >
+                {item}
+              </motion.a>
+            ))}
           </div>
         </motion.div>
       </div>
     </footer>
-  );
-};
-
-const SocialLink = ({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-}) => {
-  return (
-    <motion.a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
-      className="w-10 h-10 rounded-full bg-gray-700 hover:bg-primary-500 flex items-center justify-center text-white transition-colors"
-      variants={{
-        hover: { scale: 1.2, rotate: 10, backgroundColor: '#7C3AED' },
-        tap: { scale: 0.9 },
-      }}
-      whileHover="hover"
-      whileTap="tap"
-    >
-      {icon}
-    </motion.a>
-  );
-};
-
-const FooterLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  return (
-    <motion.li
-      whileHover="hover"
-      variants={{ hover: { x: 5, color: '#A78BFA' } }}
-      className="text-gray-300 hover:text-primary-400 transition-colors text-sm"
-    >
-      <Link to={to}>{children}</Link>
-    </motion.li>
-  );
-};
-
-const FooterTextLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  return (
-    <motion.div
-      whileHover="hover"
-      variants={{ hover: { y: -2, color: '#A78BFA' } }}
-      className="hover:text-primary-400 transition-colors cursor-pointer"
-    >
-      <Link to={to}>{children}</Link>
-    </motion.div>
   );
 };

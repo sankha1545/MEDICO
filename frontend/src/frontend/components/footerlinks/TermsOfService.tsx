@@ -1,149 +1,251 @@
-// src/frontend/pages/patient/TermsOfService.tsx
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Chatbot from '../../components/common/chatbot/chatbot';
+import { FileText, Users, Shield, AlertTriangle, Scale, Globe, Phone, Mail } from 'lucide-react';
+import { BackgroundAnimation } from '../animations/BackGroundAnimations';
 
-export default function TermsOfService() {
+export const TermsOfService: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  const sections = [
+    {
+      id: 1,
+      icon: <FileText className="text-blue-400" size={24} />,
+      title: 'Acceptance of Terms',
+      content: 'By accessing or using MedicoX (the "Service"), you agree to comply with and be bound by these Terms of Service ("Terms"). If you disagree with any part of the Terms, you may not use the Service.',
+    },
+    {
+      id: 2,
+      icon: <Users className="text-green-400" size={24} />,
+      title: 'Eligibility',
+      content: 'You must be at least 18 years old to create an account and use the Service. By registering, you represent and warrant that you meet these eligibility requirements.',
+    },
+    {
+      id: 3,
+      icon: <Shield className="text-purple-400" size={24} />,
+      title: 'User Accounts & Conduct',
+      content: 'When you create an account, you agree to provide accurate, complete, and current information. You are responsible for maintaining the confidentiality of your login credentials. You agree not to:',
+      list: [
+        'Use the Service for any unlawful purpose.',
+        'Harass, threaten, or violate the rights of others.',
+        'Upload malicious content or viruses.',
+        'Share your password or account with unauthorized users.',
+      ],
+    },
+    {
+      id: 4,
+      icon: <Scale className="text-pink-400" size={24} />,
+      title: 'Intellectual Property',
+      content: 'All content provided on MedicoX, including text, graphics, logos, and software, is our property or licensed to us and is protected by copyright, trademark, and other intellectual property laws. You may not reproduce or distribute our content without express written permission.',
+    },
+    {
+      id: 5,
+      icon: <AlertTriangle className="text-red-400" size={24} />,
+      title: 'Disclaimers & Warranties',
+      content: 'The Service is provided "as is" without any warranties. We do not guarantee uninterrupted or error-free service. Information on MedicoX is for general informational purposes only and should not replace professional medical advice.',
+    },
+    {
+      id: 6,
+      icon: <Globe className="text-cyan-400" size={24} />,
+      title: 'Governing Law',
+      content: 'These Terms are governed by and construed in accordance with the laws of the State of New York, without regard to its conflict of law provisions. Any dispute shall be resolved in the state or federal courts located in New York County, NY.',
+    },
+  ];
+
   const containerVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.15 } },
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2,
+        delayChildren: 0.3,
+      },
+    },
   };
+
   const sectionVariants = {
-    hidden: { opacity: 0, x: -30 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.6 } },
+    hidden: { opacity: 0, x: -50 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.6, ease: 'easeOut' },
+    },
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-16 px-4 sm:px-6 lg:px-8 overflow-x-hidden">
-      {/* Decorative Floating Elements */}
-      <motion.div
-        className="absolute top-[-40px] right-[-60px] w-64 h-64 rounded-full bg-gradient-to-r from-pink-300 to-red-300 opacity-20"
-        animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.1, 0.2] }}
-        transition={{ repeat: Infinity, duration: 7 }}
-      />
-      <motion.div
-        className="absolute bottom-[-50px] left-[-50px] w-72 h-72 rounded-full bg-gradient-to-r from-yellow-300 to-orange-300 opacity-20"
-        animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.05, 0.2] }}
-        transition={{ repeat: Infinity, duration: 8, delay: 1 }}
-      />
-
-      {/* Hero Section */}
-      <div className="max-w-3xl mx-auto text-center mb-12 relative z-10">
-        <motion.h1
-          initial={{ opacity: 0, y: 40 }}
+    <div className="relative min-h-screen overflow-hidden">
+      <BackgroundAnimation />
+      
+      <div className="relative z-10 pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <motion.div
+          className="max-w-4xl mx-auto text-center mb-16"
+          initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-5xl sm:text-6xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-pink-500 to-purple-500"
         >
-          Terms of Service
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-4 text-lg text-gray-700"
+          <motion.div
+            className="flex justify-center mb-6"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+              <Scale size={48} className="text-purple-400" />
+            </div>
+          </motion.div>
+          <motion.h1
+            className="text-6xl sm:text-7xl font-bold bg-gradient-to-r from-red-400 via-pink-400 to-purple-400 bg-clip-text text-transparent mb-6"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.4 }}
+          >
+            Terms of Service
+          </motion.h1>
+          <motion.p
+            className="text-xl text-gray-300 max-w-3xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+          >
+            Please read these terms carefully before using MedicoX. By accessing or using our services, you agree to be bound by these terms.
+          </motion.p>
+          <motion.p
+            className="text-sm text-gray-400 mt-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+          >
+            Last Updated: January 15, 2025
+          </motion.p>
+        </motion.div>
+
+        {/* Content Sections */}
+        <motion.div
+          className="max-w-4xl mx-auto space-y-8"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          Please read these terms carefully before using MedBook. By accessing or using our services, you agree to be bound by these terms.
-        </motion.p>
-      </div>
+          {sections.map((section, idx) => (
+            <motion.div
+              key={section.id}
+              variants={sectionVariants}
+              className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 hover:border-purple-400/30 transition-all duration-300"
+              whileHover={{ scale: 1.02, x: 10 }}
+            >
+              <div className="flex items-center space-x-4 mb-6">
+                <motion.div
+                  className="p-3 bg-white/10 rounded-full"
+                  whileHover={{ rotate: 360, scale: 1.1 }}
+                  transition={{ duration: 0.6 }}
+                >
+                  {section.icon}
+                </motion.div>
+                <h2 className="text-2xl font-bold text-white">
+                  {section.id}. {section.title}
+                </h2>
+              </div>
+              <motion.p
+                className="text-gray-300 leading-relaxed mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                viewport={{ once: true }}
+              >
+                {section.content}
+              </motion.p>
+              {section.list && (
+                <motion.ul
+                  className="space-y-3"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                  viewport={{ once: true }}
+                >
+                  {section.list.map((item, itemIdx) => (
+                    <motion.li
+                      key={itemIdx}
+                      className="flex items-start space-x-3 text-gray-300"
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.6, delay: itemIdx * 0.1 }}
+                      viewport={{ once: true }}
+                    >
+                      <div className="w-2 h-2 bg-purple-400 rounded-full mt-2 flex-shrink-0" />
+                      <span className="leading-relaxed">{item}</span>
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              )}
+            </motion.div>
+          ))}
 
-      {/* Content Sections */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="max-w-4xl mx-auto space-y-12 relative z-10"
-      >
-        {/* 1. Acceptance of Terms */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">1. Acceptance of Terms</h2>
-          <p className="text-gray-600 leading-relaxed">
-            By accessing or using MedBook (the “Service”), you agree to comply with and be bound by these Terms of Service (“Terms”). If you disagree with any part of the Terms, you may not use the Service.
-          </p>
-        </motion.section>
+          {/* Important Notice */}
+          <motion.div
+            variants={sectionVariants}
+            className="bg-gradient-to-r from-red-500/10 to-pink-500/10 backdrop-blur-sm rounded-2xl p-8 border border-red-400/30"
+          >
+            <div className="flex items-center space-x-4 mb-6">
+              <motion.div
+                className="p-3 bg-red-400/20 rounded-full"
+                whileHover={{ rotate: 360, scale: 1.1 }}
+                transition={{ duration: 0.6 }}
+              >
+                <AlertTriangle className="text-red-400" size={24} />
+              </motion.div>
+              <h2 className="text-2xl font-bold text-white">Important Medical Disclaimer</h2>
+            </div>
+            <p className="text-gray-300 leading-relaxed">
+              <strong className="text-red-400">Medical Disclaimer:</strong> The information provided on MedicoX is for general informational purposes only and should not be considered as medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition. Never disregard professional medical advice or delay in seeking it because of something you have read on this platform.
+            </p>
+          </motion.div>
 
-        {/* 2. Eligibility */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">2. Eligibility</h2>
-          <p className="text-gray-600 leading-relaxed">
-            You must be at least 18 years old to create an account and use the Service. By registering, you represent and warrant that you meet these eligibility requirements.
-          </p>
-        </motion.section>
-
-        {/* 3. User Accounts & Conduct */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">3. User Accounts &amp; Conduct</h2>
-          <p className="text-gray-600 leading-relaxed">
-            When you create an account, you agree to provide accurate, complete, and current information. You are responsible for maintaining the confidentiality of your login credentials. You agree not to:
-          </p>
-          <ul className="list-disc list-inside text-gray-600 leading-relaxed space-y-2 mt-3">
-            <li>Use the Service for any unlawful purpose.</li>
-            <li>Harass, threaten, or violate the rights of others.</li>
-            <li>Upload malicious content or viruses.</li>
-            <li>Share your password or account with unauthorized users.</li>
-          </ul>
-        </motion.section>
-
-        {/* 4. Intellectual Property */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">4. Intellectual Property</h2>
-          <p className="text-gray-600 leading-relaxed">
-            All content provided on MedBook, including text, graphics, logos, and software, is our property or licensed to us and is protected by copyright, trademark, and other intellectual property laws. You may not reproduce or distribute our content without express written permission.
-          </p>
-        </motion.section>
-
-        {/* 5. Termination */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">5. Termination</h2>
-          <p className="text-gray-600 leading-relaxed">
-            We may suspend or terminate your account at our discretion, without notice, if we believe you have violated these Terms or engaged in any harmful activity. You may also terminate your account at any time through your account settings.
-          </p>
-        </motion.section>
-
-        {/* 6. Disclaimers & Warranties */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">6. Disclaimers &amp; Warranties</h2>
-          <p className="text-gray-600 leading-relaxed">
-            <strong>AS IS:</strong> The Service is provided “as is” without any warranties. We do not guarantee uninterrupted or error-free service.<br />
-            <strong>NO MEDICAL ADVICE:</strong> Information on MedBook is for general informational purposes only and should not replace professional medical advice.
-          </p>
-        </motion.section>
-
-        {/* 7. Limitation of Liability */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">7. Limitation of Liability</h2>
-          <p className="text-gray-600 leading-relaxed">
-            To the fullest extent permitted by law, MedBook and its affiliates will not be liable for any indirect, incidental, special, or consequential damages arising out of or in connection with your use of the Service.
-          </p>
-        </motion.section>
-
-        {/* 8. Governing Law */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">8. Governing Law</h2>
-          <p className="text-gray-600 leading-relaxed">
-            These Terms are governed by and construed in accordance with the laws of the State of New York, without regard to its conflict of law provisions. Any dispute shall be resolved in the state or federal courts located in New York County, NY.
-          </p>
-        </motion.section>
-
-        {/* 9. Contact Information */}
-        <motion.section variants={sectionVariants} className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">9. Contact Information</h2>
-          <p className="text-gray-600 leading-relaxed">
-            If you have questions about these Terms, please contact us at: <br />
-            <a href="mailto:legal@medbook.com" className="text-blue-600 hover:underline">legal@medbook.com</a> <br />
-            <a href="tel:+15559876543" className="text-blue-600 hover:underline">+1 (555) 987-6543</a>
-          </p>
-        </motion.section>
-      </motion.div>
-
-      {/* Chatbot at Bottom */}
-      <div className="relative z-10 mt-16">
-        <Chatbot />
+          {/* Contact Section */}
+          <motion.div
+            variants={sectionVariants}
+            className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-sm rounded-2xl p-8 border border-blue-400/30"
+          >
+            <div className="flex items-center space-x-4 mb-6">
+              <motion.div
+                className="p-3 bg-blue-400/20 rounded-full"
+                whileHover={{ rotate: 360, scale: 1.1 }}
+                transition={{ duration: 0.6 }}
+              >
+                <Phone className="text-blue-400" size={24} />
+              </motion.div>
+              <h2 className="text-2xl font-bold text-white">Contact Information</h2>
+            </div>
+            <p className="text-gray-300 leading-relaxed mb-6">
+              If you have questions about these Terms, please contact us at:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { icon: <Mail size={20} />, label: 'Email', value: 'legal@medicox.com' },
+                { icon: <Phone size={20} />, label: 'Phone', value: '+1 (555) 987-6543' },
+              ].map((contact, idx) => (
+                <motion.div
+                  key={contact.label}
+                  className="flex items-center space-x-3"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: idx * 0.1 }}
+                  viewport={{ once: true }}
+                  whileHover={{ x: 5 }}
+                >
+                  <div className="text-blue-400">{contact.icon}</div>
+                  <div>
+                    <p className="text-white font-medium">{contact.label}</p>
+                    <p className="text-gray-300 text-sm">{contact.value}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
-}
+};
+export default  TermsOfService

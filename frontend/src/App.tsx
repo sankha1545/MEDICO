@@ -25,7 +25,7 @@ import Profile from './frontend/components/common/profile';
 import FAQ from './frontend/components/footerlinks/FAQ';
 import HealthBlog from './frontend/components/footerlinks/HealthBlog';
 import TOS from './frontend/components/footerlinks/TermsOfService';
-import HelpCenter from './frontend/components/footerlinks/HelpCentre';
+import HelpCenter from './frontend/components/footerlinks/HelpCentre'; // Ensure 'default' export or correct import style
 
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage';
@@ -40,7 +40,8 @@ import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
 
 // Payment page (new)
-import PaymentPage from './frontend/pages/patient/paymentspage';import AnimatedCursor from './frontend/components/common/cursor';
+import PaymentPage from './frontend/pages/patient/paymentspage';
+import AnimatedCursor from './frontend/components/common/cursor';
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
