@@ -1,10 +1,20 @@
-// File: frontend/src/contexts/AuthContext.tsx
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import axios, { AxiosInstance } from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-interface User {
+interface LocationType {
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -13,8 +23,12 @@ interface User {
   isVerified?: boolean;
   phone: string;
   dob: string;
+  // doctor-specific:
   profileImageUrl?: string;
   specialty?: string;
+  slotDateTime?: string; // ISO string or datetime-local
+  location?: LocationType;
+  maxPatients?: number;
 }
 
 interface AuthContextValue {
@@ -22,6 +36,7 @@ interface AuthContextValue {
   setUser: (u: User | null) => void;
   isAuthenticated: boolean;
   loading: boolean;
+
   sendEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp: (email: string, otp: string) => Promise<void>;
   signup: (data: {
@@ -34,31 +49,51 @@ interface AuthContextValue {
   signInWithGoogle: () => void;
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
+
   updateUserProfile: (data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    dob?: string;
+    profileImageFile?: File | null;
+  }) => Promise<void>;
+
+  fetchDoctorProfile: () => Promise<User>;
+  updateDoctorProfile: (data: {
     name?: string;
     email?: string;
     phone?: string;
     dob?: string;
     specialty?: string;
     profileImageFile?: File | null;
-  }) => Promise<void>;
+    slotDateTime?: string;
+    location?: LocationType;
+    maxPatients?: number;
+  }) => Promise<User>;
+
   sendPasswordResetOtp: (email: string) => Promise<void>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
-
   deleteAccount: (password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue>(null!);
-export const useAuth = (): AuthContextValue => useContext(AuthContext);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+export { AuthContext };
+
+export const useAuth = (): AuthContextValue => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // e.g. VITE_API_URL = 'http://localhost:4000/api'
   const baseURL = import.meta.env.VITE_API_URL as string;
   const navigate = useNavigate();
 
-  const api: AxiosInstance = axios.create({
-    baseURL,
-  });
+  const api: AxiosInstance = axios.create({ baseURL });
   api.interceptors.request.use((config) => {
     const token = localStorage.getItem('authToken');
     if (token && config.headers) {
@@ -71,26 +106,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchUser = async () => {
+  // Fetch common user; if doctor, also fetch doctor-specific
+  const fetchUserCommon = async () => {
     try {
       const res = await api.get('/me');
-      const resUser: any = res.data;
-      const u: User = {
-        id: resUser._id || resUser.id,
-        name: resUser.name,
-        email: resUser.email,
-        role: resUser.role,
-        provider: resUser.provider,
-        isVerified: resUser.isVerified,
-        phone: resUser.phone || '',
-        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: resUser.profileImageUrl || '',
-        specialty: resUser.specialty || '',
+      const data = res.data;
+      const commonUser: User = {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        provider: data.provider,
+        isVerified: data.isVerified,
+        phone: data.phone || '',
+        dob: data.dob || '',
       };
-      setUser(u);
+      setUser(commonUser);
       setIsAuthenticated(true);
+
+      if (commonUser.role === 'doctor') {
+        try {
+          const doc = await fetchDoctorProfileInternal();
+          setUser(doc);
+        } catch (e) {
+          console.error('Error fetching doctor-specific after common:', e);
+        }
+      }
     } catch (err) {
-      console.error('fetchUser error:', err);
+      console.error('fetchUserCommon error:', err);
       logout();
     } finally {
       setLoading(false);
@@ -100,11 +143,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (token) {
-      fetchUser();
+      fetchUserCommon();
     } else {
       setLoading(false);
     }
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sendEmailOtp = async (email: string) => {
@@ -141,21 +184,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await api.post('/login', { email, password });
       const token: string = res.data.token;
       localStorage.setItem('authToken', token);
-      const resUser: any = res.data.user;
-      const u: User = {
-        id: resUser._id || resUser.id,
-        name: resUser.name,
-        email: resUser.email,
-        role: resUser.role,
-        provider: resUser.provider,
-        isVerified: resUser.isVerified,
-        phone: resUser.phone || '',
-        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: resUser.profileImageUrl || '',
-        specialty: resUser.specialty || '',
-      };
-      setUser(u);
-      setIsAuthenticated(true);
+      setLoading(true);
+      await fetchUserCommon();
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Login failed.');
     }
@@ -167,7 +197,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loginWithToken = async (token: string) => {
     localStorage.setItem('authToken', token);
-    await fetchUser();
+    setLoading(true);
+    await fetchUserCommon();
   };
 
   const logout = () => {
@@ -182,9 +213,91 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     email?: string;
     phone?: string;
     dob?: string;
-    specialty?: string;
     profileImageFile?: File | null;
   }) => {
+    try {
+      if (user?.role === 'doctor') {
+        // Merge common updates into doctor
+        const updated = await updateDoctorProfile({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          dob: data.dob,
+          profileImageFile: data.profileImageFile,
+        });
+        setUser(updated);
+      } else {
+        const formData = new FormData();
+        if (data.name) formData.append('name', data.name);
+        if (data.email) formData.append('email', data.email);
+        if (data.phone) formData.append('phone', data.phone);
+        if (data.dob) formData.append('dob', data.dob);
+        if (data.profileImageFile) {
+          formData.append('profileImage', data.profileImageFile);
+        }
+        const res = await api.put('/me', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const resUser = res.data;
+        setUser((prev) => ({
+          ...prev!,
+          name: resUser.name,
+          email: resUser.email,
+          phone: resUser.phone || prev?.phone || '',
+          dob: resUser.dob || prev?.dob || '',
+          profileImageUrl: resUser.profileImageUrl || prev?.profileImageUrl || '',
+        }));
+      }
+    } catch (err: any) {
+      throw new Error(err.response?.data?.message || 'Failed to update profile');
+    }
+  };
+
+  // Internal helper to GET doctor profile
+  const fetchDoctorProfileInternal = async (): Promise<User> => {
+    // GET baseURL + '/medical/doctor/me'
+    const res = await api.get('/medical/doctor/me');
+    const d = res.data;
+    const updated: User = {
+      id: d.id,
+      name: d.name,
+      email: d.email,
+      role: 'doctor',
+      provider: user?.provider,
+      isVerified: user?.isVerified,
+      phone: d.phone,
+      dob: d.dob,
+      profileImageUrl: d.profileImageUrl,
+      specialty: d.specialty,
+      slotDateTime: d.slotDateTime,
+      location: d.location,
+      maxPatients: d.maxPatients,
+    };
+    return updated;
+  };
+
+  const fetchDoctorProfile = async (): Promise<User> => {
+    try {
+      const updated = await fetchDoctorProfileInternal();
+      setUser(updated);
+      return updated;
+    } catch (err: any) {
+      console.error('fetchDoctorProfile error:', err);
+      throw new Error(err.response?.data?.message || 'Failed to fetch doctor profile');
+    }
+  };
+
+  const updateDoctorProfile = async (data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    dob?: string;
+    specialty?: string;
+    profileImageFile?: File | null;
+    slotDateTime?: string;
+    location?: LocationType;
+    maxPatients?: number;
+  }): Promise<User> => {
     try {
       const formData = new FormData();
       if (data.name) formData.append('name', data.name);
@@ -192,31 +305,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data.phone) formData.append('phone', data.phone);
       if (data.dob) formData.append('dob', data.dob);
       if (data.specialty) formData.append('specialty', data.specialty);
+      if (data.slotDateTime) formData.append('nextAvailable', data.slotDateTime);
+      if (data.location) {
+        // backend expects 'location' as address string
+        formData.append('location', data.location.address);
+      }
+      if (data.maxPatients !== undefined) {
+        formData.append('availableSlots', data.maxPatients.toString());
+      }
       if (data.profileImageFile) {
         formData.append('profileImage', data.profileImageFile);
       }
-      const res = await api.put('/me', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // PUT baseURL + '/medical/doctor/me'
+      const res = await api.put('/medical/doctor/me', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const resUser: any = res.data;
-      const u: User = {
-        id: resUser._id || resUser.id,
-        name: resUser.name,
-        email: resUser.email,
-        role: resUser.role,
-        provider: resUser.provider,
-        isVerified: resUser.isVerified,
-        phone: resUser.phone || '',
-        dob: resUser.dob ? new Date(resUser.dob).toISOString().split('T')[0] : '',
-        profileImageUrl: resUser.profileImageUrl || '',
-        specialty: resUser.specialty || '',
+      const d = res.data;
+      const updated: User = {
+        id: d.id,
+        name: d.name,
+        email: d.email,
+        role: 'doctor',
+        provider: user?.provider,
+        isVerified: user?.isVerified,
+        phone: d.phone,
+        dob: d.dob,
+        profileImageUrl: d.profileImageUrl,
+        specialty: d.specialty,
+        slotDateTime: d.slotDateTime,
+        location: d.location,
+        maxPatients: d.maxPatients,
       };
-      setUser(u);
+      setUser(updated);
+      return updated;
     } catch (err: any) {
-      console.error('updateUserProfile error:', err);
-      throw new Error(err.response?.data?.message || 'Failed to update profile');
+      throw new Error(err.response?.data?.message || 'Failed to update doctor profile');
     }
   };
 
@@ -236,7 +359,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const resetPassword = async (email: string, otp: string, newPassword: string) => {
+  const resetPassword = async (
+    email: string,
+    otp: string,
+    newPassword: string
+  ) => {
     try {
       await api.post('/reset-password', { email, otp, newPassword });
       navigate('/login');
@@ -245,7 +372,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Delete account with password confirmation
   const deleteAccount = async (password: string) => {
     try {
       await api.delete('/user', { data: { password } });
@@ -274,6 +400,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithToken,
         logout,
         updateUserProfile,
+        fetchDoctorProfile,
+        updateDoctorProfile,
         sendPasswordResetOtp,
         verifyPasswordResetOtp,
         resetPassword,

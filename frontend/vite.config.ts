@@ -1,4 +1,3 @@
-// vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -12,5 +11,8 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  optimizeDeps: {
+    include: ['animejs'], // ✅ Important fix for animejs default import
   },
 });

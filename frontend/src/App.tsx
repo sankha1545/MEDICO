@@ -26,7 +26,7 @@ import FAQ from './frontend/components/footerlinks/FAQ';
 import HealthBlog from './frontend/components/footerlinks/HealthBlog';
 import TOS from './frontend/components/footerlinks/TermsOfService';
 import HelpCenter from './frontend/components/footerlinks/HelpCentre'; // Ensure 'default' export or correct import style
-
+import Docpatient from './frontend/pages/doctor/PatientAdmission'
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
@@ -200,7 +200,7 @@ const App: React.FC = () => (
 
       {/* Payment page (protected) */}
       <Route
-        path="/payment/:id"
+        path="/payment"
         element={
           <ProtectedRoute>
             <Layout>
@@ -237,6 +237,16 @@ const App: React.FC = () => (
               <SettingsPage onBack={() => { window.history.back(); }} />
             </Layout1>
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doc-patient"
+        element={
+          
+            <Layout1>
+              <Docpatient />
+            </Layout1>
+          
         }
       />
 

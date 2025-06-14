@@ -16,7 +16,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import Chatbot from '../../components/common/chatbot/chatbot';
 import BookAppointment from '../../components/common/bookappointment/bookappointment';
-import { BackgroundAnimation } from '../../components/animations/BackGroundAnimations'; // adjust path as needed
+import { BackgroundAnimation } from '../../components/animations/BackGroundAnimations';
 
 interface Doctor {
   id: string;
@@ -29,7 +29,7 @@ interface Doctor {
   location: string;
   availableSlots: number;
   nextAvailable: string;
-  image: string;
+  imageUrl: string;
 }
 
 interface DoctorDetail extends Doctor {
@@ -52,7 +52,7 @@ const specialties = [
   'Dentistry',
 ];
 
-// Motion variants (adapted from DoctorsPage.tsx)
+// Animation variants
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
@@ -87,20 +87,66 @@ const DoctorsPage1: React.FC = () => {
 
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
 
+  // Determine API base and avoid double '/api'
+  let API_BASE = import.meta.env.VITE_API_URL || '';
+  API_BASE = API_BASE.replace(/\/$/, ''); // remove trailing slash
+  // If base ends with '/api', we won't add '/api' again when building endpoints.
+  const buildUrl = (path: string) => {
+    // path: e.g. '/medical/doctors' or '/medical/doctors/{id}'
+    if (API_BASE.endsWith('/api')) {
+      return `${API_BASE}${path}`;
+    } else {
+      return `${API_BASE}/api${path}`;
+    }
+  };
+
   // Fetch doctors on mount
   useEffect(() => {
-    axios
-      .get<Doctor[]>(`${import.meta.env.VITE_API_URL}/medical/doctors`)
-      .then(res => {
-        setDoctors(res.data);
-        setFilteredDoctors(res.data);
-      })
-      .catch(err => console.error('Error fetching doctors:', err));
+    const fetchDoctors = async () => {
+      try {
+        const resp = await axios.get(buildUrl('/medical/doctors'));
+        // Backend returns { page, limit, total, doctors: [...] }
+        let docsArray: any[] = [];
+        if (resp.data && Array.isArray(resp.data.doctors)) {
+          docsArray = resp.data.doctors;
+        } else if (Array.isArray(resp.data)) {
+          docsArray = resp.data;
+        } else {
+          console.error('Unexpected response shape:', resp.data);
+          docsArray = [];
+        }
+        const mapped: Doctor[] = docsArray.map(d => {
+          const id = d.id || d._id;
+          return {
+            id,
+            name: d.name,
+            specialty: d.specialty || '',
+            rating: typeof d.rating === 'number' ? d.rating : 0,
+            reviewCount: typeof d.reviewCount === 'number' ? d.reviewCount : 0,
+            experience: d.experience || '',
+            hospitalAffiliation: d.hospitalAffiliation || '',
+            location: d.location || '',
+            availableSlots:
+              typeof d.availableSlots === 'number' ? d.availableSlots : 0,
+            nextAvailable: d.nextAvailable || '',
+            // image URL for profile-image endpoint
+            imageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
+          };
+        });
+        setDoctors(mapped);
+        setFilteredDoctors(mapped);
+      } catch (err) {
+        console.error('Error fetching doctors:', err);
+        setDoctors([]);
+        setFilteredDoctors([]);
+      }
+    };
+    fetchDoctors();
   }, []);
 
   // Filter logic
   useEffect(() => {
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
     setFilteredDoctors(
       doctors.filter(doc => {
         const matchText =
@@ -114,7 +160,9 @@ const DoctorsPage1: React.FC = () => {
     );
   }, [searchTerm, selectedSpecialty, doctors]);
 
-  const onSearch = () => setSearchTerm(searchInput);
+  const onSearch = () => {
+    setSearchTerm(searchInput);
+  };
 
   const handleViewProfileClick = (id: string) => {
     setViewingDoctorId(id);
@@ -122,12 +170,37 @@ const DoctorsPage1: React.FC = () => {
     setSelectedDoctorProfile(null);
 
     axios
-      .get<DoctorDetail>(`${import.meta.env.VITE_API_URL}/medical/doctors/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+      .get(buildUrl(`/medical/doctors/${id}`))
+      .then(res => {
+        const d = res.data;
+        const docDetail: DoctorDetail = {
+          id: d.id || d._id,
+          name: d.name,
+          specialty: d.specialty || '',
+          rating: typeof d.rating === 'number' ? d.rating : 0,
+          reviewCount: typeof d.reviewCount === 'number' ? d.reviewCount : 0,
+          experience: d.experience || '',
+          hospitalAffiliation: d.hospitalAffiliation || '',
+          location: d.location || '',
+          availableSlots:
+            typeof d.availableSlots === 'number' ? d.availableSlots : 0,
+          nextAvailable: d.nextAvailable || '',
+          imageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
+          profileImageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
+          bio: d.bio || '',
+          qualifications: Array.isArray(d.qualifications)
+            ? d.qualifications
+            : [],
+          languages: Array.isArray(d.languages) ? d.languages : [],
+        };
+        setSelectedDoctorProfile(docDetail);
       })
-      .then(res => setSelectedDoctorProfile(res.data))
-      .catch(err => console.error('Error loading profile:', err))
-      .finally(() => setProfileLoading(false));
+      .catch(err => {
+        console.error('Error loading profile:', err);
+      })
+      .finally(() => {
+        setProfileLoading(false);
+      });
   };
 
   const closeViewProfileModal = () => {
@@ -140,13 +213,18 @@ const DoctorsPage1: React.FC = () => {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Background animations behind content */}
+      {/* Background animations */}
       <BackgroundAnimation />
 
       <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
           {/* Animated Header */}
-          <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="mb-8 text-center">
+          <motion.div
+            variants={fadeInUp}
+            initial="hidden"
+            animate="visible"
+            className="mb-8 text-center"
+          >
             <motion.h1
               className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2"
               animate={{
@@ -166,7 +244,7 @@ const DoctorsPage1: React.FC = () => {
             </motion.p>
           </motion.div>
 
-          {/* Search & Filters with animations */}
+          {/* Search & Filters */}
           <motion.div
             variants={fadeInUp}
             initial="hidden"
@@ -227,7 +305,7 @@ const DoctorsPage1: React.FC = () => {
               </motion.div>
             </div>
 
-            {/* Advanced Filters Panel (empty placeholder) */}
+            {/* Advanced Filters Panel (placeholder) */}
             <AnimatePresence>
               {showFilters && (
                 <motion.div
@@ -237,7 +315,7 @@ const DoctorsPage1: React.FC = () => {
                   transition={{ duration: 0.3 }}
                   className="mt-6 pt-4 border-t border-gray-700"
                 >
-                  {/* TODO: Customize advanced filters here */}
+                  {/* TODO: Add advanced filters */}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -275,14 +353,13 @@ const DoctorsPage1: React.FC = () => {
                     {/* Left: Image */}
                     <div className="md:w-1/4 lg:w-1/5 relative">
                       <motion.img
-                        src={doctor.image}
+                        src={doctor.imageUrl}
                         alt={doctor.name}
                         className="w-full h-56 md:h-full object-cover"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5 }}
                       />
-                      {/* gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
                     {/* Right: Details */}
@@ -308,7 +385,9 @@ const DoctorsPage1: React.FC = () => {
                                 <StarIcon
                                   size={16}
                                   fill={
-                                    i < Math.floor(doctor.rating) ? 'currentColor' : 'none'
+                                    i < Math.floor(doctor.rating)
+                                      ? 'currentColor'
+                                      : 'none'
                                   }
                                   className={
                                     i < Math.floor(doctor.rating)
@@ -319,19 +398,21 @@ const DoctorsPage1: React.FC = () => {
                               </motion.div>
                             ))}
                             <span className="ml-2 text-sm text-gray-400">
-                              {doctor.rating} ({doctor.reviewCount} reviews)
+                              {doctor.rating.toFixed(1)} ({doctor.reviewCount} reviews)
                             </span>
                           </div>
                         </div>
-                        <motion.div
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.6 }}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-700 text-green-200"
-                        >
-                          <Clock size={14} className="mr-1" />
-                          Available {doctor.nextAvailable}
-                        </motion.div>
+                        {doctor.nextAvailable && (
+                          <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.6 }}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-700 text-green-200"
+                          >
+                            <Clock size={14} className="mr-1" />
+                            {`Next: ${new Date(doctor.nextAvailable).toLocaleString()}`}
+                          </motion.div>
+                        )}
                       </div>
 
                       {/* Stats Grid */}
@@ -465,7 +546,7 @@ const DoctorsPage1: React.FC = () => {
                           <p className="text-gray-300">{selectedDoctorProfile.bio}</p>
                         </div>
                       )}
-                      {selectedDoctorProfile.qualifications && (
+                      {selectedDoctorProfile.qualifications && selectedDoctorProfile.qualifications.length > 0 && (
                         <div>
                           <h3 className="text-white font-medium">Qualifications</h3>
                           <ul className="list-disc list-inside text-gray-300">
@@ -475,7 +556,7 @@ const DoctorsPage1: React.FC = () => {
                           </ul>
                         </div>
                       )}
-                      {selectedDoctorProfile.languages && (
+                      {selectedDoctorProfile.languages && selectedDoctorProfile.languages.length > 0 && (
                         <div>
                           <h3 className="text-white font-medium">Languages</h3>
                           <p className="text-gray-300">
@@ -483,7 +564,7 @@ const DoctorsPage1: React.FC = () => {
                           </p>
                         </div>
                       )}
-                      {/* Add more fields as needed */}
+                      {/* Add more fields if needed */}
                     </div>
                   )}
                   {!profileLoading && !selectedDoctorProfile && (
