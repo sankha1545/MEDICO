@@ -383,7 +383,7 @@ const ServicesPage: React.FC = () => {
                       size="lg" 
                       className="bg-gradient-to-r from-blue-500 to-purple-600 group"
                     >
-                      Schedule Consultation
+                      Glimpse
                       <motion.span
                         className="ml-2 group-hover:translate-x-1 transition-transform"
                       >

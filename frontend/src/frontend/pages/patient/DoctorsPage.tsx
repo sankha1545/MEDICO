@@ -27,8 +27,9 @@ interface Doctor {
   experience: string;
   hospitalAffiliation: string;
   location: string;
-  availableSlots: number;
-  nextAvailable: string;
+  availableSlotsCount: number;
+  nextAvailable: string | null;
+  consultationFee: number;
   imageUrl: string;
 }
 
@@ -37,6 +38,7 @@ interface DoctorDetail extends Doctor {
   qualifications?: string[];
   languages?: string[];
   profileImageUrl?: string;
+  availabilitySlots: string[]; // full array for booking
 }
 
 const specialties = [
@@ -92,7 +94,6 @@ const DoctorsPage1: React.FC = () => {
   API_BASE = API_BASE.replace(/\/$/, ''); // remove trailing slash
   // If base ends with '/api', we won't add '/api' again when building endpoints.
   const buildUrl = (path: string) => {
-    // path: e.g. '/medical/doctors' or '/medical/doctors/{id}'
     if (API_BASE.endsWith('/api')) {
       return `${API_BASE}${path}`;
     } else {
@@ -126,10 +127,10 @@ const DoctorsPage1: React.FC = () => {
             experience: d.experience || '',
             hospitalAffiliation: d.hospitalAffiliation || '',
             location: d.location || '',
-            availableSlots:
-              typeof d.availableSlots === 'number' ? d.availableSlots : 0,
-            nextAvailable: d.nextAvailable || '',
-            // image URL for profile-image endpoint
+            availableSlotsCount:
+              typeof d.availableSlotsCount === 'number' ? d.availableSlotsCount : 0,
+            nextAvailable: d.nextAvailable || null,
+            consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
             imageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
           };
         });
@@ -173,8 +174,9 @@ const DoctorsPage1: React.FC = () => {
       .get(buildUrl(`/medical/doctors/${id}`))
       .then(res => {
         const d = res.data;
+        const id2 = d.id || d._id;
         const docDetail: DoctorDetail = {
-          id: d.id || d._id,
+          id: id2,
           name: d.name,
           specialty: d.specialty || '',
           rating: typeof d.rating === 'number' ? d.rating : 0,
@@ -182,16 +184,38 @@ const DoctorsPage1: React.FC = () => {
           experience: d.experience || '',
           hospitalAffiliation: d.hospitalAffiliation || '',
           location: d.location || '',
-          availableSlots:
-            typeof d.availableSlots === 'number' ? d.availableSlots : 0,
-          nextAvailable: d.nextAvailable || '',
-          imageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
-          profileImageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
+          availableSlotsCount:
+            typeof d.availabilitySlots === 'object' && Array.isArray(d.availabilitySlots)
+              ? d.availabilitySlots.filter((s: string) => {
+                  const dt = new Date(s);
+                  return !isNaN(dt.getTime()) && dt > new Date();
+                }).length
+              : 0,
+          nextAvailable:
+            Array.isArray(d.availabilitySlots)
+              ? (() => {
+                  const now = new Date();
+                  const future = d.availabilitySlots
+                    .map((s: string) => new Date(s))
+                    .filter((dt: Date) => !isNaN(dt.getTime()) && dt > now)
+                    .sort((a, b) => a.getTime() - b.getTime());
+                  return future.length > 0 ? future[0].toISOString() : null;
+                })()
+              : null,
+          consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
+          imageUrl: buildUrl(`/medical/doctor/${id2}/profile-image`),
+          profileImageUrl: buildUrl(`/medical/doctor/${id2}/profile-image`),
           bio: d.bio || '',
           qualifications: Array.isArray(d.qualifications)
             ? d.qualifications
             : [],
           languages: Array.isArray(d.languages) ? d.languages : [],
+          availabilitySlots: Array.isArray(d.availabilitySlots)
+            ? d.availabilitySlots.filter((s: string) => {
+                const dt = new Date(s);
+                return !isNaN(dt.getTime()) && dt > new Date();
+              })
+            : [],
         };
         setSelectedDoctorProfile(docDetail);
       })
@@ -374,6 +398,7 @@ const DoctorsPage1: React.FC = () => {
                             Dr. {doctor.name}
                           </motion.h2>
                           <p className="text-indigo-400">{doctor.specialty}</p>
+                          {/* Rating */}
                           <div className="flex items-center mt-2">
                             {[...Array(5)].map((_, i) => (
                               <motion.div
@@ -434,12 +459,24 @@ const DoctorsPage1: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* Fee & Slots */}
+                      <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Consultation Fee</p>
+                          <p className="text-gray-100 font-medium">₹ {doctor.consultationFee}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Slots Available</p>
+                          <p className="text-gray-100 font-medium">{doctor.availableSlotsCount}</p>
+                        </div>
+                      </div>
+
                       {/* Actions */}
                       <div className="mt-6 flex flex-wrap justify-between gap-4">
                         <div className="flex items-center">
                           <Calendar size={18} className="text-indigo-400 mr-2" />
                           <span className="text-gray-400">
-                            {doctor.availableSlots} slots available
+                            {doctor.availableSlotsCount} slot{doctor.availableSlotsCount !== 1 ? 's' : ''} available
                           </span>
                         </div>
                         <div className="flex space-x-3">
@@ -453,7 +490,10 @@ const DoctorsPage1: React.FC = () => {
                           <Button
                             variant="primary"
                             onClick={() => handleBookClick(doctor.id)}
-                            className="bg-indigo-600 hover:bg-indigo-700"
+                            className={`bg-indigo-600 hover:bg-indigo-700 ${
+                              doctor.availableSlotsCount === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            disabled={doctor.availableSlotsCount === 0}
                           >
                             Book Appointment
                           </Button>
@@ -531,7 +571,7 @@ const DoctorsPage1: React.FC = () => {
                         <img
                           src={selectedDoctorProfile.profileImageUrl}
                           alt={selectedDoctorProfile.name}
-                          className="w-24 h-24 rounded-full mx-auto"
+                          className="w-24 h-24 rounded-full mx-auto object-cover"
                         />
                       )}
                       <h2 className="text-xl md:text-2xl font-semibold text-white text-center">
@@ -540,12 +580,37 @@ const DoctorsPage1: React.FC = () => {
                       <p className="text-gray-400 text-center">
                         {selectedDoctorProfile.specialty}
                       </p>
-                      {selectedDoctorProfile.bio && (
-                        <div>
-                          <h3 className="text-white font-medium">Bio</h3>
-                          <p className="text-gray-300">{selectedDoctorProfile.bio}</p>
-                        </div>
-                      )}
+                      {/* Experience */}
+                      <div>
+                        <h3 className="text-white font-medium">Experience</h3>
+                        <p className="text-gray-300">{selectedDoctorProfile.experience}</p>
+                      </div>
+                      {/* Fee */}
+                      <div>
+                        <h3 className="text-white font-medium">Consultation Fee</h3>
+                        <p className="text-gray-300">₹ {selectedDoctorProfile.consultationFee}</p>
+                      </div>
+                      {/* Slots */}
+                      <div>
+                        <h3 className="text-white font-medium">Available Slots</h3>
+                        {selectedDoctorProfile.availabilitySlots.length > 0 ? (
+                          <ul className="list-disc list-inside text-gray-300">
+                            {selectedDoctorProfile.availabilitySlots.map((s, i) => {
+                              let disp = s;
+                              try {
+                                const dt = new Date(s);
+                                if (!isNaN(dt.getTime())) {
+                                  disp = dt.toLocaleString();
+                                }
+                              } catch {}
+                              return <li key={i}>{disp}</li>;
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-gray-300">No upcoming slots</p>
+                        )}
+                      </div>
+                      {/* Qualifications */}
                       {selectedDoctorProfile.qualifications && selectedDoctorProfile.qualifications.length > 0 && (
                         <div>
                           <h3 className="text-white font-medium">Qualifications</h3>
@@ -556,6 +621,7 @@ const DoctorsPage1: React.FC = () => {
                           </ul>
                         </div>
                       )}
+                      {/* Languages */}
                       {selectedDoctorProfile.languages && selectedDoctorProfile.languages.length > 0 && (
                         <div>
                           <h3 className="text-white font-medium">Languages</h3>
@@ -564,7 +630,6 @@ const DoctorsPage1: React.FC = () => {
                           </p>
                         </div>
                       )}
-                      {/* Add more fields if needed */}
                     </div>
                   )}
                   {!profileLoading && !selectedDoctorProfile && (

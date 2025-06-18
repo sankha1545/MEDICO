@@ -253,6 +253,7 @@ router.get('/me', authenticateJWT, (req, res) => {
 });
 
 // Update profile (including uploading profileImage)
+// For patient or doctor minimal fields. Doctor full profile updates happen in /api/medical/doctor/me.
 router.put('/me', authenticateJWT, upload.single('profileImage'), async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
   const { name, email, phone, dob, specialty } = req.body;
@@ -354,9 +355,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// ─── Deactivate & Delete Account ─────────────────────────────────
-
-// PUT /api/user/deactivate
+// Deactivate account
 router.put('/user/deactivate', authenticateJWT, async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
   try {
@@ -369,8 +368,7 @@ router.put('/user/deactivate', authenticateJWT, async (req, res) => {
   }
 });
 
-// DELETE /api/user
-// Body: { password: string }
+// Delete account
 router.delete('/user', authenticateJWT, async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
   const role = (req as any).role as 'patient' | 'doctor';
@@ -411,16 +409,11 @@ router.delete('/user', authenticateJWT, async (req, res) => {
     }
     // Correct password: proceed to delete related data and user
     if (role === 'patient') {
-      // Delete patient's medical info
       await MedicalInfo.deleteMany({ user: user._id });
-      // Delete patient's appointments
       await Appointment.deleteMany({ patient: user._id });
-      // ... any other cleanup
       await Patient.deleteOne({ _id: user._id });
     } else if (role === 'doctor') {
-      // Delete doctor's appointments
       await Appointment.deleteMany({ doctor: user._id });
-      // ... any other cleanup
       await Doctor.deleteOne({ _id: user._id });
     }
     return res.json({ message: 'Account has been deleted successfully.' });

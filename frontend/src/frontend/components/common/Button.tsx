@@ -24,14 +24,15 @@ export const Button = ({
   iconPosition = 'left',
   fullWidth = false,
   className = '',
+  type = 'button',
   ...props
 }: ButtonProps) => {
-  // Base styles: rounded, focus ring, transition, shadow
+  // Base styles
   const baseStyles =
-    'inline-flex items-center justify-center rounded-2xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed';
+    'inline-flex items-center justify-center rounded-2xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
-  // Sizes: height, padding, font size
-  const sizeStyles = {
+  // Size classes
+  const sizeStyles: Record<ButtonSize, string> = {
     xs: 'h-7 px-2 text-xs',
     sm: 'h-9 px-3 text-sm',
     md: 'h-11 px-5 text-base',
@@ -39,12 +40,12 @@ export const Button = ({
     xl: 'h-14 px-8 text-xl',
   };
 
-  // Variants with gradients, shadows, hover animations
-  const variantStyles = {
+  // Variant classes (ensure these align with your Tailwind config)
+  const variantStyles: Record<ButtonVariant, string> = {
     primary: `
       bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg
       hover:from-indigo-600 hover:to-purple-600 active:from-purple-600 active:to-indigo-700
-      focus:ring-primary-400
+      focus:ring-blue-400
     `,
     secondary: `
       bg-gradient-to-r from-green-500 to-teal-500 text-white shadow-md
@@ -66,9 +67,10 @@ export const Button = ({
     `,
   };
 
-  const widthStyles = fullWidth ? 'w-full' : 'inline-flex';
+  // Width handling
+  const widthStyles = fullWidth ? 'w-full' : '';
 
-  // Framer Motion variants for hover/tap/mount
+  // Framer Motion variants
   const motionVariants = {
     initial: { opacity: 0, y: 5 },
     animate: { opacity: 1, y: 0, transition: { duration: 0.4 } },
@@ -78,16 +80,17 @@ export const Button = ({
 
   return (
     <motion.button
+      type={type}
       {...props}
       className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${widthStyles} ${className}`}
       disabled={isLoading || props.disabled}
+      aria-busy={isLoading ? true : undefined}
       variants={motionVariants}
       initial="initial"
       animate="animate"
       whileHover={!isLoading ? 'hover' : undefined}
       whileTap={!isLoading ? 'tap' : undefined}
     >
-      {/* Spinner icon when loading */}
       {isLoading && (
         <motion.svg
           className="animate-spin -ml-1 mr-2 h-5 w-5 text-current"
@@ -115,7 +118,7 @@ export const Button = ({
         </motion.svg>
       )}
 
-      {/* Left icon */}
+      {/* Left icon, shown only when not loading */}
       {icon && iconPosition === 'left' && !isLoading && (
         <motion.span
           className="mr-2 flex items-center"
@@ -127,17 +130,13 @@ export const Button = ({
         </motion.span>
       )}
 
-      {/* Button text */}
-      <span
-        className={`flex items-center ${
-          isLoading ? 'opacity-50' : ''
-        }`}
-      >
+      {/* Button content */}
+      <span className={`flex items-center ${isLoading ? 'opacity-50' : ''}`}>
         {children}
       </span>
 
-      {/* Right icon */}
-      {icon && iconPosition === 'right' && (
+      {/* Right icon, shown only when not loading */}
+      {icon && iconPosition === 'right' && !isLoading && (
         <motion.span
           className="ml-2 flex items-center"
           initial={{ opacity: 0, x: 5 }}

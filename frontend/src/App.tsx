@@ -32,8 +32,9 @@ import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 import SettingsPage from './frontend/components/common/settingspage';
 
+
 // Common
-import Bookappointment from './frontend/components/common/bookappointment/bookappointment';
+import Bookappointment from './frontend/components/common/bookappointment/BookAppointment';
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 
 // Patient Settings
@@ -252,6 +253,7 @@ const App: React.FC = () => (
 
       {/* Catch-all 404 */}
       <Route path="*" element={<NotFoundPage />} />
+      
     </Routes>
   </AuthProvider>
 );

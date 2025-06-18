@@ -116,7 +116,7 @@ export const Navbar: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
             >
-              MedBook
+              MedicoX
             </motion.span>
           </motion.div>
 

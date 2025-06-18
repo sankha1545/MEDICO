@@ -1,3 +1,5 @@
+// File: frontend/src/contexts/AuthContext.tsx
+
 import React, {
   createContext,
   useContext,
@@ -8,7 +10,7 @@ import React, {
 import axios, { AxiosInstance } from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-interface LocationType {
+export interface LocationType {
   lat: number;
   lng: number;
   address: string;
@@ -22,13 +24,19 @@ export interface User {
   provider?: string;
   isVerified?: boolean;
   phone: string;
-  dob: string;
+  dob: string; // "YYYY-MM-DD"
   // doctor-specific:
   profileImageUrl?: string;
   specialty?: string;
-  slotDateTime?: string; // ISO string or datetime-local
+  availabilitySlots?: string[]; // ISO datetime strings
   location?: LocationType;
   maxPatients?: number;
+  experience?: string;
+  hospitalAffiliation?: string;
+  bio?: string;
+  qualifications?: string[];
+  languages?: string[];
+  consultationFee?: number;
 }
 
 interface AuthContextValue {
@@ -66,9 +74,15 @@ interface AuthContextValue {
     dob?: string;
     specialty?: string;
     profileImageFile?: File | null;
-    slotDateTime?: string;
+    availabilitySlots?: string[];
     location?: LocationType;
     maxPatients?: number;
+    experience?: string;
+    hospitalAffiliation?: string;
+    bio?: string;
+    qualifications?: string[];
+    languages?: string[];
+    consultationFee?: number;
   }) => Promise<User>;
 
   sendPasswordResetOtp: (email: string) => Promise<void>;
@@ -89,10 +103,10 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // e.g. VITE_API_URL = 'http://localhost:4000/api'
   const baseURL = import.meta.env.VITE_API_URL as string;
   const navigate = useNavigate();
 
+  // Create axios instance
   const api: AxiosInstance = axios.create({ baseURL });
   api.interceptors.request.use((config) => {
     const token = localStorage.getItem('authToken');
@@ -106,7 +120,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch common user; if doctor, also fetch doctor-specific
+  // Fetch common user info, then doctor-specific if needed
   const fetchUserCommon = async () => {
     try {
       const res = await api.get('/me');
@@ -126,10 +140,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (commonUser.role === 'doctor') {
         try {
-          const doc = await fetchDoctorProfileInternal();
-          setUser(doc);
+          const docFull = await fetchDoctorProfileInternal(commonUser);
+          setUser(docFull);
         } catch (e) {
-          console.error('Error fetching doctor-specific after common:', e);
+          console.error('Error fetching doctor-specific profile:', e);
         }
       }
     } catch (err) {
@@ -150,6 +164,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auth methods
   const sendEmailOtp = async (email: string) => {
     try {
       await api.post('/send-email-otp', { email });
@@ -157,7 +172,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to send OTP.');
     }
   };
-
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-email-otp', { email, otp });
@@ -165,20 +179,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to verify OTP.');
     }
   };
-
-  const signup = async (data: {
-    name: string;
-    email: string;
-    password: string;
-    role: 'patient' | 'doctor';
-  }) => {
+  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor'; }) => {
     try {
       await api.post('/signup', data);
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Signup failed.');
     }
   };
-
   const login = async (email: string, password: string) => {
     try {
       const res = await api.post('/login', { email, password });
@@ -190,17 +197,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Login failed.');
     }
   };
-
   const signInWithGoogle = () => {
     window.location.href = `${baseURL}/auth/google`;
   };
-
   const loginWithToken = async (token: string) => {
     localStorage.setItem('authToken', token);
     setLoading(true);
     await fetchUserCommon();
   };
-
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
@@ -208,6 +212,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
+  // Update common user profile (for patients); for doctor, delegate
   const updateUserProfile = async (data: {
     name?: string;
     email?: string;
@@ -215,18 +220,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dob?: string;
     profileImageFile?: File | null;
   }) => {
-    try {
-      if (user?.role === 'doctor') {
-        // Merge common updates into doctor
-        const updated = await updateDoctorProfile({
+    if (user?.role === 'doctor') {
+      try {
+        const updatedDoc = await updateDoctorProfile({
           name: data.name,
           email: data.email,
           phone: data.phone,
           dob: data.dob,
           profileImageFile: data.profileImageFile,
         });
-        setUser(updated);
-      } else {
+        setUser(updatedDoc);
+      } catch (err: any) {
+        throw err;
+      }
+    } else {
+      try {
         const formData = new FormData();
         if (data.name) formData.append('name', data.name);
         if (data.email) formData.append('email', data.email);
@@ -239,46 +247,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const resUser = res.data;
-        setUser((prev) => ({
-          ...prev!,
-          name: resUser.name,
-          email: resUser.email,
-          phone: resUser.phone || prev?.phone || '',
-          dob: resUser.dob || prev?.dob || '',
-          profileImageUrl: resUser.profileImageUrl || prev?.profileImageUrl || '',
-        }));
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: resUser.name,
+                email: resUser.email,
+                phone: resUser.phone || prev.phone,
+                dob: resUser.dob || prev.dob,
+                profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
+              }
+            : prev
+        );
+      } catch (err: any) {
+        throw new Error(err.response?.data?.message || 'Failed to update profile');
       }
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to update profile');
     }
   };
 
-  // Internal helper to GET doctor profile
-  const fetchDoctorProfileInternal = async (): Promise<User> => {
-    // GET baseURL + '/medical/doctor/me'
+  // Internal: fetch full doctor profile
+  const fetchDoctorProfileInternal = async (commonUser: User): Promise<User> => {
     const res = await api.get('/medical/doctor/me');
     const d = res.data;
+    let loc: LocationType | undefined;
+    if (d.location) {
+      if (typeof d.location === 'object' && 'address' in d.location) {
+        loc = {
+          lat: (d.location.lat as number) || 0,
+          lng: (d.location.lng as number) || 0,
+          address: d.location.address as string,
+        };
+      } else if (typeof d.location === 'string') {
+        loc = { lat: 0, lng: 0, address: d.location };
+      }
+    }
+    // Ensure consultationFee is read
+    const fee: number =
+      typeof d.consultationFee === 'number' ? d.consultationFee : 0;
+
     const updated: User = {
       id: d.id,
       name: d.name,
       email: d.email,
       role: 'doctor',
-      provider: user?.provider,
-      isVerified: user?.isVerified,
-      phone: d.phone,
-      dob: d.dob,
+      provider: commonUser.provider,
+      isVerified: commonUser.isVerified,
+      phone: d.phone || '',
+      dob: d.dob || '',
       profileImageUrl: d.profileImageUrl,
       specialty: d.specialty,
-      slotDateTime: d.slotDateTime,
-      location: d.location,
+      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+      location: loc,
       maxPatients: d.maxPatients,
+      experience: d.experience,
+      hospitalAffiliation: d.hospitalAffiliation,
+      bio: d.bio,
+      qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
+      languages: Array.isArray(d.languages) ? d.languages : [],
+      consultationFee: fee,
     };
     return updated;
   };
 
   const fetchDoctorProfile = async (): Promise<User> => {
     try {
-      const updated = await fetchDoctorProfileInternal();
+      if (!user) throw new Error('Not authenticated');
+      const updated = await fetchDoctorProfileInternal(user);
       setUser(updated);
       return updated;
     } catch (err: any) {
@@ -294,9 +328,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dob?: string;
     specialty?: string;
     profileImageFile?: File | null;
-    slotDateTime?: string;
+    availabilitySlots?: string[];
     location?: LocationType;
     maxPatients?: number;
+    experience?: string;
+    hospitalAffiliation?: string;
+    bio?: string;
+    qualifications?: string[];
+    languages?: string[];
+    consultationFee?: number;
   }): Promise<User> => {
     try {
       const formData = new FormData();
@@ -305,22 +345,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data.phone) formData.append('phone', data.phone);
       if (data.dob) formData.append('dob', data.dob);
       if (data.specialty) formData.append('specialty', data.specialty);
-      if (data.slotDateTime) formData.append('nextAvailable', data.slotDateTime);
+      if (data.availabilitySlots) {
+        formData.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
+      }
       if (data.location) {
-        // backend expects 'location' as address string
+        formData.append('locationObj', JSON.stringify(data.location));
         formData.append('location', data.location.address);
       }
       if (data.maxPatients !== undefined) {
-        formData.append('availableSlots', data.maxPatients.toString());
+        formData.append('maxPatients', data.maxPatients.toString());
+      }
+      if (data.experience !== undefined) {
+        formData.append('experience', data.experience);
+      }
+      if (data.hospitalAffiliation !== undefined) {
+        formData.append('hospitalAffiliation', data.hospitalAffiliation);
+      }
+      if (data.bio !== undefined) {
+        formData.append('bio', data.bio);
+      }
+      if (data.qualifications !== undefined) {
+        formData.append('qualifications', JSON.stringify(data.qualifications));
+      }
+      if (data.languages !== undefined) {
+        formData.append('languages', JSON.stringify(data.languages));
+      }
+      if (data.consultationFee !== undefined) {
+        console.log('Appending consultationFee:', data.consultationFee);
+        formData.append('consultationFee', data.consultationFee.toString());
       }
       if (data.profileImageFile) {
         formData.append('profileImage', data.profileImageFile);
       }
-      // PUT baseURL + '/medical/doctor/me'
+
       const res = await api.put('/medical/doctor/me', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const d = res.data;
+
+      // Parse location again
+      let loc: LocationType | undefined;
+      if (d.location) {
+        if (typeof d.location === 'object' && 'address' in d.location) {
+          loc = {
+            lat: (d.location.lat as number) || 0,
+            lng: (d.location.lng as number) || 0,
+            address: d.location.address as string,
+          };
+        } else if (typeof d.location === 'string') {
+          loc = { lat: 0, lng: 0, address: d.location };
+        }
+      }
+      const fee: number =
+        typeof d.consultationFee === 'number' ? d.consultationFee : 0;
+
       const updated: User = {
         id: d.id,
         name: d.name,
@@ -328,17 +406,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: 'doctor',
         provider: user?.provider,
         isVerified: user?.isVerified,
-        phone: d.phone,
-        dob: d.dob,
+        phone: d.phone || '',
+        dob: d.dob || '',
         profileImageUrl: d.profileImageUrl,
         specialty: d.specialty,
-        slotDateTime: d.slotDateTime,
-        location: d.location,
+        availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+        location: loc,
         maxPatients: d.maxPatients,
+        experience: d.experience,
+        hospitalAffiliation: d.hospitalAffiliation,
+        bio: d.bio,
+        qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
+        languages: Array.isArray(d.languages) ? d.languages : [],
+        consultationFee: fee,
       };
+      console.log('Received updated consultationFee:', updated.consultationFee);
       setUser(updated);
       return updated;
     } catch (err: any) {
+      console.error('updateDoctorProfile error:', err);
       throw new Error(err.response?.data?.message || 'Failed to update doctor profile');
     }
   };
@@ -350,7 +436,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to send reset OTP');
     }
   };
-
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
     try {
       await api.post('/verify-reset-otp', { email, otp });
@@ -358,7 +443,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to verify reset OTP');
     }
   };
-
   const resetPassword = async (
     email: string,
     otp: string,
@@ -371,7 +455,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Password reset failed');
     }
   };
-
   const deleteAccount = async (password: string) => {
     try {
       await api.delete('/user', { data: { password } });

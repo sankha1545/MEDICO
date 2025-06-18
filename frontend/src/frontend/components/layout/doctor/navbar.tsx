@@ -36,7 +36,7 @@ export const DoctorNavbar = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
           >
-            MedBook
+            MedicoX
           </motion.span>
         </Link>
 
