@@ -1,3 +1,5 @@
+// File: src/pages/PaymentsPage.tsx
+
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import {
@@ -15,8 +17,9 @@ import ThreeBackground from '../../components/payments/ThreeBackground';
 import Toast from '../../components/payments/Toast';
 import PaymentMethodCard from '../../components/payments/PaymentMethodCard'; // adjust import if filename differs
 import { AuthContext } from '../../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Types
+// Types for existing tabs
 interface PaymentHistory {
   id: string;
   date: string;
@@ -46,13 +49,22 @@ interface OutstandingBalance {
   items: OutstandingItem[];
 }
 
+// New: Appointment detail fetched for New Payment tab
+interface AppointmentDetail {
+  appointmentId: string;
+  doctorName: string;
+  fee: number;
+  status: string; // e.g. 'pending_payment', 'paid', etc.
+}
+
 const PaymentsPage: React.FC = () => {
   const { token } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-  // Tab state
+  // Tab state: history | new | methods
   const [activeTab, setActiveTab] = useState<'history' | 'new' | 'methods'>('history');
 
-  // Search & filter
+  // Search & filter for history
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending' | 'failed'>('all');
 
@@ -69,10 +81,11 @@ const PaymentsPage: React.FC = () => {
   const [outstandingBalance, setOutstandingBalance] = useState<OutstandingBalance | null>(null);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
 
-  // New payment form
+  // New Payment tab states
   const [selectedMethod, setSelectedMethod] = useState<'card' | 'upi'>('card');
   const [paymentForm, setPaymentForm] = useState({
     appointmentId: '',
+    // amount field will be set from fetched appointment detail; keep as string for display
     amount: '',
     cardName: '',
     cardNumber: '',
@@ -82,16 +95,18 @@ const PaymentsPage: React.FC = () => {
     upiId: ''
   });
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [appointmentDetail, setAppointmentDetail] = useState<AppointmentDetail | null>(null);
+  const [apptLoading, setApptLoading] = useState(false);
+  const [apptError, setApptError] = useState<string | null>(null);
 
-  // Fetch functions
+  // Fetch functions for existing tabs
   const fetchPaymentHistory = async () => {
     setHistoryLoading(true);
     try {
       const res = await axios.get('/api/payments/history', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Expect an array of PaymentHistory
-      setPaymentHistory(res.data);
+      setPaymentHistory(res.data || []);
     } catch (err: any) {
       console.error('Error fetching payment history', err);
       setToast({ type: 'error', message: 'Failed to load payment history.' });
@@ -106,7 +121,7 @@ const PaymentsPage: React.FC = () => {
       const res = await axios.get('/api/payments/methods', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPaymentMethods(res.data);
+      setPaymentMethods(res.data || []);
     } catch (err: any) {
       console.error('Error fetching payment methods', err);
       setToast({ type: 'error', message: 'Failed to load payment methods.' });
@@ -121,7 +136,7 @@ const PaymentsPage: React.FC = () => {
       const res = await axios.get('/api/payments/outstanding', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setOutstandingBalance(res.data);
+      setOutstandingBalance(res.data || null);
     } catch (err: any) {
       console.error('Error fetching outstanding balance', err);
       setToast({ type: 'error', message: 'Failed to load outstanding balance.' });
@@ -138,63 +153,11 @@ const PaymentsPage: React.FC = () => {
       fetchPaymentMethods();
     }
     // Always refresh outstanding on mount
-    // (or you can choose to refresh whenever relevant)
   }, [activeTab]);
 
   useEffect(() => {
     fetchOutstandingBalance();
   }, []);
-
-  // Payment handler
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaymentLoading(true);
-
-    // Build payload
-    const payload: any = {
-      appointmentId: paymentForm.appointmentId,
-      amount: parseFloat(paymentForm.amount),
-      method: selectedMethod
-    };
-    if (selectedMethod === 'card') {
-      payload.card = {
-        name: paymentForm.cardName,
-        number: paymentForm.cardNumber,
-        expiryMonth: paymentForm.expiryMonth,
-        expiryYear: paymentForm.expiryYear,
-        cvv: paymentForm.cvv
-      };
-    } else {
-      payload.upiId = paymentForm.upiId;
-    }
-
-    try {
-      const res = await axios.post('/api/payments', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setToast({ type: 'success', message: 'Payment processed successfully!' });
-      // Clear form
-      setPaymentForm({
-        appointmentId: '',
-        amount: '',
-        cardName: '',
-        cardNumber: '',
-        expiryMonth: '',
-        expiryYear: '',
-        cvv: '',
-        upiId: ''
-      });
-      // Refresh history and outstanding
-      fetchPaymentHistory();
-      fetchOutstandingBalance();
-    } catch (err: any) {
-      console.error('Payment error', err);
-      const msg = err.response?.data?.message || 'Payment failed.';
-      setToast({ type: 'error', message: msg });
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
 
   // Filtered history based on search/filter inputs
   const filteredHistory = paymentHistory.filter(payment => {
@@ -230,7 +193,7 @@ const PaymentsPage: React.FC = () => {
     }
   };
 
-  // Handlers for payment methods actions
+  // Handler: remove method
   const handleRemoveMethod = async (id: string) => {
     try {
       await axios.delete(`/api/payments/methods/${id}`, {
@@ -244,6 +207,7 @@ const PaymentsPage: React.FC = () => {
     }
   };
 
+  // Handler: set default method
   const handleSetDefaultMethod = async (id: string) => {
     try {
       await axios.put(`/api/payments/methods/${id}/default`, {}, {
@@ -262,6 +226,7 @@ const PaymentsPage: React.FC = () => {
     if (!outstandingBalance) return;
     setPaymentLoading(true);
     try {
+      // Assuming backend expects list of appointment IDs under 'items'
       const res = await axios.post('/api/payments/pay-outstanding', {
         items: outstandingBalance.items.map(item => item.id)
       }, {
@@ -273,6 +238,93 @@ const PaymentsPage: React.FC = () => {
     } catch (err) {
       console.error('Pay outstanding error', err);
       setToast({ type: 'error', message: 'Failed to pay outstanding balance' });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // --- New Payment tab logic: fetch appointment details when appointmentId entered ---
+  useEffect(() => {
+    // When appointmentId changes, reset previous detail and fetch
+    setAppointmentDetail(null);
+    setApptError(null);
+    setPaymentForm(f => ({ ...f, amount: '' }));
+    const apptId = paymentForm.appointmentId.trim();
+    if (!apptId) {
+      return;
+    }
+    // Fetch only if length looks valid (optional), else attempt always
+    const fetchAppt = async () => {
+      setApptLoading(true);
+      setApptError(null);
+      try {
+        // GET appointment detail; backend should return doctor info and fee, status
+        const res = await axios.get(`/api/appointments/${apptId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = res.data;
+        // Expect shape: { id, doctor: { name, id, consultationFee }, status, ... }
+        // Adapt based on your backend. Here assume:
+        // data.status: 'pending_payment' or else
+        // data.doctorName or data.doctor.name
+        // data.consultationFee or data.doctor.consultationFee
+        if (data.status !== 'pending_payment') {
+          setApptError('Appointment is not pending payment or already paid/invalid status.');
+          setAppointmentDetail(null);
+        } else {
+          const doctorName = data.doctorName || data.doctor?.name || '';
+          const fee = typeof data.consultationFee === 'number'
+            ? data.consultationFee
+            : typeof data.doctor?.consultationFee === 'number'
+            ? data.doctor.consultationFee
+            : 0;
+          setAppointmentDetail({
+            appointmentId: apptId,
+            doctorName,
+            fee,
+            status: data.status
+          });
+          setPaymentForm(f => ({ ...f, amount: fee.toString() })); // set read-only amount
+        }
+      } catch (err: any) {
+        console.error('Error fetching appointment detail:', err);
+        setApptError('Failed to load appointment details.');
+        setAppointmentDetail(null);
+      } finally {
+        setApptLoading(false);
+      }
+    };
+    fetchAppt();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentForm.appointmentId]);
+
+  // Handle New Payment submission: create checkout session and redirect
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointmentDetail) {
+      setToast({ type: 'error', message: 'Valid appointment required before payment.' });
+      return;
+    }
+    setPaymentLoading(true);
+    try {
+      // POST to backend to create payment session for this appointment
+      // Backend should create Razorpay/Stripe Checkout session using appointmentDetail.appointmentId,
+      // amount = appointmentDetail.fee, and return { checkoutUrl }
+      const res = await axios.post(
+        `/api/payments/create-session`,
+        { appointmentId: appointmentDetail.appointmentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const { checkoutUrl } = res.data;
+      if (!checkoutUrl) {
+        throw new Error('No checkout URL returned');
+      }
+      // Redirect to payment provider hosted UI
+      window.location.href = checkoutUrl;
+    } catch (err: any) {
+      console.error('Payment session creation error', err);
+      const msg = err.response?.data?.message || 'Failed to initiate payment.';
+      setToast({ type: 'error', message: msg });
     } finally {
       setPaymentLoading(false);
     }
@@ -433,6 +485,39 @@ const PaymentsPage: React.FC = () => {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Make a Payment</h2>
 
                   <form onSubmit={handlePayment} className="space-y-6">
+                    {/* Appointment ID Input */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Appointment ID
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentForm.appointmentId}
+                        onChange={(e) => {
+                          setPaymentForm(f => ({ ...f, appointmentId: e.target.value }));
+                          // Clearing appointmentDetail and errors is handled in useEffect
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter appointment ID"
+                        required
+                        disabled={paymentLoading}
+                      />
+                    </div>
+
+                    {/* Show loading / error / fetched appointment detail */}
+                    {apptLoading && (
+                      <p className="text-gray-500">Loading appointment details...</p>
+                    )}
+                    {apptError && (
+                      <p className="text-red-500">{apptError}</p>
+                    )}
+                    {appointmentDetail && (
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-600">Doctor: <span className="font-medium">Dr. {appointmentDetail.doctorName}</span></p>
+                        <p className="text-sm text-gray-600 mt-1">Amount (INR): <span className="font-medium">₹{appointmentDetail.fee}</span></p>
+                      </div>
+                    )}
+
                     {/* Payment Method Selection */}
                     <div className="flex space-x-4">
                       {['card', 'upi'].map((method) => (
@@ -445,6 +530,7 @@ const PaymentsPage: React.FC = () => {
                               ? 'border-blue-500 bg-blue-50'
                               : 'border-gray-200 hover:border-blue-300'
                           }`}
+                          disabled={paymentLoading}
                         >
                           <div className="flex items-center justify-center space-x-2">
                             {method === 'card' ? (
@@ -460,21 +546,10 @@ const PaymentsPage: React.FC = () => {
                       ))}
                     </div>
 
+                    {/* Payment Method Fields */}
                     {selectedMethod === 'card' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="sm:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Appointment ID
-                          </label>
-                          <input
-                            type="text"
-                            value={paymentForm.appointmentId}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, appointmentId: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Enter appointment ID"
-                            required
-                          />
-                        </div>
+                        {/* Card Holder Name */}
                         <div className="sm:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Card Holder Name
@@ -482,12 +557,14 @@ const PaymentsPage: React.FC = () => {
                           <input
                             type="text"
                             value={paymentForm.cardName}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, cardName: e.target.value })}
+                            onChange={(e) => setPaymentForm(f => ({ ...f, cardName: e.target.value }))}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="John Doe"
                             required
+                            disabled={paymentLoading}
                           />
                         </div>
+                        {/* Card Number */}
                         <div className="sm:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Card Number
@@ -495,12 +572,14 @@ const PaymentsPage: React.FC = () => {
                           <input
                             type="text"
                             value={paymentForm.cardNumber}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, cardNumber: e.target.value })}
+                            onChange={(e) => setPaymentForm(f => ({ ...f, cardNumber: e.target.value }))}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="1234 5678 9012 3456"
                             required
+                            disabled={paymentLoading}
                           />
                         </div>
+                        {/* Expiry Month */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Expiry Month
@@ -508,12 +587,14 @@ const PaymentsPage: React.FC = () => {
                           <input
                             type="text"
                             value={paymentForm.expiryMonth}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, expiryMonth: e.target.value })}
+                            onChange={(e) => setPaymentForm(f => ({ ...f, expiryMonth: e.target.value }))}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="MM"
                             required
+                            disabled={paymentLoading}
                           />
                         </div>
+                        {/* Expiry Year */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Expiry Year
@@ -521,12 +602,14 @@ const PaymentsPage: React.FC = () => {
                           <input
                             type="text"
                             value={paymentForm.expiryYear}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, expiryYear: e.target.value })}
+                            onChange={(e) => setPaymentForm(f => ({ ...f, expiryYear: e.target.value }))}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="YYYY"
                             required
+                            disabled={paymentLoading}
                           />
                         </div>
+                        {/* CVV */}
                         <div className="sm:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             CVV
@@ -534,10 +617,11 @@ const PaymentsPage: React.FC = () => {
                           <input
                             type="password"
                             value={paymentForm.cvv}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, cvv: e.target.value })}
+                            onChange={(e) => setPaymentForm(f => ({ ...f, cvv: e.target.value }))}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="123"
                             required
+                            disabled={paymentLoading}
                           />
                         </div>
                       </div>
@@ -545,50 +629,39 @@ const PaymentsPage: React.FC = () => {
 
                     {selectedMethod === 'upi' && (
                       <div>
+                        {/* UPI ID */}
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Appointment ID
-                        </label>
-                        <input
-                          type="text"
-                          value={paymentForm.appointmentId}
-                          onChange={(e) => setPaymentForm({ ...paymentForm, appointmentId: e.target.value })}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                          placeholder="Enter appointment ID"
-                          required
-                        />
-                        <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">
                           UPI ID
                         </label>
                         <input
                           type="text"
                           value={paymentForm.upiId}
-                          onChange={(e) => setPaymentForm({ ...paymentForm, upiId: e.target.value })}
+                          onChange={(e) => setPaymentForm(f => ({ ...f, upiId: e.target.value }))}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                           placeholder="yourname@bank"
                           required
+                          disabled={paymentLoading}
                         />
                       </div>
                     )}
 
+                    {/* Amount display (read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Amount
                       </label>
                       <input
-                        type="number"
+                        type="text"
                         value={paymentForm.amount}
-                        onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="0.00"
-                        required
-                        min="0"
-                        step="0.01"
+                        readOnly
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                        placeholder="Amount auto-filled"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      disabled={paymentLoading}
+                      disabled={paymentLoading || !appointmentDetail}
                       className={`w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 hover:from-blue-600 hover:to-indigo-700 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {paymentLoading ? 'Processing...' : 'Pay Now'}

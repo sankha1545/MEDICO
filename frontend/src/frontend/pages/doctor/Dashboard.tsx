@@ -1,4 +1,4 @@
-// File: src/pages/doctor/DoctorDashboardPage.tsx
+// File: src/pages/doctor/DoctorDashboard.tsx
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
@@ -23,7 +23,7 @@ import {
   StaggeredContainer,
   staggeredItemVariants,
 } from '../../components/animations/Transitions';
-import EditProfileForm from '../../components/common/editprofile/editprofileformsdoc'; // adjust as needed
+import EditProfileForm from '../../components/common/editprofile/editprofileformsdoc'; // adjust path
 
 // Recharts imports
 import {
@@ -75,8 +75,8 @@ const Seat: React.FC<{
   );
 };
 
-type TabKey = 'overview' | 'appointments' | 'patients' | 'earnings' | 'messages' | 'profile';
-const tabs: TabKey[] = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile'];
+type TabKey = 'overview' | 'appointments' | 'patients' | 'earnings' | 'messages' | 'profile' | 'payout';
+const tabs: TabKey[] = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile', 'payout'];
 
 interface DoctorAppointment {
   id: string;
@@ -117,10 +117,17 @@ const DoctorDashboardPage: React.FC = () => {
   const [profileDob, setProfileDob] = useState(''); // "YYYY-MM-DD"
   const [profileLocationObj, setProfileLocationObj] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [profileAvailabilitySlots, setProfileAvailabilitySlots] = useState<string[]>([]);
-  const [profileNextSlots, setProfileNextSlots] = useState<string[]>([]);
   const [profileMaxPatients, setProfileMaxPatients] = useState<number>(1);
   const [profileExperience, setProfileExperience] = useState<string>('');
   const [profileConsultationFee, setProfileConsultationFee] = useState<number>(0);
+
+  // ** NEW: Payout account fields **
+  const [bankAccountName, setBankAccountName] = useState(''); // account holder name
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIFSC, setBankIFSC] = useState('');
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutStatusMsg, setPayoutStatusMsg] = useState<string | null>(null);
+  const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(null);
 
   // Seat statuses
   const [seatStatuses, setSeatStatuses] = useState<'empty' | 'completed' | 'missed'[]>([]);
@@ -136,12 +143,6 @@ const DoctorDashboardPage: React.FC = () => {
   const earningsThisMonth = 5200; // placeholder or computed
   const unreadMessages = messages.filter(m => !m.read).length;
 
-  // Determine API base for building image URLs if needed
-  let API_BASE = import.meta.env.VITE_API_URL || '';
-  API_BASE = API_BASE.replace(/\/$/, '');
-  const buildUrl = (path: string) =>
-    API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
-
   // Fetch profile once
   useEffect(() => {
     const loadProfile = async () => {
@@ -150,53 +151,34 @@ const DoctorDashboardPage: React.FC = () => {
         setLoadingProfile(true);
         try {
           const prof = await fetchDoctorProfile();
-          // prof fields: name, email, specialty, profileImageUrl, phone, dob, locationObj, availabilitySlots, maxPatients, experience, consultationFee, nextSlots...
+          // prof fields: name, email, specialty, profileImageUrl, phone, dob, locationObj, availabilitySlots, maxPatients, experience, consultationFee, razorpayAccountId, etc.
           setProfileName(prof.name);
           setProfileEmail(prof.email);
           setProfileSpecialty(prof.specialty || '');
-          // Build full URL if needed
-          if (prof.profileImageUrl) {
-            // If returned URL is relative (starts with '/'), prefix API_BASE
-            if (prof.profileImageUrl.startsWith('http')) {
-              setProfileImageUrl(prof.profileImageUrl);
-            } else {
-              setProfileImageUrl(buildUrl(prof.profileImageUrl));
-            }
-          } else {
-            setProfileImageUrl(undefined);
-          }
+          setProfileImageUrl(prof.profileImageUrl);
           setProfilePhone(prof.phone || '');
           setProfileDob(prof.dob || '');
-          if (prof.locationObj) {
+          if (prof.location && typeof prof.location === 'object') {
             setProfileLocationObj({
-              lat: prof.locationObj.lat,
-              lng: prof.locationObj.lng,
-              address: prof.locationObj.address,
+              lat: prof.location.lat,
+              lng: prof.location.lng,
+              address: prof.location.address,
             });
           } else {
             setProfileLocationObj(null);
           }
-          setProfileAvailabilitySlots(Array.isArray(prof.availabilitySlots) ? prof.availabilitySlots : []);
-          // Compute nextSlots locally if not provided
-          let next: string[] = [];
-          if (Array.isArray(prof.nextSlots) && prof.nextSlots.length > 0) {
-            next = prof.nextSlots;
-          } else {
-            const now = new Date();
-            next = (prof.availabilitySlots || [])
-              .map(s => new Date(s))
-              .filter(d => !isNaN(d.getTime()) && d > now)
-              .sort((a, b) => a.getTime() - b.getTime())
-              .slice(0, 5)
-              .map(d => d.toISOString());
-          }
-          setProfileNextSlots(next);
+          setProfileAvailabilitySlots(prof.availabilitySlots || []);
           const maxP = prof.maxPatients ?? 1;
           setProfileMaxPatients(maxP);
           setProfileExperience(prof.experience || '');
           setProfileConsultationFee(prof.consultationFee ?? 0);
           // Initialize seats UI
           setSeatStatuses(Array(maxP).fill('empty'));
+
+          // ** NEW: existing payout account ID from profile **
+          if ((prof as any).razorpayAccountId) {
+            setExistingPayoutAccountId((prof as any).razorpayAccountId);
+          }
         } catch (err: any) {
           console.error('Failed to load doctor profile:', err);
           setProfileError(err.message || 'Failed to load profile');
@@ -210,7 +192,6 @@ const DoctorDashboardPage: React.FC = () => {
 
   // TODO: fetch appointments/messages/patients from API
   useEffect(() => {
-    // e.g.
     // fetchDoctorAppointments().then(setAppointments);
     // fetchDoctorMessages().then(setMessages);
     // fetchDoctorPatients().then(setPatients);
@@ -262,37 +243,21 @@ const DoctorDashboardPage: React.FC = () => {
       setProfileName(updated.name);
       setProfileEmail(updated.email);
       setProfileSpecialty(updated.specialty || '');
-      if (profileImageFile) {
-        // Show local preview
-        setProfileImageUrl(URL.createObjectURL(profileImageFile));
-      } else if (updated.profileImageUrl) {
-        if (updated.profileImageUrl.startsWith('http')) {
-          setProfileImageUrl(updated.profileImageUrl);
-        } else {
-          setProfileImageUrl(buildUrl(updated.profileImageUrl));
-        }
-      }
+      setProfileImageUrl(
+        profileImageFile ? URL.createObjectURL(profileImageFile) : updated.profileImageUrl || ''
+      );
       setProfilePhone(updated.phone || '');
       setProfileDob(updated.dob || '');
-      if (updated.locationObj) {
+      if (updated.location && typeof updated.location === 'object') {
         setProfileLocationObj({
-          lat: updated.locationObj.lat,
-          lng: updated.locationObj.lng,
-          address: updated.locationObj.address,
+          lat: updated.location.lat,
+          lng: updated.location.lng,
+          address: updated.location.address,
         });
       } else {
         setProfileLocationObj(null);
       }
-      setProfileAvailabilitySlots(Array.isArray(updated.availabilitySlots) ? updated.availabilitySlots : []);
-      // Recompute next slots
-      const now = new Date();
-      const next = (updated.availabilitySlots || [])
-        .map(s => new Date(s))
-        .filter(d => !isNaN(d.getTime()) && d > now)
-        .sort((a, b) => a.getTime() - b.getTime())
-        .slice(0, 5)
-        .map(d => d.toISOString());
-      setProfileNextSlots(next);
+      setProfileAvailabilitySlots(updated.availabilitySlots || []);
       const maxP = updated.maxPatients ?? 1;
       setProfileMaxPatients(maxP);
       setProfileExperience(updated.experience || '');
@@ -302,6 +267,42 @@ const DoctorDashboardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to save profile:', err);
       setProfileError(err.message || 'Failed to save profile');
+    }
+  };
+
+  // ** NEW: Handle Payout Account Creation **
+  const handleAddPayoutAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPayoutLoading(true);
+    setPayoutStatusMsg(null);
+    try {
+      const resp = await fetch('/api/medical/doctor/payout-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${window.localStorage.getItem('authToken') || ''}`,
+        },
+        body: JSON.stringify({
+          accountHolderName: bankAccountName.trim(),
+          accountNumber: bankAccountNumber.trim(),
+          ifsc: bankIFSC.trim(),
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.message || 'Failed to add payout account');
+      }
+      const data = await resp.json();
+      setExistingPayoutAccountId(data.fundAccountId);
+      setPayoutStatusMsg('Payout account added successfully.');
+      setBankAccountName('');
+      setBankAccountNumber('');
+      setBankIFSC('');
+    } catch (err: any) {
+      console.error('Payout account error:', err);
+      setPayoutStatusMsg(err.message || 'Failed to add payout account');
+    } finally {
+      setPayoutLoading(false);
     }
   };
 
@@ -364,14 +365,9 @@ const DoctorDashboardPage: React.FC = () => {
                   <UserIcon className="w-full h-full p-4 text-gray-500" />
                 )}
               </div>
-              <div>
-                <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">
-                  Dr. {profileName}
-                </h1>
-                {profileSpecialty && (
-                  <p className="text-gray-400">{profileSpecialty}</p>
-                )}
-              </div>
+              <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">
+                Dr. {profileName}
+              </h1>
               <motion.button
                 onClick={() => setShowEditProfile(true)}
                 whileHover={{ scale: 1.05 }}
@@ -399,7 +395,15 @@ const DoctorDashboardPage: React.FC = () => {
             currentSpecialty={profileSpecialty}
             currentProfileImageUrl={profileImageUrl}
             currentAvailabilitySlots={profileAvailabilitySlots}
-            currentLocation={profileLocationObj ?? undefined}
+            currentLocation={
+              profileLocationObj
+                ? {
+                    lat: profileLocationObj.lat,
+                    lng: profileLocationObj.lng,
+                    address: profileLocationObj.address,
+                  }
+                : undefined
+            }
             currentMaxPatients={profileMaxPatients}
             currentDob={profileDob}
             currentExperience={profileExperience}
@@ -476,9 +480,10 @@ const DoctorDashboardPage: React.FC = () => {
                     earnings: <DollarSign className="w-5 h-5" />,
                     messages: <Bell className="w-5 h-5" />,
                     profile: <UserIcon className="w-5 h-5" />,
+                    payout: <DollarSign className="w-5 h-5" />,
                   }[tab]}
                 </span>
-                <span className="capitalize font-medium">{tab}</span>
+                <span className="capitalize">{tab}</span>
               </button>
             ))}
           </div>
@@ -884,31 +889,14 @@ const DoctorDashboardPage: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400">Next Slots</p>
-                        {profileNextSlots && profileNextSlots.length > 0 ? (
-                          <ul className="list-disc list-inside">
-                            {profileNextSlots.map((slot, idx) => {
-                              let display = slot;
-                              try {
-                                const dt = new Date(slot);
-                                if (!isNaN(dt.getTime())) {
-                                  display = format(dt, 'MMM d, yyyy h:mm a');
-                                }
-                              } catch {}
-                              return (
-                                <li key={idx} className="font-medium">
-                                  {display}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="font-medium text-gray-400">No upcoming slots</p>
-                        )}
-                      </div>
-                      <div>
                         <p className="text-sm text-gray-400">Max Patients per Slot</p>
                         <p className="font-medium">{profileMaxPatients}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Payout Account ID</p>
+                        <p className="font-medium break-all">
+                          {existingPayoutAccountId || 'Not added'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -926,6 +914,85 @@ const DoctorDashboardPage: React.FC = () => {
                     </Button>
                   </Link>
                 </motion.div>
+              </div>
+            )}
+
+            {/* Payout Tab */}
+            {activeTab === 'payout' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold text-gray-100 mb-4">
+                  Payout Account
+                </h2>
+                {existingPayoutAccountId ? (
+                  <div className="bg-gray-800 rounded-xl shadow-sm p-6">
+                    <p className="text-gray-300">
+                      You have already added a payout account:
+                    </p>
+                    <p className="text-white break-all font-medium">
+                      {existingPayoutAccountId}
+                    </p>
+                    <p className="text-gray-400 mt-2">
+                      If you need to update bank details, please contact support or remove and re-add below.
+                    </p>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={handleAddPayoutAccount}
+                    className="bg-gray-800 rounded-xl shadow-sm p-6 space-y-4"
+                  >
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        Account Holder Name
+                      </label>
+                      <input
+                        type="text"
+                        value={bankAccountName}
+                        onChange={e => setBankAccountName(e.target.value)}
+                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                        disabled={payoutLoading}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        value={bankAccountNumber}
+                        onChange={e => setBankAccountNumber(e.target.value)}
+                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                        disabled={payoutLoading}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        IFSC Code
+                      </label>
+                      <input
+                        type="text"
+                        value={bankIFSC}
+                        onChange={e => setBankIFSC(e.target.value)}
+                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                        disabled={payoutLoading}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={payoutLoading}
+                      className="mt-4 w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-2 rounded-lg disabled:opacity-50"
+                    >
+                      {payoutLoading ? 'Adding...' : 'Add Payout Account'}
+                    </button>
+                    {payoutStatusMsg && (
+                      <p className="text-sm mt-2 text-center text-white">
+                        {payoutStatusMsg}
+                      </p>
+                    )}
+                  </form>
+                )}
               </div>
             )}
           </div>

@@ -25,24 +25,26 @@ import Profile from './frontend/components/common/profile';
 import FAQ from './frontend/components/footerlinks/FAQ';
 import HealthBlog from './frontend/components/footerlinks/HealthBlog';
 import TOS from './frontend/components/footerlinks/TermsOfService';
-import HelpCenter from './frontend/components/footerlinks/HelpCentre'; // Ensure 'default' export or correct import style
-import Docpatient from './frontend/pages/doctor/PatientAdmission'
+import HelpCenter from './frontend/components/footerlinks/HelpCentre';
+import Docpatient from './frontend/pages/doctor/PatientAdmission';
+
 // Pages — doctor
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 import SettingsPage from './frontend/components/common/settingspage';
 
-
 // Common
 import Bookappointment from './frontend/components/common/bookappointment/BookAppointment';
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
-
+import Glimpse from './frontend/components/ProjectGlimpse';
 // Patient Settings
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
 
 // Payment page (new)
 import PaymentPage from './frontend/pages/patient/paymentspage';
+// Animated cursor
 import AnimatedCursor from './frontend/components/common/cursor';
+
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -53,9 +55,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => (
-  
   <AuthProvider>
-   
+    {/* Animated custom cursor covering entire app */}
+    <AnimatedCursor />
+<div className="cursor-none">
     <Routes>
       {/* Redirect root to login */}
       <Route path="/" element={<Navigate to="/login" replace />} />
@@ -243,18 +246,17 @@ const App: React.FC = () => (
       <Route
         path="/doc-patient"
         element={
-          
-            <Layout1>
-              <Docpatient />
-            </Layout1>
-          
+          <Layout1>
+            <Docpatient />
+          </Layout1>
         }
       />
 
       {/* Catch-all 404 */}
       <Route path="*" element={<NotFoundPage />} />
-      
+      <Route path="/glimpse" element={<Glimpse />} />
     </Routes>
+    </div>
   </AuthProvider>
 );
 

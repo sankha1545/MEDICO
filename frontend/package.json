@@ -13,6 +13,7 @@
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
+    "@fontsource/inter": "^5.2.6",
     "@react-oauth/google": "^0.12.2",
     "@react-three/drei": "^9.56.14",
     "@react-three/fiber": "^8.13.6",
