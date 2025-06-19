@@ -1,97 +1,79 @@
 // File: backend/src/routes/appointment.ts
 
-import express, { Request, Response } from 'express';
+import express from 'express';
 import Appointment from '../models/Appointment';
 import Doctor from '../models/Doctor';
-import { authenticateJWT } from './auth'; // adjust import
-import mongoose from 'mongoose';
+import { authenticateJWT } from './auth';
+import crypto from 'crypto';
 
 const router = express.Router();
 
-// POST /api/appointments
+// POST /api/appointments/confirm-after-payment
 router.post(
-  '/',
+  '/confirm-after-payment',
   authenticateJWT,
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     try {
       const user = (req as any).user;
       const role = (req as any).role;
       if (role !== 'patient') {
-        return res.status(403).json({ message: 'Only patients can book appointments' });
+        return res.status(403).json({ message: 'Only patients can confirm appointment' });
       }
-      const { doctorId, datetime, message, fee } = req.body as {
+      const {
+        doctorId,
+        datetime,
+        razorpay_payment_id,
+        razorpay_order_id,
+        razorpay_signature,
+      } = req.body as {
         doctorId: string;
         datetime: string;
-        message?: string;
-        fee: number;
+        razorpay_payment_id: string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
       };
-      if (!doctorId || !datetime || fee == null) {
-        return res.status(400).json({ message: 'doctorId, datetime, and fee are required' });
+      if (!doctorId || !datetime || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+        return res.status(400).json({ message: 'Missing required fields' });
       }
-      // Validate doctor exists
-      if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-        return res.status(400).json({ message: 'Invalid doctorId' });
+      // Verify signature
+      const generated_signature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+        .update(razorpay_order_id + '|' + razorpay_payment_id)
+        .digest('hex');
+      if (generated_signature !== razorpay_signature) {
+        return res.status(400).json({ message: 'Invalid signature' });
       }
+      // Optionally verify payment captured via Razorpay API
+      // e.g., const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      // if payment.status !== 'captured' => error
+      // Validate doctor and datetime again
       const doctor = await Doctor.findById(doctorId).exec();
       if (!doctor || !doctor.isActive) {
-        return res.status(404).json({ message: 'Doctor not found or inactive' });
+        return res.status(404).json({ message: 'Doctor not found' });
       }
-      // Validate slot: optional: check if datetime matches one of doctor's availabilitySlots
-      // For simplicity, skip strict check here (frontend selects from valid slots).
-      const apptDate = new Date(datetime);
-      if (isNaN(apptDate.getTime()) || apptDate <= new Date()) {
+      const dt = new Date(datetime);
+      if (isNaN(dt.getTime()) || dt <= new Date()) {
         return res.status(400).json({ message: 'Invalid or past datetime' });
       }
-      // Create appointment
+      // Create Appointment record
+      const fee = doctor.consultationFee;
       const newAppt = new Appointment({
         patient: user._id,
         doctor: doctorId,
-        datetime: apptDate,
-        message: message || '',
+        datetime: dt,
+        message: '',
         amount: fee,
         currency: 'INR',
-        status: 'pending_payment', // as per updated enum
-        paymentStatus: 'pending',
+        status: 'scheduled',
+        paymentStatus: 'paid',
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
       });
       const saved = await newAppt.save();
-      return res.status(201).json({ appointmentId: saved._id });
-    } catch (err) {
-      console.error('Error creating appointment:', err);
-      return res.status(500).json({ message: 'Failed to create appointment' });
-    }
-  }
-);
-
-// GET /api/appointments/:id
-router.get(
-  '/:id',
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const user = (req as any).user;
-      const role = (req as any).role;
-      const { id } = req.params;
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: 'Invalid appointment ID' });
-      }
-      const appt = await Appointment.findById(id)
-        .populate('doctor', 'name email consultationFee razorpayAccountId')
-        .populate('patient', 'name email')
-        .exec();
-      if (!appt) {
-        return res.status(404).json({ message: 'Appointment not found' });
-      }
-      // Only patient or doctor involved can fetch
-      if (
-        role === 'patient' && appt.patient.toString() !== user._id.toString()
-        || role === 'doctor' && appt.doctor._id.toString() !== user._id.toString()
-      ) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-      return res.json(appt);
-    } catch (err) {
-      console.error('Error fetching appointment:', err);
-      return res.status(500).json({ message: 'Failed to fetch appointment' });
+      return res.json({ appointmentId: saved._id });
+    } catch (err: any) {
+      console.error('Error in confirm-after-payment:', err);
+      return res.status(500).json({ message: 'Failed to confirm appointment' });
     }
   }
 );

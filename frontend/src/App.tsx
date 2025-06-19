@@ -1,6 +1,6 @@
 // File: src/App.tsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -39,7 +39,7 @@ import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 import Glimpse from './frontend/components/ProjectGlimpse';
 // Patient Settings
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
-
+import LoadingScreen from './frontend/components/common/LoadingScreen/LoadingScreen';
 // Payment page (new)
 import PaymentPage from './frontend/pages/patient/paymentspage';
 // Animated cursor
@@ -54,210 +54,233 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App: React.FC = () => (
-  <AuthProvider>
-    {/* Animated custom cursor covering entire app */}
-    <AnimatedCursor />
-<div className="cursor-none">
-    <Routes>
-      {/* Redirect root to login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+const App: React.FC = () => {
+  // Example loading state: if you have any global initialization you can toggle this.
+  const [appLoading, setAppLoading] = useState(true);
 
-      {/* Public patient pages */}
-      <Route
-        path="/home"
-        element={
-          <Layout fullWidth>
-            <HomePage />
-          </Layout>
-        }
-      />
+  // Simulate initial loading (e.g., checking auth token). Replace with real logic as needed.
+  useEffect(() => {
+    // For demo: delay 500ms then hide loading screen
+    const timer = setTimeout(() => {
+      setAppLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-      {/* Authentication */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
+  if (appLoading) {
+    // Show loading screen before rendering the app
+    return <LoadingScreen message="Welcome to MedicoX..." />;
+  }
 
-      {/* OAuth Success */}
-      <Route path="/oauth-success" element={<OAuthSuccessPage />} />
+  return (
+    <AuthProvider>
+      {/* Animated custom cursor covering entire app */}
+      <AnimatedCursor />
+     
+      {/* Hide default OS cursor */}
+      <div className="cursor-none">
+        <Routes>
+          {/* Redirect root to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* More public patient pages */}
-      <Route
-        path="/doctors"
-        element={
-          <Layout>
-            <DoctorsPage />
-          </Layout>
-        }
-      />
-      <Route
-        path="/services"
-        element={
-          <Layout>
-            <Services />
-          </Layout>
-        }
-      />
-      <Route
-        path="/about"
-        element={
-          <Layout>
-            <About />
-          </Layout>
-        }
-      />
-      <Route
-        path="/contact"
-        element={
-          <Layout>
-            <Contact />
-          </Layout>
-        }
-      />
-      <Route path="/bookappointment" element={<Bookappointment />} />
+          {/* Public patient pages */}
+          <Route
+            path="/home"
+            element={
+              <Layout fullWidth>
+                <HomePage />
+              </Layout>
+            }
+          />
 
-      {/* FAQ and Health Blog (public) */}
-      <Route
-        path="/faq"
-        element={
-          <Layout>
-            <FAQ />
-          </Layout>
-        }
-      />
-      <Route
-        path="/privacypolicy"
-        element={
-          <Layout>
-            <PrivacyPolicy />
-          </Layout>
-        }
-      />
-      <Route
-        path="/tos"
-        element={
-          <Layout>
-            <TOS />
-          </Layout>
-        }
-      />
-      <Route
-        path="/blog"
-        element={
-          <Layout>
-            <HealthBlog />
-          </Layout>
-        }
-      />
-      <Route
-        path="/helpcentre"
-        element={
-          <Layout>
-            <HelpCenter />
-          </Layout>
-        }
-      />
+          {/* Authentication */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
 
-      {/* ─── Protected patient-only routes ─── */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <DashboardPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/book-appointment"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <AppointmentBookingPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Profile />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+          {/* OAuth Success */}
+          <Route path="/oauth-success" element={<OAuthSuccessPage />} />
 
-      {/* Patient Settings page */}
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <PatientSettingsPage onBack={() => window.history.back()} />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+          {/* More public patient pages */}
+          <Route
+            path="/doctors"
+            element={
+              <Layout>
+                <DoctorsPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/services"
+            element={
+              <Layout>
+                <Services />
+              </Layout>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <Layout>
+                <About />
+              </Layout>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <Layout>
+                <Contact />
+              </Layout>
+            }
+          />
+          <Route path="/bookappointment" element={<Bookappointment />} />
 
-      {/* Payment page (protected) */}
-      <Route
-        path="/payment"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <PaymentPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+          {/* FAQ and Health Blog (public) */}
+          <Route
+            path="/faq"
+            element={
+              <Layout>
+                <FAQ />
+              </Layout>
+            }
+          />
+          <Route
+            path="/privacypolicy"
+            element={
+              <Layout>
+                <PrivacyPolicy />
+              </Layout>
+            }
+          />
+          <Route
+            path="/tos"
+            element={
+              <Layout>
+                <TOS />
+              </Layout>
+            }
+          />
+          <Route
+            path="/blog"
+            element={
+              <Layout>
+                <HealthBlog />
+              </Layout>
+            }
+          />
+          <Route
+            path="/helpcentre"
+            element={
+              <Layout>
+                <HelpCenter />
+              </Layout>
+            }
+          />
 
-      {/* ─── Doctor pages ─── */}
-      <Route
-        path="/doc-home"
-        element={
-          <Layout1>
-            <HomePage1 />
-          </Layout1>
-        }
-      />
-      <Route
-        path="/doc-dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout1>
-              <DashboardPage1 />
-            </Layout1>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/doc-settings"
-        element={
-          <ProtectedRoute>
-            <Layout1>
-              <SettingsPage onBack={() => { window.history.back(); }} />
-            </Layout1>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/doc-patient"
-        element={
-          <Layout1>
-            <Docpatient />
-          </Layout1>
-        }
-      />
+          {/* ─── Protected patient-only routes ─── */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DashboardPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/book-appointment"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AppointmentBookingPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Profile />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
 
-      {/* Catch-all 404 */}
-      <Route path="*" element={<NotFoundPage />} />
-      <Route path="/glimpse" element={<Glimpse />} />
-    </Routes>
-    </div>
-  </AuthProvider>
-);
+          {/* Patient Settings page */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PatientSettingsPage onBack={() => window.history.back()} />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Payment page (protected) */}
+          <Route
+            path="/payment"
+            element={
+              <ProtectedRoute>
+               
+                  <PaymentPage />
+               
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ─── Doctor pages ─── */}
+          <Route
+            path="/doc-home"
+            element={
+              <Layout1>
+                <HomePage1 />
+              </Layout1>
+            }
+          />
+          <Route
+            path="/doc-dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout1>
+                  <DashboardPage1 />
+                </Layout1>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doc-settings"
+            element={
+              <ProtectedRoute>
+                <Layout1>
+                  <SettingsPage onBack={() => {
+                    window.history.back();
+                  }} />
+                </Layout1>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doc-patient"
+            element={
+              <Layout1>
+                <Docpatient />
+              </Layout1>
+            }
+          />
+
+          {/* Catch-all 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+          <Route path="/glimpse" element={<Glimpse />} />
+        </Routes>
+      </div>
+    </AuthProvider>
+  );
+};
 
 export default App;

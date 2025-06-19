@@ -323,21 +323,14 @@ const ServicesPage: React.FC = () => {
                     {/* Stats */}
                     <div className="flex items-center justify-between mb-6 text-sm">
                       <div className="flex items-center space-x-4">
-                        <div className="flex items-center">
-                          <Star size={14} className="text-yellow-400 mr-1" />
-                          <span className="text-white font-medium">{svc.rating}</span>
-                        </div>
-                        <div className="text-gray-400">{svc.bookings} bookings</div>
+                        
                       </div>
                       <div className="text-gray-400">{svc.duration}</div>
                     </div>
                     {/* Price & Glimpse */}
                     <div className="flex items-center justify-between mt-auto">
-                      <div>
-                        <span className="text-2xl font-bold text-white">{svc.price}</span>
-                        <span className="text-gray-400 text-sm ml-1">per session</span>
-                      </div>
-                      <Button variant="gradient" size="sm" onClick={openModal} className={`bg-gradient-to-r ${svc.color}`}>
+                      
+                      <Button variant="gradient" size="sm"  className={`bg-gradient-to-r ${svc.color}`}>
                        Video call 📹<ArrowRight size={16} className="ml-2" />
                       </Button>
                     </div>

@@ -10,6 +10,8 @@ import { useNavigate } from 'react-router-dom';
 interface BookAppointmentProps {
   doctorId: string;
   onClose: () => void;
+  // onSuccess is no longer used here for appointmentId, since creation happens after payment
+  onSuccess?: (appointmentId: string) => void;
 }
 
 const overlayVariants = {
@@ -20,99 +22,115 @@ const overlayVariants = {
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.8 },
   visible: {
-    opacity: 1, scale: 1,
-    transition: { type: 'spring', stiffness: 300, damping: 25 }
+    opacity: 1,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 300, damping: 25 },
   },
   exit: { opacity: 0, scale: 0.8, transition: { duration: 0.2 } },
 };
 
-const BookAppointment: React.FC<BookAppointmentProps> = ({ doctorId, onClose }) => {
+const BookAppointment: React.FC<BookAppointmentProps> = ({
+  doctorId,
+  onClose,
+  onSuccess,
+}) => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', message: '', selectedSlot: ''
+    name: '',
+    email: '',
+    phone: '',
+    message: '',
+    selectedSlot: '',
   });
   const [slots, setSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
-
+  const [consultationFee, setConsultationFee] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  let API_BASE = import.meta.env.VITE_API_URL || '';
-  API_BASE = API_BASE.replace(/\/$/, '');
+  // Build API base
+  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
+  // Pre-fill user info if available
   useEffect(() => {
     if (isAuthenticated && user) {
-      setFormData(f => ({ ...f, name: user.name, email: user.email, phone: user.phone || '' }));
+      setFormData((prev) => ({
+        ...prev,
+        name: user.name,
+        email: user.email,
+        phone: (user as any).phone || '',
+      }));
     }
   }, [isAuthenticated, user]);
 
+  // Fetch doctor slots & fee
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
     setLoadingSlots(true);
     setSlotsError(null);
-    axios.get(buildUrl(`/medical/doctors/${doctorId}`))
-      .then(res => {
-        if (!isMounted) return;
-        const d = res.data;
-        const now = new Date();
-        let upcoming = Array.isArray(d.availabilitySlots)
-          ? d.availabilitySlots
-              .map((s: string) => {
-                const dt = new Date(s);
-                return dt > now ? dt.toISOString() : null;
-              })
-              .filter((s: string | null): s is string => !!s)
-              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-          : [];
-        if (Array.isArray(d.nextSlots) && d.nextSlots.length > 0) {
-          const filtered = d.nextSlots
-            .map((s: string) => {
-              const dt = new Date(s);
-              return dt > now ? dt.toISOString() : null;
-            })
-            .filter((s): s is string => !!s)
-            .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-          if (filtered.length > 0) upcoming = filtered;
-        }
-        setSlots(upcoming);
-        if (upcoming.length > 0) {
-          setFormData(f => ({ ...f, selectedSlot: upcoming[0] }));
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching slots:', err);
-        if (isMounted) {
-          setSlotsError('Failed to load available slots.');
-          setSlots([]);
-        }
-      })
-      .finally(() => { if (isMounted) setLoadingSlots(false); });
 
-    return () => { isMounted = false; };
+    const token = localStorage.getItem('authToken');
+    axios
+      .get(buildUrl(`/medical/doctors/${doctorId}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      .then(({ data }) => {
+        if (!mounted) return;
+        const now = new Date();
+        // availabilitySlots assumed array of ISO strings
+        const upcoming = Array.isArray(data.availabilitySlots)
+          ? data.availabilitySlots
+              .map((s: string) => new Date(s))
+              .filter((dt: Date) => dt > now)
+              .sort((a, b) => a.getTime() - b.getTime())
+              .map((dt) => dt.toISOString())
+          : [];
+        setSlots(upcoming);
+        if (upcoming.length) {
+          setFormData((prev) => ({ ...prev, selectedSlot: upcoming[0] }));
+        }
+        const fee = typeof data.consultationFee === 'number' ? data.consultationFee : null;
+        setConsultationFee(fee);
+      })
+      .catch((e) => {
+        console.error('Error fetching doctor details:', e);
+        if (mounted) {
+          setSlotsError('Failed to load available slots or fee.');
+          setSlots([]);
+          setConsultationFee(null);
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoadingSlots(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, [doctorId]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(f => ({ ...f, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // Validate slot selection
     if (!formData.selectedSlot) {
       setError('Please select an available slot.');
       return;
     }
-    const dt = new Date(formData.selectedSlot);
-    if (dt <= new Date()) {
+    if (new Date(formData.selectedSlot) <= new Date()) {
       setError('Selected slot is no longer valid.');
       return;
     }
@@ -120,14 +138,36 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({ doctorId, onClose }) 
       setError('Name and email are required.');
       return;
     }
+    if (consultationFee == null) {
+      setError('Consultation fee not available.');
+      return;
+    }
+    if (!isAuthenticated) {
+      setError('Authentication required. Please log in.');
+      return;
+    }
 
     setSubmitting(true);
     try {
+      // Instead of posting appointment now, navigate to payment page
+      // Optionally fetch doctorName to pass along:
+      let doctorName = '';
+      try {
+        const token = localStorage.getItem('authToken');
+        const resDoc = await axios.get(buildUrl(`/medical/doctors/${doctorId}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        doctorName = resDoc.data.name || '';
+      } catch {
+        // ignore, PaymentPage will fetch again if needed
+      }
+
       navigate('/payment', {
         state: {
           doctorId,
-          slot: formData.selectedSlot,
-          message: formData.message,
+          datetime: formData.selectedSlot,
+          doctorName,
+          message: formData.message || '',
         },
       });
       onClose();
@@ -142,102 +182,146 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({ doctorId, onClose }) 
   return (
     <motion.div
       className="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black bg-opacity-30 z-50"
-      variants={overlayVariants} initial="hidden" animate="visible" exit="hidden"
+      variants={overlayVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
     >
       <motion.div
         className="relative w-full max-w-lg p-8 bg-white bg-opacity-90 rounded-2xl"
-        variants={modalVariants} initial="hidden" animate="visible" exit="exit"
+        variants={modalVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
       >
         <button
           className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
-          onClick={onClose} disabled={submitting}
+          onClick={onClose}
+          disabled={submitting}
         >
-          <X size={24}/>
+          <X size={24} />
         </button>
 
-        <h2 className="text-3xl font-extrabold text-gray-800 mb-4 text-center">
+        <h2 className="text-3xl font-extrabold text-center mb-4">
           Schedule Your Visit
         </h2>
 
         {loadingSlots ? (
-          <p className="text-gray-600 text-center">Loading available slots...</p>
+          <p className="text-center text-gray-600">Loading slots...</p>
         ) : slotsError ? (
           <p className="text-red-500 text-center">{slotsError}</p>
         ) : slots.length === 0 ? (
-          <p className="text-gray-600 text-center mb-4">No slots available for this doctor.</p>
+          <p className="text-center text-gray-600">No slots available.</p>
         ) : null}
 
         <form onSubmit={handleConfirm} className="space-y-4">
-          {['name','email','phone'].map(field => (
-            <div key={field} className="relative">
-              <input
-                style={{ color:'#000' }}
-                type={field==='email'?'email':field==='phone'?'tel':'text'}
-                name={field}
-                value={formData[field as keyof typeof formData] || ''}
-                onChange={handleChange}
-                required={field!=='phone'}
-                disabled={field!=='phone'}
-                className="peer w-full px-4 pt-6 pb-2 border border-transparent rounded-lg bg-white bg-opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-transparent transition"
-                placeholder={field.charAt(0).toUpperCase()+field.slice(1)}
-              />
-              <label
-                htmlFor={field}
-                className="absolute top-2 left-4 text-gray-600 text-sm pointer-events-none transform transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-focus:top-2 peer-focus:text-gray-600"
-              >
-                {field.charAt(0).toUpperCase()+field.slice(1)}
-                {field!=='phone' && <span className="text-red-500">*</span>}
-              </label>
-            </div>
-          ))}
+          {/* Name */}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Your Name<span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              style={{ color: '#000' }}
+              required
+              disabled={submitting}
+            />
+          </div>
 
-          {!loadingSlots && slots.length>0 && (
-            <div className="relative">
-              <label htmlFor="selectedSlot" className="block text-gray-600 mb-1">
-                Select Available Slot<span className="text-red-500">*</span>
+          {/* Email */}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Email<span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              style={{ color: '#000' }}
+              required
+              disabled={submitting}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Phone
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              style={{ color: '#000' }}
+              disabled={submitting}
+            />
+          </div>
+
+          {/* Slot selector */}
+          {slots.length > 0 && (
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">
+                Select Slot<span className="text-red-500">*</span>
               </label>
               <select
-                id="selectedSlot"
                 name="selectedSlot"
                 value={formData.selectedSlot}
-                 style={{color:"#000"}}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                required disabled={submitting}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+                style={{ color: '#000' }}
+                required
+                disabled={submitting}
               >
-                {slots.map((s, i)=><option key={i} value={s}>{new Date(s).toLocaleString()}</option>)}
+                {slots.map((s) => (
+                  <option key={s} value={s}>
+                    {new Date(s).toLocaleString()}
+                  </option>
+                ))}
               </select>
             </div>
           )}
 
-          <div className="relative">
+          {/* Message */}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Additional Message
+            </label>
             <textarea
-              style={{ color:'#000' }}
               name="message"
+              rows={3}
               value={formData.message}
               onChange={handleChange}
-              rows={3}
-              className="peer w-full px-4 pt-6 pb-2 border border-transparent rounded-lg bg-white bg-opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-transparent transition resize-none"
-              placeholder="Message"
+              placeholder="Optional message"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none resize-none"
+              style={{ color: '#000' }}
               disabled={submitting}
             />
-            <label
-              htmlFor="message"
-              className="absolute top-2 left-4 text-gray-600 text-sm pointer-events-none transform transition-all duration-200 peer-placeholder-shown:top-6 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-focus:top-2 peer-focus:text-gray-600"
-            >
-              Your Message
-            </label>
           </div>
+
+          {/* Fee display */}
+          {consultationFee != null && (
+            <p className="text-gray-700">
+              Consultation Fee:{' '}
+              <span className="font-medium">₹{consultationFee}</span>
+            </p>
+          )}
 
           {error && <p className="text-red-500">{error}</p>}
 
           <button
             type="submit"
-            className={`w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-full shadow-lg hover:shadow-inner transition-all ${
-              submitting||slots.length===0?'opacity-50 cursor-not-allowed':''}`}
-            disabled={submitting||slots.length===0}
+            disabled={submitting || slots.length === 0}
+            className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-full shadow-lg hover:shadow-inner transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Processing...' : 'Confirm Booking'}
+            {submitting ? 'Scheduling...' : 'Confirm & Pay'}
           </button>
         </form>
       </motion.div>

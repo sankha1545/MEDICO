@@ -42,6 +42,7 @@ export interface User {
 interface AuthContextValue {
   user: User | null;
   setUser: (u: User | null) => void;
+  token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
 
@@ -107,7 +108,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   // Create axios instance
-  const api: AxiosInstance = axios.create({ baseURL });
+  const api: AxiosInstance = axios.create({
+    baseURL,
+  });
+
+  // Interceptor: attach token from state/localStorage
   api.interceptors.request.use((config) => {
     const token = localStorage.getItem('authToken');
     if (token && config.headers) {
@@ -117,10 +122,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch common user info, then doctor-specific if needed
+  // Helper to fetch basic user info
   const fetchUserCommon = async () => {
     try {
       const res = await api.get('/me');
@@ -148,15 +154,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (err) {
       console.error('fetchUserCommon error:', err);
-      logout();
+      logout(); // clear on error (e.g., invalid token)
     } finally {
       setLoading(false);
     }
   };
 
+  // On mount: read token from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
+    const storedToken = localStorage.getItem('authToken');
+    if (storedToken) {
+      setToken(storedToken);
+      // Set axios default header as well
+      axios.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
       fetchUserCommon();
     } else {
       setLoading(false);
@@ -179,7 +189,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to verify OTP.');
     }
   };
-  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor'; }) => {
+  const signup = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'patient' | 'doctor';
+  }) => {
     try {
       await api.post('/signup', data);
     } catch (err: any) {
@@ -189,8 +204,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       const res = await api.post('/login', { email, password });
-      const token: string = res.data.token;
-      localStorage.setItem('authToken', token);
+      const newToken: string = res.data.token;
+      // store token
+      localStorage.setItem('authToken', newToken);
+      setToken(newToken);
+      axios.defaults.headers.common.Authorization = `Bearer ${newToken}`;
       setLoading(true);
       await fetchUserCommon();
     } catch (err: any) {
@@ -200,19 +218,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithGoogle = () => {
     window.location.href = `${baseURL}/auth/google`;
   };
-  const loginWithToken = async (token: string) => {
-    localStorage.setItem('authToken', token);
+  const loginWithToken = async (tkn: string) => {
+    localStorage.setItem('authToken', tkn);
+    setToken(tkn);
+    axios.defaults.headers.common.Authorization = `Bearer ${tkn}`;
     setLoading(true);
     await fetchUserCommon();
   };
   const logout = () => {
     localStorage.removeItem('authToken');
+    setToken(null);
     setUser(null);
     setIsAuthenticated(false);
+    delete axios.defaults.headers.common.Authorization;
     navigate('/login');
   };
 
-  // Update common user profile (for patients); for doctor, delegate
   const updateUserProfile = async (data: {
     name?: string;
     email?: string;
@@ -235,15 +256,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } else {
       try {
-        const formData = new FormData();
-        if (data.name) formData.append('name', data.name);
-        if (data.email) formData.append('email', data.email);
-        if (data.phone) formData.append('phone', data.phone);
-        if (data.dob) formData.append('dob', data.dob);
+        const form = new FormData();
+        if (data.name) form.append('name', data.name);
+        if (data.email) form.append('email', data.email);
+        if (data.phone) form.append('phone', data.phone);
+        if (data.dob) form.append('dob', data.dob);
         if (data.profileImageFile) {
-          formData.append('profileImage', data.profileImageFile);
+          form.append('profileImage', data.profileImageFile);
         }
-        const res = await api.put('/me', formData, {
+        const res = await api.put('/me', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const resUser = res.data;
@@ -281,10 +302,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loc = { lat: 0, lng: 0, address: d.location };
       }
     }
-    // Ensure consultationFee is read
     const fee: number =
       typeof d.consultationFee === 'number' ? d.consultationFee : 0;
-
     const updated: User = {
       id: d.id,
       name: d.name,
@@ -296,7 +315,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       dob: d.dob || '',
       profileImageUrl: d.profileImageUrl,
       specialty: d.specialty,
-      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+      availabilitySlots: Array.isArray(d.availabilitySlots)
+        ? d.availabilitySlots
+        : [],
       location: loc,
       maxPatients: d.maxPatients,
       experience: d.experience,
@@ -339,51 +360,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     consultationFee?: number;
   }): Promise<User> => {
     try {
-      const formData = new FormData();
-      if (data.name) formData.append('name', data.name);
-      if (data.email) formData.append('email', data.email);
-      if (data.phone) formData.append('phone', data.phone);
-      if (data.dob) formData.append('dob', data.dob);
-      if (data.specialty) formData.append('specialty', data.specialty);
+      const form = new FormData();
+      if (data.name) form.append('name', data.name);
+      if (data.email) form.append('email', data.email);
+      if (data.phone) form.append('phone', data.phone);
+      if (data.dob) form.append('dob', data.dob);
+      if (data.specialty) form.append('specialty', data.specialty);
       if (data.availabilitySlots) {
-        formData.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
+        form.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
       }
       if (data.location) {
-        formData.append('locationObj', JSON.stringify(data.location));
-        formData.append('location', data.location.address);
+        form.append('locationObj', JSON.stringify(data.location));
+        form.append('location', data.location.address);
       }
       if (data.maxPatients !== undefined) {
-        formData.append('maxPatients', data.maxPatients.toString());
+        form.append('maxPatients', data.maxPatients.toString());
       }
       if (data.experience !== undefined) {
-        formData.append('experience', data.experience);
+        form.append('experience', data.experience);
       }
       if (data.hospitalAffiliation !== undefined) {
-        formData.append('hospitalAffiliation', data.hospitalAffiliation);
+        form.append('hospitalAffiliation', data.hospitalAffiliation);
       }
       if (data.bio !== undefined) {
-        formData.append('bio', data.bio);
+        form.append('bio', data.bio);
       }
       if (data.qualifications !== undefined) {
-        formData.append('qualifications', JSON.stringify(data.qualifications));
+        form.append('qualifications', JSON.stringify(data.qualifications));
       }
       if (data.languages !== undefined) {
-        formData.append('languages', JSON.stringify(data.languages));
+        form.append('languages', JSON.stringify(data.languages));
       }
       if (data.consultationFee !== undefined) {
-        console.log('Appending consultationFee:', data.consultationFee);
-        formData.append('consultationFee', data.consultationFee.toString());
+        form.append('consultationFee', data.consultationFee.toString());
       }
       if (data.profileImageFile) {
-        formData.append('profileImage', data.profileImageFile);
+        form.append('profileImage', data.profileImageFile);
       }
 
-      const res = await api.put('/medical/doctor/me', formData, {
+      const res = await api.put('/medical/doctor/me', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const d = res.data;
-
-      // Parse location again
       let loc: LocationType | undefined;
       if (d.location) {
         if (typeof d.location === 'object' && 'address' in d.location) {
@@ -398,7 +416,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       const fee: number =
         typeof d.consultationFee === 'number' ? d.consultationFee : 0;
-
       const updated: User = {
         id: d.id,
         name: d.name,
@@ -410,7 +427,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dob: d.dob || '',
         profileImageUrl: d.profileImageUrl,
         specialty: d.specialty,
-        availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+        availabilitySlots: Array.isArray(d.availabilitySlots)
+          ? d.availabilitySlots
+          : [],
         location: loc,
         maxPatients: d.maxPatients,
         experience: d.experience,
@@ -420,7 +439,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         languages: Array.isArray(d.languages) ? d.languages : [],
         consultationFee: fee,
       };
-      console.log('Received updated consultationFee:', updated.consultationFee);
       setUser(updated);
       return updated;
     } catch (err: any) {
@@ -473,6 +491,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         user,
         setUser,
+        token,
         isAuthenticated,
         loading,
         sendEmailOtp,
