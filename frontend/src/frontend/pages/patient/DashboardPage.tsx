@@ -11,7 +11,6 @@ import {
   CheckCircle,
   AlertTriangle,
   User as UserIcon,
-  Upload,
   Settings as SettingsIcon,
   TrendingUp,
   Heart,
@@ -19,7 +18,7 @@ import {
   Award,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import axios from 'axios';
 import { Button } from '../../components/common/Button';
@@ -70,89 +69,26 @@ const tabContentVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.4 } },
 };
 
-// Interfaces for appointments / notifications
-interface Appointment {
-  id: string;
-  doctorName: string;
-  specialty: string;
-  date: Date;
-  status: 'upcoming' | 'completed' | 'cancelled';
-  image: string;
+// Interfaces for fetched data
+interface AppointmentItem {
+  _id: string;
+  doctor: {
+    _id: string;
+    name: string;
+    specialty?: string;
+    profileImageUrl?: string;
+  };
+  datetime: string; // ISO string
+  status: 'pending' | 'scheduled' | 'completed' | 'cancelled';
   type?: 'video' | 'in-person';
 }
 interface NotificationItem {
-  id: string;
-  title: string;
+  _id: string;
+  type: string;
   message: string;
-  date: Date;
   read: boolean;
-  type: 'reminder' | 'medical' | 'message' | 'achievement';
-  priority?: 'low' | 'medium' | 'high';
+  createdAt: string;
 }
-
-// Mock data (until real APIs are integrated)
-const mockAppointments: Appointment[] = [
-  {
-    id: '1',
-    doctorName: 'Dr. Sarah Johnson',
-    specialty: 'Cardiologist',
-    date: new Date(2025, 4, 15, 10, 30),
-    status: 'upcoming',
-    type: 'video',
-    image:
-      'https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg?auto=compress&cs=tinysrgb&w=300',
-  },
-  {
-    id: '2',
-    doctorName: 'Dr. Michael Rodriguez',
-    specialty: 'Dermatologist',
-    date: new Date(2025, 4, 20, 14, 0),
-    status: 'upcoming',
-    type: 'in-person',
-    image:
-      'https://images.pexels.com/photos/5215024/pexels-photo-5215024.jpeg?auto=compress&cs=tinysrgb&w=300',
-  },
-  {
-    id: '3',
-    doctorName: 'Dr. Emma Chen',
-    specialty: 'Neurologist',
-    date: new Date(2025, 3, 30, 9, 0),
-    status: 'completed',
-    type: 'video',
-    image:
-      'https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=300',
-  },
-];
-
-const mockNotifications: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Appointment Reminder',
-    message: 'Your video consultation with Dr. Sarah Johnson is tomorrow at 10:30 AM',
-    date: new Date(2025, 4, 14, 9, 0),
-    read: false,
-    type: 'reminder',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    title: 'Health Achievement',
-    message: "Congratulations! You've completed 5 appointments this month",
-    date: new Date(2025, 4, 10, 14, 30),
-    read: false,
-    type: 'achievement',
-    priority: 'medium',
-  },
-  {
-    id: '3',
-    title: 'New Message',
-    message: 'Dr. Michael Rodriguez has sent you post-consultation notes',
-    date: new Date(2025, 4, 8, 11, 45),
-    read: false,
-    type: 'message',
-    priority: 'medium',
-  },
-];
 
 // Enhanced Tab component
 interface TabProps {
@@ -196,11 +132,17 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon, count }) => (
 
 const DashboardPage1: React.FC = () => {
   const { user, updateProfile } = useAuth();
+  const navigate = useNavigate();
+  const token = localStorage.getItem('authToken') || '';
+  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
+  const buildUrl = (path: string) =>
+    API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
+
   const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
 
-  // State for medical info
+  // Medical info state
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
     bloodType: '',
     allergies: '',
@@ -214,32 +156,85 @@ const DashboardPage1: React.FC = () => {
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.profileImageUrl || '');
   const [error, setError] = useState<string | null>(null);
 
+  // Fetched appointments & notifications
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Loading states
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   // Fetch medical info on mount
   useEffect(() => {
     const fetchMedical = async () => {
       try {
-        const token = localStorage.getItem('authToken');
         if (!token) return;
-        const resp = await fetch('http://localhost:4000/api/medical', {
+        const resp = await axios.get(buildUrl('/medical'), {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (resp.ok) {
-          const data = await resp.json();
-          setMedicalInfo(data.medicalInfo);
+        if (resp.data && resp.data.medicalInfo) {
+          setMedicalInfo(resp.data.medicalInfo);
         }
       } catch (err) {
         console.error('Failed to fetch medical info:', err);
       }
     };
     fetchMedical();
-  }, []);
+  }, [token]);
 
-  // Update avatar preview if user.profileImageUrl changes
+  // Update avatar preview when user.profileImageUrl changes
   useEffect(() => {
     if (user?.profileImageUrl) {
       setAvatarPreview(user.profileImageUrl);
     }
   }, [user?.profileImageUrl]);
+
+  // Fetch appointments (for patient) whenever activeTab is overview or appointments
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!token) return;
+      setLoadingAppointments(true);
+      try {
+        const resp = await axios.get(buildUrl('/appointments'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAppointments(resp.data || []);
+      } catch (err) {
+        console.error('Error fetching appointments:', err);
+      } finally {
+        setLoadingAppointments(false);
+      }
+    };
+    if (activeTab === 'overview' || activeTab === 'appointments') {
+      fetchAppointments();
+    }
+  }, [activeTab, token]);
+
+  // Fetch notifications whenever activeTab is overview or notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!token) return;
+      setLoadingNotifications(true);
+      try {
+        const resp = await axios.get(buildUrl('/notifications'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const notifs: NotificationItem[] = resp.data || [];
+        // Sort by createdAt desc
+        notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.read).length);
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+    if (activeTab === 'overview' || activeTab === 'notifications') {
+      fetchNotifications();
+    }
+  }, [activeTab, token]);
 
   // Handle profile save
   const handleProfileSave = async (updatedValues: {
@@ -259,37 +254,34 @@ const DashboardPage1: React.FC = () => {
   // Handle medical info save
   const handleMedicalSave = async (updatedMedical: MedicalInfo) => {
     try {
-      const token = localStorage.getItem('authToken');
       if (!token) {
         alert('Unable to save: no authentication token found.');
         return;
       }
-      const resp = await fetch('http://localhost:4000/api/medical', {
-        method: 'PUT',
+      const resp = await axios.put(buildUrl('/medical'), updatedMedical, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedMedical),
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        setMedicalInfo(data.medicalInfo);
-        setShowUpdateMedical(false);
-      } else if (resp.status === 401) {
-        alert('Unauthorized: please log in again.');
-      } else {
-        alert('Could not save medical info.');
+      if (resp.data && resp.data.medicalInfo) {
+        setMedicalInfo(resp.data.medicalInfo);
       }
+      setShowUpdateMedical(false);
     } catch (err: any) {
-      alert('Error: ' + err.message);
+      alert('Could not save medical info: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  // Stats counts
-  const upcomingCount = mockAppointments.filter((a) => a.status === 'upcoming').length;
-  const completedCount = mockAppointments.filter((a) => a.status === 'completed').length;
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
+  // Stats counts based on fetched data
+  const now = new Date();
+  const upcomingAppointments = appointments.filter((a) => {
+    const dt = new Date(a.datetime);
+    return dt > now && a.status === 'scheduled';
+  });
+  const completedAppointments = appointments.filter((a) => a.status === 'completed');
+  const upcomingCount = upcomingAppointments.length;
+  const completedCount = completedAppointments.length;
 
   // Avatar click -> file input
   const handleAvatarClick = () => {
@@ -298,7 +290,7 @@ const DashboardPage1: React.FC = () => {
     }
   };
 
-  // Handle file selection and upload
+  // Handle file upload
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -312,14 +304,13 @@ const DashboardPage1: React.FC = () => {
       const formData = new FormData();
       formData.append('profileImage', file);
 
-      const token = localStorage.getItem('authToken');
       if (!token) {
         alert('Not authenticated');
         setUploading(false);
         return;
       }
-      // Upload avatar
-      await axios.put('http://localhost:4000/api/users/me/avatar', formData, {
+      // Upload avatar endpoint assumed: PUT /api/auth/me or similar
+      await axios.put(buildUrl('/users/me/avatar'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
@@ -339,17 +330,35 @@ const DashboardPage1: React.FC = () => {
     }
   };
 
+  // Mark single notification as read
+  const markAsRead = async (notifId: string) => {
+    try {
+      await axios.put(
+        buildUrl(`/notifications/${notifId}/read`),
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === notifId ? { ...n, read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (err) {
+      console.error('Error marking notification read:', err);
+    }
+  };
+
+  // Render
   const avatarSrc = avatarPreview || '';
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Background animations from original DashboardPage */}
+      {/* Background animations */}
       <BackgroundAnimation />
 
       <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
           <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
-            {/* Enhanced Header */}
+            {/* Header */}
             <motion.header variants={fadeInUp} className="relative">
               <div className="flex items-center justify-between">
                 <div>
@@ -387,7 +396,7 @@ const DashboardPage1: React.FC = () => {
               </div>
             </motion.header>
 
-            {/* Enhanced Stats Cards */}
+            {/* Stats Cards */}
             <motion.div variants={staggerContainer} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {[
                 {
@@ -396,7 +405,7 @@ const DashboardPage1: React.FC = () => {
                   icon: <Calendar size={28} className="text-blue-400" />,
                   gradient: 'from-blue-500/20 to-cyan-500/20',
                   border: 'border-blue-400/30',
-                  change: '+2 this week',
+                  change: `${upcomingCount} upcoming`,
                 },
                 {
                   title: 'Completed Visits',
@@ -404,11 +413,11 @@ const DashboardPage1: React.FC = () => {
                   icon: <CheckCircle size={28} className="text-emerald-400" />,
                   gradient: 'from-emerald-500/20 to-green-500/20',
                   border: 'border-emerald-400/30',
-                  change: '+1 this month',
+                  change: `${completedCount} completed`,
                 },
                 {
                   title: 'Health Score',
-                  value: '94%',
+                  value: '94%', // Could compute dynamically
                   icon: <Heart size={28} className="text-pink-400" />,
                   gradient: 'from-pink-500/20 to-rose-500/20',
                   border: 'border-pink-400/30',
@@ -429,7 +438,6 @@ const DashboardPage1: React.FC = () => {
                   whileHover={cardHover}
                   className={`relative bg-white/5 backdrop-blur-xl rounded-3xl border ${stat.border} p-6 overflow-hidden group`}
                 >
-                  {/* Background gradient */}
                   <div
                     className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-50 group-hover:opacity-70 transition-opacity duration-300`}
                   />
@@ -464,8 +472,8 @@ const DashboardPage1: React.FC = () => {
               ))}
             </motion.div>
 
-            {/* Enhanced Tabs */}
-            <motion.div variants={fadeInUp} className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+            {/* Tabs */}
+            <motion.div variants={fadeInUp} className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
               <div className="border-b border-white/10">
                 <div className="flex overflow-x-auto p-6 space-x-4">
                   <Tab
@@ -540,9 +548,7 @@ const DashboardPage1: React.FC = () => {
                             whileHover={{ scale: 1.05, y: -5 }}
                             className={`relative p-6 rounded-2xl bg-gradient-to-br ${action.color} bg-opacity-10 border border-white/10 cursor-pointer group overflow-hidden`}
                             onClick={() => {
-                              // navigate to action; assuming React Router's useNavigate or Link:
-                              // But since it's a div, use window.location or wrap in Link:
-                              window.location.href = action.action;
+                              navigate(action.action);
                             }}
                           >
                             <div
@@ -568,65 +574,79 @@ const DashboardPage1: React.FC = () => {
                           </Link>
                         </div>
                         <div className="space-y-4">
-                          {mockAppointments
-                            .filter((a) => a.status === 'upcoming')
-                            .map((appt, idx) => (
-                              <motion.div
-                                key={appt.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                whileHover={cardHover}
-                                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex items-center group"
-                              >
-                                <motion.img
-                                  src={appt.image}
-                                  alt={appt.doctorName}
-                                  className="w-16 h-16 rounded-full object-cover border-2 border-blue-400/30 mr-6"
-                                  whileHover={{ scale: 1.1 }}
-                                />
-                                <div className="flex-1">
-                                  <h3 className="text-lg font-medium text-white mb-1">{appt.doctorName}</h3>
-                                  <p className="text-blue-400 mb-2">{appt.specialty}</p>
-                                  <div className="flex items-center space-x-4 text-sm text-gray-300">
-                                    <span className="flex items-center">
-                                      <Calendar size={14} className="mr-1" />
-                                      {format(appt.date, 'MMM d, yyyy')}
-                                    </span>
-                                    <span className="flex items-center">
-                                      <Clock size={14} className="mr-1" />
-                                      {format(appt.date, 'h:mm a')}
-                                    </span>
-                                    <span
-                                      className={`px-2 py-1 rounded-full text-xs ${
-                                        appt.type === 'video'
-                                          ? 'bg-green-500/20 text-green-400'
-                                          : 'bg-blue-500/20 text-blue-400'
-                                      }`}
-                                    >
-                                      {appt.type === 'video' ? 'Video Call' : 'In-Person'}
-                                    </span>
+                          {loadingAppointments ? (
+                            <p className="text-gray-300">Loading...</p>
+                          ) : upcomingAppointments.length > 0 ? (
+                            upcomingAppointments.map((appt, idx) => {
+                              const dt = new Date(appt.datetime);
+                              const imgUrl = appt.doctor.profileImageUrl || '';
+                              return (
+                                <motion.div
+                                  key={appt._id}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: idx * 0.1 }}
+                                  whileHover={cardHover}
+                                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex items-center group"
+                                >
+                                  {imgUrl ? (
+                                    <motion.img
+                                      src={imgUrl}
+                                      alt={appt.doctor.name}
+                                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-400/30 mr-6"
+                                      whileHover={{ scale: 1.1 }}
+                                    />
+                                  ) : (
+                                    <motion.div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mr-6">
+                                      <UserIcon className="text-gray-400" />
+                                    </motion.div>
+                                  )}
+                                  <div className="flex-1">
+                                    <h3 className="text-lg font-medium text-white mb-1">{appt.doctor.name}</h3>
+                                    {appt.doctor.specialty && (
+                                      <p className="text-blue-400 mb-2">{appt.doctor.specialty}</p>
+                                    )}
+                                    <div className="flex items-center space-x-4 text-sm text-gray-300">
+                                      <span className="flex items-center">
+                                        <Calendar size={14} className="mr-1" />
+                                        {format(dt, 'MMM d, yyyy')}
+                                      </span>
+                                      <span className="flex items-center">
+                                        <Clock size={14} className="mr-1" />
+                                        {format(dt, 'h:mm a')}
+                                      </span>
+                                      {appt.type && (
+                                        <span
+                                          className={`px-2 py-1 rounded-full text-xs ${
+                                            appt.type === 'video'
+                                              ? 'bg-green-500/20 text-green-400'
+                                              : 'bg-blue-500/20 text-blue-400'
+                                          }`}
+                                        >
+                                          {appt.type === 'video' ? 'Video Call' : 'In-Person'}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                  <Button
-                                    variant="gradient"
-                                    size="sm"
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                                    onClick={() => {
-                                      if (appt.type === 'video') {
-                                        // join video call logic
-                                      } else {
-                                        // open directions logic
-                                      }
-                                    }}
-                                  >
-                                    {appt.type === 'video' ? 'Join Call' : 'Get Directions'}
-                                  </Button>
+                                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                    <Button
+                                      variant="gradient"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (appt.type === 'video') {
+                                          navigate(`/appointments/${appt._id}/join`);
+                                        } else {
+                                          navigate(`/appointments/${appt._id}`);
+                                        }
+                                      }}
+                                    >
+                                      {appt.type === 'video' ? 'Join Call' : 'Details'}
+                                    </Button>
+                                  </motion.div>
                                 </motion.div>
-                              </motion.div>
-                            ))}
-                          {mockAppointments.filter((a) => a.status === 'upcoming').length === 0 && (
+                              );
+                            })
+                          ) : (
                             <p className="text-gray-300">No upcoming appointments.</p>
                           )}
                         </div>
@@ -643,54 +663,74 @@ const DashboardPage1: React.FC = () => {
                           </Link>
                         </div>
                         <div className="space-y-3">
-                          {mockNotifications.slice(0, 3).map((notification, idx) => (
-                            <motion.div
-                              key={notification.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.1 }}
-                              whileHover={{ scale: 1.02, x: 5 }}
-                              className={`flex items-center p-4 rounded-xl transition-all duration-300 ${
-                                notification.read
-                                  ? 'bg-white/5 border border-white/10'
-                                  : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/30'
-                              }`}
-                            >
-                              <motion.div
-                                whileHover={{ rotate: 10, scale: 1.1 }}
-                                className={`p-3 rounded-full mr-4 flex-shrink-0 ${
-                                  notification.type === 'reminder'
-                                    ? 'bg-blue-500/20 text-blue-400'
-                                    : notification.type === 'achievement'
-                                    ? 'bg-yellow-500/20 text-yellow-400'
-                                    : notification.type === 'medical'
-                                    ? 'bg-emerald-500/20 text-emerald-400'
-                                    : 'bg-purple-500/20 text-purple-400'
-                                }`}
-                              >
-                                {notification.type === 'reminder' ? (
-                                  <Bell size={18} />
-                                ) : notification.type === 'achievement' ? (
-                                  <Award size={18} />
-                                ) : notification.type === 'medical' ? (
-                                  <FileText size={18} />
-                                ) : (
-                                  <AlertTriangle size={18} />
-                                )}
-                              </motion.div>
-                              <div className="flex-1">
-                                <div className="flex justify-between items-start">
-                                  <h4 className="text-sm font-medium text-white">{notification.title}</h4>
-                                  <span className="text-xs text-gray-400">{format(notification.date, 'MMM d')}</span>
-                                </div>
-                                <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
-                              </div>
-                              {!notification.read && (
-                                <motion.div animate={glowEffect} className="bg-blue-500 rounded-full w-3 h-3 ml-3" />
-                              )}
-                            </motion.div>
-                          ))}
-                          {mockNotifications.length === 0 && (
+                          {loadingNotifications ? (
+                            <p className="text-gray-300">Loading...</p>
+                          ) : notifications.length > 0 ? (
+                            notifications.slice(0, 3).map((notification, idx) => {
+                              const dateObj = new Date(notification.createdAt);
+                              // Determine icon/color based on type
+                              let iconNode: React.ReactNode = <AlertTriangle size={18} />;
+                              let bgClass = 'bg-purple-500/20 text-purple-400';
+                              if (notification.type === 'appointment_requested') {
+                                iconNode = <Calendar size={18} />;
+                                bgClass = 'bg-blue-500/20 text-blue-400';
+                              } else if (notification.type === 'payment_received' || notification.type === 'reminder') {
+                                iconNode = <Bell size={18} />;
+                                bgClass = 'bg-blue-500/20 text-blue-400';
+                              } else if (notification.type === 'achievement') {
+                                iconNode = <Award size={18} />;
+                                bgClass = 'bg-yellow-500/20 text-yellow-400';
+                              } else if (notification.type === 'payment_success' || notification.type === 'medical') {
+                                iconNode = <FileText size={18} />;
+                                bgClass = 'bg-emerald-500/20 text-emerald-400';
+                              }
+                              return (
+                                <motion.div
+                                  key={notification._id}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: idx * 0.1 }}
+                                  whileHover={{ scale: 1.02, x: 5 }}
+                                  className={`flex items-center p-4 rounded-xl transition-all duration-300 ${
+                                    notification.read
+                                      ? 'bg-white/5 border border-white/10'
+                                      : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/30'
+                                  }`}
+                                >
+                                  <motion.div
+                                    whileHover={{ rotate: 10, scale: 1.1 }}
+                                    className={`p-3 rounded-full mr-4 flex-shrink-0 ${bgClass}`}
+                                  >
+                                    {iconNode}
+                                  </motion.div>
+                                  <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                      <h4 className="text-sm font-medium text-white">
+                                        {notification.type === 'appointment_requested'
+                                          ? 'Appointment Requested'
+                                          : notification.type === 'payment_received'
+                                          ? 'Payment Received'
+                                          : notification.type === 'payment_success'
+                                          ? 'Payment Successful'
+                                          : notification.type === 'achievement'
+                                          ? 'Achievement'
+                                          : notification.type === 'reminder'
+                                          ? 'Reminder'
+                                          : 'Notification'}
+                                      </h4>
+                                      <span className="text-xs text-gray-400">
+                                        {format(dateObj, 'MMM d')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
+                                  </div>
+                                  {!notification.read && (
+                                    <motion.div animate={glowEffect} className="bg-blue-500 rounded-full w-3 h-3 ml-3" />
+                                  )}
+                                </motion.div>
+                              );
+                            })
+                          ) : (
                             <p className="text-gray-300">No recent activity.</p>
                           )}
                         </div>
@@ -713,7 +753,89 @@ const DashboardPage1: React.FC = () => {
                         <h3 className="text-2xl font-semibold mb-2">Appointments</h3>
                         <p className="text-gray-300">Manage your upcoming and past appointments</p>
                       </motion.div>
-                      {/* Alternatively could list all with filtering as in DashboardPage1 */}
+                      {/* List all appointments with filtering */}
+                      <motion.div variants={fadeInUp} className="space-y-6">
+                        {loadingAppointments ? (
+                          <p className="text-gray-300">Loading appointments...</p>
+                        ) : appointments.length > 0 ? (
+                          appointments.map((appt) => {
+                            const dt = new Date(appt.datetime);
+                            const imgUrl = appt.doctor.profileImageUrl || '';
+                            const isUpcoming = dt > now && appt.status === 'scheduled';
+                            const isCompleted = appt.status === 'completed';
+                            const statusLabel = isUpcoming
+                              ? 'Upcoming'
+                              : isCompleted
+                              ? 'Completed'
+                              : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
+                            return (
+                              <motion.div
+                                key={appt._id}
+                                variants={fadeInUp}
+                                whileHover={cardHover}
+                                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex items-center"
+                              >
+                                {imgUrl ? (
+                                  <motion.img
+                                    src={imgUrl}
+                                    alt={appt.doctor.name}
+                                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-400/30 mr-6"
+                                  />
+                                ) : (
+                                  <motion.div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mr-6">
+                                    <UserIcon className="text-gray-400" />
+                                  </motion.div>
+                                )}
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-medium text-white mb-1">{appt.doctor.name}</h3>
+                                  {appt.doctor.specialty && (
+                                    <p className="text-blue-400 mb-2">{appt.doctor.specialty}</p>
+                                  )}
+                                  <div className="flex items-center space-x-4 text-sm text-gray-300 mb-1">
+                                    <span className="flex items-center">
+                                      <Calendar size={14} className="mr-1" />
+                                      {format(dt, 'MMM d, yyyy')}
+                                    </span>
+                                    <span className="flex items-center">
+                                      <Clock size={14} className="mr-1" />
+                                      {format(dt, 'h:mm a')}
+                                    </span>
+                                    {appt.type && (
+                                      <span
+                                        className={`px-2 py-1 rounded-full text-xs ${
+                                          appt.type === 'video'
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : 'bg-blue-500/20 text-blue-400'
+                                        }`}
+                                      >
+                                        {appt.type === 'video' ? 'Video Call' : 'In-Person'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-400 mb-1">
+                                    Status: {statusLabel}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="gradient"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (appt.type === 'video' && isUpcoming) {
+                                      navigate(`/appointments/${appt._id}/join`);
+                                    } else {
+                                      navigate(`/appointments/${appt._id}`);
+                                    }
+                                  }}
+                                >
+                                  {isUpcoming ? (appt.type === 'video' ? 'Join Call' : 'Details') : 'Details'}
+                                </Button>
+                              </motion.div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-gray-300">No appointments found.</p>
+                        )}
+                      </motion.div>
                     </motion.div>
                   )}
 
@@ -725,12 +847,99 @@ const DashboardPage1: React.FC = () => {
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className="text-center py-20"
+                      className="text-white"
                     >
-                      <Bell size={64} className="mx-auto text-purple-400 mb-4" />
-                      <h3 className="text-2xl font-semibold text-white mb-2">Notifications</h3>
-                      <p className="text-gray-400">Stay updated with your health journey</p>
-                      {/* For full list, reuse patterns from Profile/Overview */}
+                      <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-semibold text-white">Notifications</h2>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-purple-400/30 text-purple-400 hover:bg-purple-400/10"
+                          onClick={() => {
+                            // Refresh notifications
+                            setActiveTab('overview'); // trigger effect
+                            setActiveTab('notifications');
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {loadingNotifications ? (
+                          <p className="text-gray-300">Loading notifications...</p>
+                        ) : notifications.length > 0 ? (
+                          notifications.map((notification) => {
+                            const dateObj = new Date(notification.createdAt);
+                            let iconNode: React.ReactNode = <AlertTriangle size={18} />;
+                            let bgClass = 'bg-purple-500/20 text-purple-400';
+                            if (notification.type === 'appointment_requested') {
+                              iconNode = <Calendar size={18} />;
+                              bgClass = 'bg-blue-500/20 text-blue-400';
+                            } else if (notification.type === 'payment_received' || notification.type === 'reminder') {
+                              iconNode = <Bell size={18} />;
+                              bgClass = 'bg-blue-500/20 text-blue-400';
+                            } else if (notification.type === 'achievement') {
+                              iconNode = <Award size={18} />;
+                              bgClass = 'bg-yellow-500/20 text-yellow-400';
+                            } else if (notification.type === 'payment_success' || notification.type === 'medical') {
+                              iconNode = <FileText size={18} />;
+                              bgClass = 'bg-emerald-500/20 text-emerald-400';
+                            }
+                            return (
+                              <motion.div
+                                key={notification._id}
+                                variants={fadeInUp}
+                                whileHover={{ scale: 1.02, x: 5 }}
+                                className={`flex items-center p-4 rounded-xl transition-all duration-300 ${
+                                  notification.read
+                                    ? 'bg-white/5 border border-white/10'
+                                    : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/30'
+                                }`}
+                              >
+                                <motion.div
+                                  whileHover={{ rotate: 10, scale: 1.1 }}
+                                  className={`p-3 rounded-full mr-4 flex-shrink-0 ${bgClass}`}
+                                >
+                                  {iconNode}
+                                </motion.div>
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <h4 className="text-sm font-medium text-white">
+                                      {notification.type === 'appointment_requested'
+                                        ? 'Appointment Requested'
+                                        : notification.type === 'payment_received'
+                                        ? 'Payment Received'
+                                        : notification.type === 'payment_success'
+                                        ? 'Payment Successful'
+                                        : notification.type === 'achievement'
+                                        ? 'Achievement'
+                                        : notification.type === 'reminder'
+                                        ? 'Reminder'
+                                        : 'Notification'}
+                                    </h4>
+                                    <span className="text-xs text-gray-400">
+                                      {format(dateObj, 'MMM d, yyyy')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
+                                </div>
+                                {!notification.read && (
+                                  <Button
+                                    variant="outline"
+                                    size="xs"
+                                    className="ml-3 text-white border-white/30 hover:bg-white/10"
+                                    onClick={() => markAsRead(notification._id)}
+                                  >
+                                    Mark read
+                                  </Button>
+                                )}
+                              </motion.div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-gray-300">No notifications.</p>
+                        )}
+                      </div>
                     </motion.div>
                   )}
 
@@ -744,7 +953,6 @@ const DashboardPage1: React.FC = () => {
                       exit="exit"
                       className="text-white"
                     >
-                      {/* Profile content similar to DashboardPage1 but animated */}
                       <motion.div variants={fadeInUp} className="flex items-center mb-6">
                         <div className="relative">
                           {avatarSrc ? (
@@ -784,8 +992,19 @@ const DashboardPage1: React.FC = () => {
                                 fill="none"
                                 viewBox="0 0 24 24"
                               >
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v8H4z"
+                                />
                               </svg>
                             </div>
                           )}
@@ -947,7 +1166,11 @@ const DashboardPage1: React.FC = () => {
       </main>
 
       {/* Chatbot Floating Button */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }} className="fixed bottom-6 right-6 z-50">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
+        className="fixed bottom-6 right-6 z-50"
+      >
         <Chatbot />
       </motion.div>
     </div>

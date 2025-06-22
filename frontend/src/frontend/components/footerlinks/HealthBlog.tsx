@@ -1,5 +1,6 @@
 // src/frontend/pages/patient/HealthBlog.tsx
-import { useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Chatbot from '../../components/common/chatbot/chatbot';
 
@@ -14,79 +15,93 @@ interface BlogPost {
   link: string;
 }
 
-export default function HealthBlog() {
-  // Sample blog posts data (replace with real fetch)
-  const posts: BlogPost[] = [
-    {
-      id: 1,
-      title: '5 Tips for a Stronger Immune System',
-      excerpt:
-        'Discover simple lifestyle changes—nutrition, sleep habits, exercise routines—that can help keep your immune system in top shape year-round.',
-      img: '/blog/immune-system.jpg',
-      date: 'June 1, 2025',
-      author: 'Dr. Sarah Lee',
-      category: 'Wellness',
-      link: '/blog/immune-system',
-    },
-    {
-      id: 2,
-      title: 'Managing Stress in a Busy World',
-      excerpt:
-        'Stress can take a toll on your health. Learn mindfulness techniques, breathing exercises, and daily habits to reduce anxiety and boost well-being.',
-      img: '/blog/stress-management.jpg',
-      date: 'May 20, 2025',
-      author: 'Emily Chen',
-      category: 'Mental Health',
-      link: '/blog/stress-management',
-    },
-    {
-      id: 3,
-      title: 'Healthy Eating on a Budget',
-      excerpt:
-        'You don’t need to spend a fortune to eat well. Explore budget-friendly grocery tips, meal prepping strategies, and nutritious recipes.',
-      img: '/blog/healthy-eating.jpg',
-      date: 'May 10, 2025',
-      author: 'James Patel',
-      category: 'Nutrition',
-      link: '/blog/healthy-eating',
-    },
-    {
-      id: 4,
-      title: 'The Benefits of Telehealth Services',
-      excerpt:
-        'Telehealth is transforming how you access care. Understand the perks, limitations, and best practices for virtual doctor visits.',
-      img: '/blog/telehealth-benefits.jpg',
-      date: 'April 28, 2025',
-      author: 'Dr. Sarah Lee',
-      category: 'Technology',
-      link: '/blog/telehealth-benefits',
-    },
-    // Add more posts as needed...
-  ];
+// sample data
+const allPosts: BlogPost[] = [
+  {
+    id: 1,
+    title: '5 Tips for a Stronger Immune System',
+    excerpt:
+      'Discover simple lifestyle changes—nutrition, sleep habits, exercise routines—that can help keep your immune system in top shape year-round.',
+    img: '/blog/immune-system.jpg',
+    date: 'June 1, 2025',
+    author: 'Dr. Sarah Lee',
+    category: 'Wellness',
+    link: '/blog/immune-system',
+  },
+  {
+    id: 2,
+    title: 'Managing Stress in a Busy World',
+    excerpt:
+      'Stress can take a toll on your health. Learn mindfulness techniques, breathing exercises, and daily habits to reduce anxiety and boost well-being.',
+    img: '/blog/stress-management.jpg',
+    date: 'May 20, 2025',
+    author: 'Emily Chen',
+    category: 'Mental Health',
+    link: '/blog/stress-management',
+  },
+  {
+    id: 3,
+    title: 'Healthy Eating on a Budget',
+    excerpt:
+      'You don’t need to spend a fortune to eat well. Explore budget-friendly grocery tips, meal prepping strategies, and nutritious recipes.',
+    img: '/blog/healthy-eating.jpg',
+    date: 'May 10, 2025',
+    author: 'James Patel',
+    category: 'Nutrition',
+    link: '/blog/healthy-eating',
+  },
+  {
+    id: 4,
+    title: 'The Benefits of Telehealth Services',
+    excerpt:
+      'Telehealth is transforming how you access care. Understand the perks, limitations, and best practices for virtual doctor visits.',
+    img: '/blog/telehealth-benefits.jpg',
+    date: 'April 28, 2025',
+    author: 'Dr. Sarah Lee',
+    category: 'Technology',
+    link: '/blog/telehealth-benefits',
+  },
+  // ...add more posts if needed
+];
 
+const categories = ['All', 'Wellness', 'Nutrition', 'Mental Health', 'Technology'];
+
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15 } },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6 } },
+  hover: { scale: 1.03, y: -5, boxShadow: '0px 10px 20px rgba(0,0,0,0.15)' },
+};
+
+export default function HealthBlog() {
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [posts, setPosts] = useState<BlogPost[]>(allPosts);
+
+  // scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Framer Motion variants
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.15,
-      },
-    },
-  };
+  // filter posts whenever category changes
+  useEffect(() => {
+    setPosts(
+      selectedCategory === 'All'
+        ? allPosts
+        : allPosts.filter((p) => p.category === selectedCategory)
+    );
+  }, [selectedCategory]);
 
-  const cardVariants = {
-    hidden: { opacity: 0, y: 30, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6 } },
-    hover: { scale: 1.03, y: -5, boxShadow: '0px 10px 20px rgba(0,0,0,0.15)' },
-  };
+  const handleCategoryClick = useCallback((cat: string) => {
+    setSelectedCategory(cat);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 py-16 px-4 sm:px-6 lg:px-8 overflow-x-hidden">
-      {/* Hero Section with Animated Gradient Text */}
+      {/* Hero */}
       <div className="max-w-3xl mx-auto text-center mb-12 relative">
         <motion.h1
           initial={{ opacity: 0, y: 40 }}
@@ -104,7 +119,7 @@ export default function HealthBlog() {
         >
           Stay inspired with cutting-edge insights on nutrition, fitness, mental health, and more.
         </motion.p>
-        {/* Decorative Floating Circles */}
+        {/* Floating Circles */}
         <motion.div
           className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-purple-200 opacity-20"
           animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.1, 0.2] }}
@@ -117,19 +132,29 @@ export default function HealthBlog() {
         />
       </div>
 
-      {/* Category Filter (Placeholder) */}
-      <div className="max-w-4xl mx-auto mb-8 flex justify-center space-x-4">
-        {['All', 'Wellness', 'Nutrition', 'Mental Health', 'Technology'].map((cat) => (
+      {/* Category Filter */}
+      <motion.div
+        className="max-w-4xl mx-auto mb-8 flex justify-center space-x-4"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        {categories.map((cat) => (
           <motion.button
             key={cat}
+            onClick={() => handleCategoryClick(cat)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-white rounded-full shadow-md text-gray-700 hover:bg-purple-100 transition-colors duration-200"
+            className={`px-4 py-2 rounded-full shadow-md transition-colors duration-200 ${
+              selectedCategory === cat
+                ? 'bg-purple-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-purple-100'
+            }`}
           >
             {cat}
           </motion.button>
         ))}
-      </div>
+      </motion.div>
 
       {/* Posts Grid */}
       <motion.div
@@ -149,11 +174,12 @@ export default function HealthBlog() {
               layout
               className="relative bg-white rounded-3xl overflow-hidden cursor-pointer"
             >
-              {/* Image with Gradient Overlay */}
+              {/* Image */}
               <div className="relative h-60 overflow-hidden">
                 <img
                   src={post.img}
                   alt={post.title}
+                  loading="lazy"
                   className="w-full h-full object-cover transform transition-transform duration-500 hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40" />
@@ -161,6 +187,7 @@ export default function HealthBlog() {
                   {post.category}
                 </span>
               </div>
+
               {/* Content */}
               <div className="p-6">
                 <motion.h3
@@ -208,7 +235,7 @@ export default function HealthBlog() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Load More Button with Ripple Effect */}
+      {/* Load More */}
       <div className="mt-16 text-center">
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -224,7 +251,7 @@ export default function HealthBlog() {
         </motion.button>
       </div>
 
-      {/* Chatbot at Bottom */}
+      {/* Chatbot */}
       <Chatbot />
     </div>
   );

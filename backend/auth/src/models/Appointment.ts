@@ -6,53 +6,34 @@ export interface IAppointment extends Document {
   patient: mongoose.Types.ObjectId;
   doctor: mongoose.Types.ObjectId;
   datetime: Date;
-  status: 'pending_payment' | 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'failed';
-  reminder24Sent: boolean;
-  reminder1hSent: boolean;
-  rated: boolean;
-
+  amount: number;
+  currency: string;
+  status: 'pending' | 'scheduled' | 'completed' | 'cancelled';
   message?: string;
-
-  // Payment fields
-  amount: number; // in rupees
-  currency: string; // e.g., 'INR'
-  paymentStatus: 'pending' | 'paid' | 'failed';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
-
-  createdAt: Date;
-  updatedAt: Date;
+  paymentStatus?: 'pending' | 'paid' | 'failed';
+  // ...other fields
 }
 
-const AppointmentSchema = new Schema<IAppointment>(
-  {
-    patient: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
-    doctor: { type: Schema.Types.ObjectId, ref: 'Doctor', required: true },
-    datetime: { type: Date, required: true },
-    status: {
-      type: String,
-      enum: ['pending_payment', 'pending', 'scheduled', 'completed', 'cancelled', 'failed'],
-      default: 'pending_payment',
-    },
-    reminder24Sent: { type: Boolean, default: false },
-    reminder1hSent: { type: Boolean, default: false },
-    rated: { type: Boolean, default: false },
-
-    message: { type: String, default: '' },
-
-    amount: { type: Number, required: true },
-    currency: { type: String, default: 'INR' },
-    paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-    razorpayOrderId: { type: String, default: '' },
-    razorpayPaymentId: { type: String, default: '' },
+const AppointmentSchema = new Schema<IAppointment>({
+  patient: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
+  doctor: { type: Schema.Types.ObjectId, ref: 'Doctor', required: true },
+  datetime: { type: Date, required: true },
+  amount: { type: Number, required: true },
+  currency: { type: String, required: true, default: 'INR' },
+  status: {
+    type: String,
+    enum: ['pending', 'scheduled', 'completed', 'cancelled'],
+    default: 'pending',
   },
-  {
-    collection: 'appointments',
-    timestamps: true,
-  }
-);
-
-AppointmentSchema.index({ doctor: 1, datetime: 1 });
-AppointmentSchema.index({ patient: 1, datetime: 1 });
-
+  message: { type: String, default: '' },
+  razorpayOrderId: { type: String },
+  razorpayPaymentId: { type: String },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending',
+  },
+});
 export default mongoose.model<IAppointment>('Appointment', AppointmentSchema);

@@ -9,6 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { FadeIn, SlideIn } from '../components/animations/Transitions';
+import { FcGoogle } from "react-icons/fc";
+import logo  from '../assets/Logo.png'
 
 const OTP_LENGTH = 6;
 
@@ -102,7 +104,7 @@ const LoginPage: React.FC = () => {
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5 text-2xl font-bold">
-                <span className="text-primary-500">MedBook</span>
+                <span className="text-primary-500"><img src={logo} /></span>
               </Link>
               <h1 className="text-3xl font-bold text-gray-800">Welcome back</h1>
               <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
@@ -121,7 +123,7 @@ const LoginPage: React.FC = () => {
               <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>Sign In</Button>
             </form>
             <div className="mt-4">
-              <Button variant="outline" fullWidth onClick={()=>window.location.href=`${import.meta.env.VITE_API_URL}/auth/google`}>Continue with Google</Button>
+              <Button variant="outline" fullWidth onClick={()=>window.location.href=`${import.meta.env.VITE_API_URL}/auth/google`}> <FcGoogle className="mr-2 h-5 w-5" />Continue with Google</Button>
             </div>
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">Don’t have an account? <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">Sign up</Link></p>

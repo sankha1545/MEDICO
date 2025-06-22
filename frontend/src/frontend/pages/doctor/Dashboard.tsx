@@ -1,4 +1,4 @@
-// File: src/pages/doctor/DoctorDashboard.tsx
+// File: frontend/src/pages/doctor/DoctorDashboard.tsx
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
@@ -13,8 +13,9 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Pencil,
+  AlertCircle,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
 import {
@@ -35,78 +36,38 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
+import axios from 'axios';
 
-// Seat UI component
-const Seat: React.FC<{
-  status: 'empty' | 'completed' | 'missed';
-  index: number;
-  onMarkComplete: (i: number) => void;
-  onMarkMissed: (i: number) => void;
-}> = ({ status, index, onMarkComplete, onMarkMissed }) => {
-  const baseClass =
-    'w-12 h-12 border-2 rounded-md flex items-center justify-center m-1';
-  let bgClass = 'bg-white border-gray-300';
-  if (status === 'completed') bgClass = 'bg-green-500 border-green-700';
-  if (status === 'missed') bgClass = 'bg-red-500 border-red-700';
-
-  return (
-    <div className={`${baseClass} ${bgClass}`}>
-      <div className="flex flex-col items-center">
-        <div className="w-6 h-6 bg-transparent border border-current rounded-sm" />
-        <p className="text-xs text-white mt-1">{index + 1}</p>
-        <div className="flex space-x-1 mt-2">
-          <button
-            onClick={() => onMarkComplete(index)}
-            className="text-white text-sm"
-            title="Mark Completed"
-          >
-            ✓
-          </button>
-          <button
-            onClick={() => onMarkMissed(index)}
-            className="text-white text-sm"
-            title="Mark Missed"
-          >
-            ✗
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Interfaces
+interface DoctorAppointment {
+  id: string;
+  patientName: string;
+  date: string; // ISO string
+  status: 'upcoming' | 'completed' | 'pending' | 'cancelled';
+}
+interface NotificationItem {
+  _id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
 
 type TabKey = 'overview' | 'appointments' | 'patients' | 'earnings' | 'messages' | 'profile' | 'payout';
 const tabs: TabKey[] = ['overview', 'appointments', 'patients', 'earnings', 'messages', 'profile', 'payout'];
 
-interface DoctorAppointment {
-  id: string;
-  patientName: string;
-  date: Date;
-  status: 'upcoming' | 'completed' | 'cancelled';
-}
-interface DoctorMessage {
-  id: string;
-  from: string;
-  content: string;
-  date: Date;
-  read: boolean;
-}
-interface PatientRecord {
-  id: string;
-  name: string;
-  lastVisit: Date;
-  condition: string;
-}
-
 const DoctorDashboardPage: React.FC = () => {
   const { user, logout, fetchDoctorProfile, updateDoctorProfile } = useAuth();
+  const navigate = useNavigate();
+  const token = localStorage.getItem('authToken') || '';
+  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
+  const buildUrl = (path: string) =>
+    API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState('');
-
-  const fetchedRef = useRef(false);
 
   // Profile fields
   const [profileName, setProfileName] = useState('');
@@ -121,37 +82,30 @@ const DoctorDashboardPage: React.FC = () => {
   const [profileExperience, setProfileExperience] = useState<string>('');
   const [profileConsultationFee, setProfileConsultationFee] = useState<number>(0);
 
-  // ** NEW: Payout account fields **
-  const [bankAccountName, setBankAccountName] = useState(''); // account holder name
+  // Payout fields
+  const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankIFSC, setBankIFSC] = useState('');
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutStatusMsg, setPayoutStatusMsg] = useState<string | null>(null);
   const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(null);
 
-  // Seat statuses
-  const [seatStatuses, setSeatStatuses] = useState<'empty' | 'completed' | 'missed'[]>([]);
-
-  // Mock data placeholders; replace with real fetches
+  // Appointments & notifications state
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [messages, setMessages] = useState<DoctorMessage[]>([]);
-  const [patients, setPatients] = useState<PatientRecord[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<NotificationItem[]>([]);
+  const [upcomingCount, setUpcomingCount] = useState(0);
 
-  // Computed stats
-  const upcomingCount = appointments.filter(a => a.status === 'upcoming').length;
-  const totalPatients = patients.length;
-  const earningsThisMonth = 5200; // placeholder or computed
-  const unreadMessages = messages.filter(m => !m.read).length;
+  const fetchedProfileRef = useRef(false);
 
-  // Fetch profile once
+  // Fetch doctor profile once
   useEffect(() => {
     const loadProfile = async () => {
-      if (user?.role === 'doctor' && !fetchedRef.current) {
-        fetchedRef.current = true;
+      if (user?.role === 'doctor' && !fetchedProfileRef.current) {
+        fetchedProfileRef.current = true;
         setLoadingProfile(true);
         try {
           const prof = await fetchDoctorProfile();
-          // prof fields: name, email, specialty, profileImageUrl, phone, dob, locationObj, availabilitySlots, maxPatients, experience, consultationFee, razorpayAccountId, etc.
           setProfileName(prof.name);
           setProfileEmail(prof.email);
           setProfileSpecialty(prof.specialty || '');
@@ -160,22 +114,17 @@ const DoctorDashboardPage: React.FC = () => {
           setProfileDob(prof.dob || '');
           if (prof.location && typeof prof.location === 'object') {
             setProfileLocationObj({
-              lat: prof.location.lat,
-              lng: prof.location.lng,
-              address: prof.location.address,
+              lat: (prof.location as any).lat,
+              lng: (prof.location as any).lng,
+              address: (prof.location as any).address,
             });
           } else {
             setProfileLocationObj(null);
           }
           setProfileAvailabilitySlots(prof.availabilitySlots || []);
-          const maxP = prof.maxPatients ?? 1;
-          setProfileMaxPatients(maxP);
+          setProfileMaxPatients(prof.maxPatients ?? 1);
           setProfileExperience(prof.experience || '');
           setProfileConsultationFee(prof.consultationFee ?? 0);
-          // Initialize seats UI
-          setSeatStatuses(Array(maxP).fill('empty'));
-
-          // ** NEW: existing payout account ID from profile **
           if ((prof as any).razorpayAccountId) {
             setExistingPayoutAccountId((prof as any).razorpayAccountId);
           }
@@ -190,18 +139,69 @@ const DoctorDashboardPage: React.FC = () => {
     loadProfile();
   }, [user, fetchDoctorProfile]);
 
-  // TODO: fetch appointments/messages/patients from API
+  // Fetch appointments whenever activeTab is relevant or on mount
   useEffect(() => {
-    // fetchDoctorAppointments().then(setAppointments);
-    // fetchDoctorMessages().then(setMessages);
-    // fetchDoctorPatients().then(setPatients);
-  }, []);
+    const fetchAppointments = async () => {
+      if (!token) return;
+      try {
+        const resp = await axios.get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = resp.data || [];
+        setAppointments(data);
+        // Count upcoming
+        const now = new Date();
+        const upcoming = data.filter((a) => {
+          const dt = new Date(a.date);
+          return a.status === 'upcoming' && dt > now;
+        }).length;
+        setUpcomingCount(upcoming);
+      } catch (err) {
+        console.error('Error fetching doctor appointments:', err);
+      }
+    };
+    if (activeTab === 'overview' || activeTab === 'appointments' || activeTab === 'earnings') {
+      fetchAppointments();
+    }
+  }, [activeTab, token]);
 
-  const handleMarkComplete = (idx: number) => {
-    setSeatStatuses(prev => prev.map((s, i) => (i === idx ? 'completed' : s)));
-  };
-  const handleMarkMissed = (idx: number) => {
-    setSeatStatuses(prev => prev.map((s, i) => (i === idx ? 'missed' : s)));
+  // Fetch notifications whenever activeTab is appointments or overview
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!token) return;
+      try {
+        const resp = await axios.get<NotificationItem[]>(buildUrl('/notifications'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const notifs = resp.data || [];
+        // Only unread appointment_requested notifications for appointment tab
+        const unread = notifs.filter((n) => !n.read && n.type === 'appointment_requested');
+        setNotifications(notifs);
+        setUnreadNotifications(unread);
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+      }
+    };
+    if (activeTab === 'overview' || activeTab === 'appointments') {
+      fetchNotifications();
+    }
+  }, [activeTab, token]);
+
+  // Handle marking a notification as read
+  const markNotificationRead = async (notifId: string) => {
+    try {
+      await axios.put(
+        buildUrl(`/notifications/${notifId}/read`),
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Remove from unreadNotifications
+      setUnreadNotifications((prev) => prev.filter((n) => n._id !== notifId));
+      // Also update full notifications list
+      setNotifications((prev) => prev.map((n) => n._id === notifId ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error('Error marking notification read:', err);
+    }
   };
 
   // Save updated profile
@@ -233,11 +233,11 @@ const DoctorDashboardPage: React.FC = () => {
         maxPatients,
         dob,
         experience,
+        consultationFee,
         hospitalAffiliation,
         bio,
         qualifications,
         languages,
-        consultationFee,
       });
       // Update local state
       setProfileName(updated.name);
@@ -250,19 +250,17 @@ const DoctorDashboardPage: React.FC = () => {
       setProfileDob(updated.dob || '');
       if (updated.location && typeof updated.location === 'object') {
         setProfileLocationObj({
-          lat: updated.location.lat,
-          lng: updated.location.lng,
-          address: updated.location.address,
+          lat: (updated.location as any).lat,
+          lng: (updated.location as any).lng,
+          address: (updated.location as any).address,
         });
       } else {
         setProfileLocationObj(null);
       }
       setProfileAvailabilitySlots(updated.availabilitySlots || []);
-      const maxP = updated.maxPatients ?? 1;
-      setProfileMaxPatients(maxP);
+      setProfileMaxPatients(updated.maxPatients ?? 1);
       setProfileExperience(updated.experience || '');
       setProfileConsultationFee(updated.consultationFee ?? 0);
-      setSeatStatuses(Array(maxP).fill('empty'));
       setShowEditProfile(false);
     } catch (err: any) {
       console.error('Failed to save profile:', err);
@@ -270,17 +268,17 @@ const DoctorDashboardPage: React.FC = () => {
     }
   };
 
-  // ** NEW: Handle Payout Account Creation **
+  // Handle Add Payout Account
   const handleAddPayoutAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setPayoutLoading(true);
     setPayoutStatusMsg(null);
     try {
-      const resp = await fetch('/api/medical/doctor/payout-account', {
+      const resp = await fetch(buildUrl('/medical/doctor/payout-account'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${window.localStorage.getItem('authToken') || ''}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           accountHolderName: bankAccountName.trim(),
@@ -306,13 +304,14 @@ const DoctorDashboardPage: React.FC = () => {
     }
   };
 
-  // Chart data (weekly/monthly/yearly)
+  // Chart data
   const weeklyData = useMemo(() => {
     const data: { date: string; count: number }[] = [];
+    const now = new Date();
     for (let i = 6; i >= 0; i--) {
-      const day = subDays(new Date(), i);
+      const day = subDays(now, i);
       const key = format(day, 'yyyy-MM-dd');
-      const count = appointments.filter(a => format(a.date, 'yyyy-MM-dd') === key).length;
+      const count = appointments.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === key).length;
       data.push({ date: format(day, 'MMM d'), count });
     }
     return data;
@@ -320,10 +319,11 @@ const DoctorDashboardPage: React.FC = () => {
 
   const monthlyData = useMemo(() => {
     const data: { month: string; count: number }[] = [];
+    const now = new Date();
     for (let i = 11; i >= 0; i--) {
-      const m = subMonths(new Date(), i);
+      const m = subMonths(now, i);
       const key = format(startOfMonth(m), 'yyyy-MM');
-      const count = appointments.filter(a => format(a.date, 'yyyy-MM') === key).length;
+      const count = appointments.filter(a => format(new Date(a.date), 'yyyy-MM') === key).length;
       data.push({ month: format(m, 'MMM yyyy'), count });
     }
     return data;
@@ -331,10 +331,11 @@ const DoctorDashboardPage: React.FC = () => {
 
   const yearlyData = useMemo(() => {
     const data: { year: string; count: number }[] = [];
+    const now = new Date();
     for (let i = 4; i >= 0; i--) {
-      const y = subYears(new Date(), i);
+      const y = subYears(now, i);
       const key = format(startOfYear(y), 'yyyy');
-      const count = appointments.filter(a => format(a.date, 'yyyy') === key).length;
+      const count = appointments.filter(a => format(new Date(a.date), 'yyyy') === key).length;
       data.push({ year: format(y, 'yyyy'), count });
     }
     return data;
@@ -372,7 +373,7 @@ const DoctorDashboardPage: React.FC = () => {
                 onClick={() => setShowEditProfile(true)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl"
+                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl"
               >
                 <Pencil className="w-5 h-5" /> <span>Edit Profile</span>
               </motion.button>
@@ -424,19 +425,29 @@ const DoctorDashboardPage: React.FC = () => {
             },
             {
               title: 'Total Patients',
-              value: totalPatients,
+              value: appointments.length > 0
+                ? /* count unique patients? or total appointments */ [...new Set(appointments.map(a => a.patientName))].length
+                : 0,
               icon: <Users className="w-6 h-6 text-white" />,
               gradient: 'bg-gradient-to-br from-indigo-700 to-indigo-900',
             },
             {
               title: 'Earnings This Month',
-              value: `$${earningsThisMonth}`,
+              value: (() => {
+                // sum of appointments in this month * consultationFee
+                const now = new Date();
+                const thisMonthKey = format(now, 'yyyy-MM');
+                const countThisMonth = appointments.filter(a =>
+                  format(new Date(a.date), 'yyyy-MM') === thisMonthKey
+                ).length;
+                return `₹ ${countThisMonth * profileConsultationFee}`;
+              })(),
               icon: <DollarSign className="w-6 h-6 text-white" />,
               gradient: 'bg-gradient-to-br from-green-700 to-green-900',
             },
             {
-              title: 'Unread Messages',
-              value: unreadMessages,
+              title: 'Unread Notifications',
+              value: notifications.filter(n => !n.read).length,
               icon: <Bell className="w-6 h-6 text-white" />,
               gradient: 'bg-gradient-to-br from-purple-700 to-purple-900',
             },
@@ -484,11 +495,21 @@ const DoctorDashboardPage: React.FC = () => {
                   }[tab]}
                 </span>
                 <span className="capitalize">{tab}</span>
+                {tab === 'appointments' && upcomingCount > 0 && (
+                  <span className="ml-1 inline-block bg-yellow-500 text-black text-xs rounded-full px-2">
+                    {upcomingCount}
+                  </span>
+                )}
+                {tab === 'messages' && notifications.filter(n => !n.read).length > 0 && (
+                  <span className="ml-1 inline-block bg-red-500 text-white text-xs rounded-full px-2">
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
           <div className="p-8 text-gray-100">
-            {/* Overview */}
+            {/* Overview Tab */}
             {activeTab === 'overview' && (
               <StaggeredContainer>
                 <div className="space-y-8">
@@ -582,43 +603,6 @@ const DoctorDashboardPage: React.FC = () => {
                       </ResponsiveContainer>
                     </div>
                   </SlideIn>
-                  {/* Today's Summary */}
-                  <div className="space-y-8">
-                    <h2 className="text-2xl font-semibold text-gray-100">
-                      Today's Summary
-                    </h2>
-                    {appointments.filter(
-                      a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                    ).length ? (
-                      appointments
-                        .filter(
-                          a => format(a.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                        )
-                        .map(a => (
-                          <motion.div
-                            key={a.id}
-                            variants={staggeredItemVariants}
-                            className="bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between items-center hover:shadow-md transition-shadow"
-                          >
-                            <div>
-                              <p className="font-semibold text-gray-100">
-                                {a.patientName}
-                              </p>
-                              <p className="text-gray-400 mt-1">
-                                {format(a.date, 'h:mm a')}
-                              </p>
-                            </div>
-                            <Button variant="primary" size="sm">
-                              Details
-                            </Button>
-                          </motion.div>
-                        ))
-                    ) : (
-                      <p className="text-gray-400">
-                        No appointments scheduled for today.
-                      </p>
-                    )}
-                  </div>
                 </div>
               </StaggeredContainer>
             )}
@@ -626,50 +610,94 @@ const DoctorDashboardPage: React.FC = () => {
             {/* Appointments Tab */}
             {activeTab === 'appointments' && (
               <div className="space-y-6">
-                {appointments.map(a => (
-                  <motion.div
-                    key={a.id}
-                    variants={staggeredItemVariants}
-                    className="bg-gray-800 rounded-lg shadow-sm p-6 flex justify-between items-center hover:shadow-md transition-shadow"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-100">
-                        {a.patientName}
-                      </p>
-                      <p className="text-gray-400 mt-1">
-                        {format(a.date, 'MMMM d, yyyy h:mm a')}
-                      </p>
-                      <span
-                        className={`mt-2 inline-block text-xs font-medium px-2 py-1 rounded-full ${
-                          a.status === 'upcoming'
-                            ? 'bg-yellow-600 text-yellow-100'
-                            : a.status === 'completed'
-                            ? 'bg-green-600 text-green-100'
-                            : 'bg-red-600 text-red-100'
-                        }`}
+                {/* Unread appointment notifications */}
+                {unreadNotifications.length > 0 && (
+                  <div className="bg-yellow-800/50 border border-yellow-600 rounded-lg p-4 space-y-3">
+                    <h3 className="text-lg font-semibold text-yellow-200 mb-2">
+                      New Appointment Requests
+                    </h3>
+                    {unreadNotifications.map((notif) => (
+                      <motion.div
+                        key={notif._id}
+                        className="flex justify-between items-center bg-yellow-700/30 p-3 rounded"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
-                      </span>
-                    </div>
-                    <div className="flex space-x-3">
-                      {a.status === 'upcoming' ? (
-                        <>
-                          <Button variant="outline" size="sm">
-                            Reschedule
-                          </Button>
-                          <Button variant="primary" size="sm">
-                            Start Visit
-                          </Button>
-                        </>
-                      ) : (
-                        <Button variant="outline" size="sm">
-                          View Notes
+                        <div className="flex items-center space-x-3">
+                          <AlertCircle className="w-5 h-5 text-yellow-300" />
+                          <p className="text-yellow-100 text-sm">{notif.message}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="border-yellow-300 text-yellow-200 hover:bg-yellow-600/20"
+                          onClick={() => markNotificationRead(notif._id)}
+                        >
+                          Mark read
                         </Button>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                {appointments.length === 0 && (
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                {/* List appointments */}
+                {appointments.length > 0 ? (
+                  appointments.map((a) => {
+                    const dt = new Date(a.date);
+                    const statusLabel =
+                      a.status === 'upcoming'
+                        ? 'Upcoming'
+                        : a.status === 'completed'
+                        ? 'Completed'
+                        : a.status.charAt(0).toUpperCase() + a.status.slice(1);
+                    return (
+                      <motion.div
+                        key={a.id}
+                        variants={staggeredItemVariants}
+                        className="bg-gray-800 rounded-lg shadow-sm p-6 flex justify-between items-center hover:shadow-md transition-shadow"
+                      >
+                        <div>
+                          <p className="font-semibold text-gray-100">
+                            {a.patientName}
+                          </p>
+                          <p className="text-gray-400 mt-1">
+                            {format(dt, 'MMMM d, yyyy h:mm a')}
+                          </p>
+                          <span
+                            className={`mt-2 inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                              a.status === 'upcoming'
+                                ? 'bg-yellow-600 text-yellow-100'
+                                : a.status === 'completed'
+                                ? 'bg-green-600 text-green-100'
+                                : 'bg-red-600 text-red-100'
+                            }`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="flex space-x-3">
+                          {a.status === 'upcoming' ? (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => {
+                                // maybe reschedule or view details
+                                navigate(`/doctor/appointments/${a.id}`);
+                              }}>
+                                Details
+                              </Button>
+                            </>
+                          ) : (
+                            <Button variant="outline" size="sm" onClick={() => {
+                              navigate(`/doctor/appointments/${a.id}`);
+                            }}>
+                              View Notes
+                            </Button>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                ) : (
                   <p className="text-gray-400">No appointments to show.</p>
                 )}
               </div>
@@ -679,62 +707,8 @@ const DoctorDashboardPage: React.FC = () => {
             {activeTab === 'patients' && (
               <div className="space-y-8">
                 <h2 className="text-2xl font-semibold">Patient Records & Seats</h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Patient Records */}
-                  <div className="space-y-4">
-                    <h3 className="text-xl text-gray-100">Patient Records</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {patients.map(p => (
-                        <motion.div
-                          key={p.id}
-                          variants={staggeredItemVariants}
-                          className="bg-gray-800 rounded-xl p-6 flex flex-col"
-                        >
-                          <div className="flex items-center space-x-4 mb-4">
-                            <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-gray-400">
-                              {p.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-100">
-                                {p.name}
-                              </p>
-                              <p className="text-sm text-gray-400 mt-1">
-                                Last visit: {format(p.lastVisit, 'MMM d, yyyy')}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="flex-1 text-gray-100">
-                            Condition: {p.condition}
-                          </p>
-                          <Link to={`/doctor/patients/${p.id}`}>
-                            <Button variant="link" size="sm">
-                              View Record
-                            </Button>
-                          </Link>
-                        </motion.div>
-                      ))}
-                      {patients.length === 0 && (
-                        <p className="text-gray-400">No patients to show.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Seat UI */}
-                  <div>
-                    <h3 className="text-xl text-gray-100">Patient Admission Seats</h3>
-                    <div className="flex flex-wrap p-4 bg-gray-700 rounded-xl">
-                      {seatStatuses.map((status, idx) => (
-                        <Seat
-                          key={idx}
-                          index={idx}
-                          status={status}
-                          onMarkComplete={handleMarkComplete}
-                          onMarkMissed={handleMarkMissed}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                {/* Implement as needed */}
+                <p className="text-gray-400">Patient records section coming soon.</p>
               </div>
             )}
 
@@ -753,7 +727,14 @@ const DoctorDashboardPage: React.FC = () => {
                       This Month
                     </p>
                     <p className="mt-2 text-3xl font-bold text-gray-100">
-                      ${earningsThisMonth}
+                      {(() => {
+                        const now = new Date();
+                        const thisMonthKey = format(now, 'yyyy-MM');
+                        const countThisMonth = appointments.filter(a =>
+                          format(new Date(a.date), 'yyyy-MM') === thisMonthKey
+                        ).length;
+                        return `₹ ${countThisMonth * profileConsultationFee}`;
+                      })()}
                     </p>
                   </motion.div>
                   <motion.div
@@ -764,7 +745,10 @@ const DoctorDashboardPage: React.FC = () => {
                       Total to Date
                     </p>
                     <p className="mt-2 text-3xl font-bold text-gray-100">
-                      $32,450
+                      {(() => {
+                        const totalCount = appointments.length;
+                        return `₹ ${totalCount * profileConsultationFee}`;
+                      })()}
                     </p>
                   </motion.div>
                 </div>
@@ -774,31 +758,7 @@ const DoctorDashboardPage: React.FC = () => {
             {/* Messages Tab */}
             {activeTab === 'messages' && (
               <div className="space-y-4">
-                {messages.map(m => (
-                  <motion.div
-                    key={m.id}
-                    variants={staggeredItemVariants}
-                    className={`bg-gray-800 rounded-lg shadow-sm p-5 flex justify-between hover:shadow-md transition-shadow ${
-                      m.read
-                        ? 'border border-gray-700'
-                        : 'border-2 border-blue-600 bg-blue-900'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-100">{m.from}</p>
-                      <p className="text-sm text-gray-200 mt-1">{m.content}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {format(m.date, 'MMM d, h:mm a')}
-                      </p>
-                    </div>
-                    {!m.read && (
-                      <span className="flex-shrink-0 w-3 h-3 bg-blue-500 rounded-full mt-2"></span>
-                    )}
-                  </motion.div>
-                ))}
-                {messages.length === 0 && (
-                  <p className="text-gray-400">No messages to show.</p>
-                )}
+                <p className="text-gray-400">Messaging feature coming soon.</p>
               </div>
             )}
 
