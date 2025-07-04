@@ -1,0 +1,35 @@
+Dear Hiring Managers at CERN,
+I am excited to apply for the Full Stack Developer role at CERN. As a recent B.Tech graduate in Computer Science and the creator of MedicoX—a full-stack healthcare appointment platform—I have built a strong foundation in both front-end and back-end development, deployment pipelines, and scalable architectures. I am motivated by the opportunity to contribute to impactful web applications and grow within a collaborative engineering team.
+As a Full Stack Developer, here’s how my background aligns with the role:
+Required Skills Alignment:
+1.	Front-End Development & UI/UX –
+Through MedicoX and my Front-End Developer internship at Alien Brains, I have built responsive, user-friendly interfaces using React, TailwindCSS, and Framer Motion for animations. I implemented form validation, accessibility considerations, and interactive components (e.g., booking forms, profile views). I focus on clean component design, state management with React Hooks and Context, and ensuring a smooth user experience across devices.
+2.	Back-End & API Design –
+I developed RESTful APIs with Node.js and Express, using MongoDB (Mongoose) for data persistence and Firebase for authentication in some modules. In MedicoX, I handled user roles (patients/doctors) with JWT-based and OAuth flows, appointment scheduling logic with availability checks, and secure handling of medical record uploads. I pay attention to modular route structure, error handling, and input validation to build robust services.
+3.	Database & Data Modeling –
+I modeled entities like User, Doctor, Patient, and Appointment in MongoDB, ensuring efficient queries and proper indexing for performance. I also have experience with relational concepts (MySQL) from academic projects. I design schemas to support scalability and maintain data integrity, and I implemented search/filter endpoints for doctor listings.
+4.	Testing & Quality Assurance –
+I have written unit and integration tests for both front-end components and back-end endpoints, using Jest and related testing libraries. I integrate linting and static analysis in CI pipelines to maintain code quality. I understand the importance of test coverage and continuous feedback loops.
+5.	Security & Best Practices –
+In MedicoX, I implemented secure authentication flows, password hashing, JWT validation middleware, and role-based access control. I follow OWASP guidelines for input sanitization and use HTTPS in deployments. I manage secrets responsibly (environment variables) and integrate basic vulnerability scanning in pipelines.
+Additional Technical Skills:
+•	TypeScript for improved code quality and maintainability.
+•	React Native (Expo) for mobile prototypes, demonstrating cross-platform awareness.
+•	Firebase Cloud Functions for notifications (SMS/email) in MedicoX.
+•	Infrastructure as code awareness (Terraform basics) from personal exploration.
+•	Monitoring fundamentals: setting up logs and simple metrics dashboards in development.
+Eligibility Confirmation :
+•	Graduation: B.Tech in Computer Science, May 2025
+•	Location/Citizenship: Indian (available to work as per local regulations)
+•	Availability: Ready to join as per your timelines
+Thank you for considering my application. I am driven by crafting end-to-end solutions—from intuitive front-end interfaces to reliable back-end services and smooth deployments. I look forward to bringing my Full Stack expertise, attention to detail, and collaborative mindset to Cern , contributing to building scalable, user-centric applications.
+Best regards,
+Sankha Subhra Das
+________________________________________
+What is your motivation for applying for this job?
+My motivation comes from a passion for building complete web solutions that solve real user needs. In creating MedicoX, I witnessed how a well-designed platform can improve healthcare access. I am eager to join Cern to work on products that impact users, learn from experienced peers, and continuously refine my skills in a dynamic environment.
+Do you have experience deploying and managing projects in cloud or containerized environments?
+While I haven’t yet deployed a project to a production cloud environment, I have a solid understanding of the core concepts behind containerization and cloud deployments. I’m familiar with creating and managing Docker containers, configuring environment variables, and understanding how applications are packaged and deployed in isolated environments. I've also explored the fundamentals of CI/CD pipelines, including automating build and deployment stages. Although my experience is currently academic and project-based, I’m eager to apply this knowledge in a real-world setting. I am a quick learner with a strong desire to gain hands-on experience and become fully proficient in deploying and managing applications in cloud and containerized environments.
+How do you approach collaboration and code quality in a team?
+I use Git for version control with clear branching strategies, pull requests with code reviews, and maintain documentation for APIs and components. I write tests alongside features to ensure reliability. I communicate regularly with teammates, welcome feedback, and participate in design discussions to align on architecture choices. I value shared ownership of code and collective learning.
+

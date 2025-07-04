@@ -13,6 +13,7 @@ export interface IDoctor extends Document {
   name: string;
   email: string;
   passwordHash?: string;
+  googleId?: string;
   role: 'doctor';
   provider: 'local' | 'google';
   isVerified: boolean;
@@ -55,7 +56,7 @@ export interface IDoctor extends Document {
   createdAt: Date;
   updatedAt: Date;
 
-  comparePassword?: (password: string) => Promise<boolean>;
+  comparePassword(password: string): Promise<boolean>;
 }
 
 const LocationSchema = new Schema<ILocation>(
@@ -79,6 +80,7 @@ const DoctorSchema = new Schema<IDoctor>(
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
     },
     passwordHash: { type: String },
+    googleId: { type: String, unique: true, sparse: true },
     role: { type: String, enum: ['doctor'], default: 'doctor' },
     provider: { type: String, enum: ['local', 'google'], default: 'local' },
     isVerified: { type: Boolean, default: false },
@@ -124,12 +126,18 @@ const DoctorSchema = new Schema<IDoctor>(
   }
 );
 
+// Indexes
 DoctorSchema.index({ email: 1 }, { unique: true });
+DoctorSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
+// toJSON transform: remove sensitive fields
 DoctorSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
     delete ret.__v;
+    // Optionally remove googleId from client response if desired:
+    // delete ret.googleId;
+
     if (ret.profileImage) {
       delete ret.profileImage.data;
     }
@@ -137,11 +145,20 @@ DoctorSchema.set('toJSON', {
   },
 });
 
+// Pre-save: hash passwordHash if modified and provider is local
 DoctorSchema.pre<IDoctor>('save', async function (next) {
-  // assume passwordHash is already hashed elsewhere
+  if (this.isModified('passwordHash') && this.passwordHash) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+    } catch (err) {
+      return next(err);
+    }
+  }
   next();
 });
 
+// Instance method to compare password
 DoctorSchema.methods.comparePassword = async function (password: string) {
   if (!this.passwordHash) return false;
   return bcrypt.compare(password, this.passwordHash);

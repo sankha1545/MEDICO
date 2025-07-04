@@ -9,7 +9,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import crypto from 'crypto';
 
+// Routes
 import authRoutes from './routes/auth';
 import medicalRoutes from './routes/medical';
 import appointmentRoutes from './routes/appointment';
@@ -21,12 +23,63 @@ import { startNotificationScheduler } from './utils/notificationsScheduler';
 dotenv.config();
 const app = express();
 
-app.use(helmet());
+// ─── 1. Generate nonce per request for CSP ────────────────────────────────────
+app.use((req, res, next) => {
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.locals.nonce = nonce;
+  next();
+});
+
+// ─── 2. Helmet with dynamic CSP (allows GSI scripts/popups) ─────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          (req, res) => `'nonce-${res.locals.nonce}'`,
+          'https://accounts.google.com',
+          'https://accounts.gstatic.com',
+          'https://apis.google.com',
+        ],
+        frameSrc: [
+          "'self'",
+          'https://accounts.google.com',
+          'https://*.google.com',
+        ],
+        connectSrc: ["'self'", 'https://www.googleapis.com'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    referrerPolicy: { policy: 'no-referrer' },
+    frameguard: { action: 'deny' },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// ─── 3. HTTP request logging ─────────────────────────────────────────────────
 app.use(morgan('combined'));
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+
+// ─── 4. CORS (allow frontend origin with credentials) ────────────────────────
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  })
+);
+
+// ─── 5. Session setup for Passport (even if using JWT) ────────────────────────
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'yoursecret',
+    secret:
+      process.env.SESSION_SECRET ||
+      process.env.JWT_SECRET ||
+      'defaultsecret',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -36,49 +89,84 @@ app.use(
     },
   })
 );
+
+// ─── 6. Body parsers ─────────────────────────────────────────────────────────
+// JSON parser (important: must run before your auth routes)
+app.use(express.json());
+// URL-encoded parser
+app.use(express.urlencoded({ extended: true }));
+
+// ─── 7. Passport initialization ──────────────────────────────────────────────
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
+// ─── 8. Static file serving for uploads ──────────────────────────────────────
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' })
+);
 
-const MONGO_URI = process.env.MONGO_URI!;
+// ─── 9. MongoDB connection ───────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-  console.error('Error: MONGO_URI not defined');
+  console.error('❌ MONGO_URI is not defined');
   process.exit(1);
 }
 mongoose
   .connect(MONGO_URI, { autoIndex: true })
   .then(() => {
-    console.log('MongoDB connected');
+    console.log('✅ MongoDB connected');
     startNotificationScheduler();
   })
-  .catch((err) => console.error('MongoDB connection error:', err));
+  .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// Razorpay webhook: raw body
-app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), webhookHandler);
+// ─── 10. Razorpay webhook (raw body) ─────────────────────────────────────────
+app.post(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  webhookHandler
+);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use('/api', authRoutes);
+// ─── 11. Mount API routes ────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
 app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
+// ─── 12. Health check ─────────────────────────────────────────────────────────
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ─── 13. Chrome DevTools preflight ping ───────────────────────────────────────
+app.use(
+  '/.well-known/appspecific/com.chrome.devtools.json',
+  (_req, res) => {
+    res.sendStatus(204);
+  }
+);
+
+// ─── 14. 404 handler ──────────────────────────────────────────────────────────
 app.use((req: Request, res: Response) => {
   res.status(404).json({ message: 'Not Found' });
 });
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Unhandled error:', err);
-  const status = err.status || 500;
-  const message = err.message || 'Internal Server Error';
-  res.status(status).json({ message });
-});
 
+// ─── 15. Global error handler ────────────────────────────────────────────────
+app.use(
+  (
+    err: any,
+    _req: Request,
+    res: Response,
+    _next: NextFunction
+  ) => {
+    console.error('❌ Unhandled Error:', err);
+    const status = err.status || 500;
+    const message = err.message || 'Internal Server Error';
+    res.status(status).json({ message });
+  }
+);
+
+// ─── 16. Start server ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

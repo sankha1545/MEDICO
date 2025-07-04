@@ -78,7 +78,7 @@ const App: React.FC = () => {
       <AnimatedCursor />
      
       {/* Hide default OS cursor */}
-      <div className="cursor-none">
+      <div className="cursor">
         <Routes>
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />

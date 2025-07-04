@@ -25,10 +25,9 @@ export interface User {
   isVerified?: boolean;
   phone: string;
   dob: string; // "YYYY-MM-DD"
-  // doctor-specific:
   profileImageUrl?: string;
   specialty?: string;
-  availabilitySlots?: string[]; // ISO datetime strings
+  availabilitySlots?: string[];
   location?: LocationType;
   maxPatients?: number;
   experience?: string;
@@ -55,7 +54,14 @@ interface AuthContextValue {
     role: 'patient' | 'doctor';
   }) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => void;
+
+  signUpWithGoogle: (idToken: string) => Promise<string>;
+  completeGoogleSignup: (
+    tempToken: string,
+    role: 'patient' | 'doctor'
+  ) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
 
@@ -104,19 +110,22 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const baseURL = import.meta.env.VITE_API_URL as string;
+  const baseURL = import.meta.env.VITE_API_URL as string; // e.g. "http://localhost:4000/api"
   const navigate = useNavigate();
 
-  // Create axios instance
+  // Create a single Axios instance
   const api: AxiosInstance = axios.create({
     baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
 
-  // Interceptor: attach token from state/localStorage
+  // Attach Bearer token if available
   api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('authToken');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const t = localStorage.getItem('authToken');
+    if (t && config.headers) {
+      config.headers.Authorization = `Bearer ${t}`;
     }
     return config;
   });
@@ -126,47 +135,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Helper to fetch basic user info
   const fetchUserCommon = async () => {
     try {
-      const res = await api.get('/me');
+      const res = await api.get('/auth/me');
       const data = res.data;
       const commonUser: User = {
-        id: data.id,
+        id: data._id || data.id,
         name: data.name,
         email: data.email,
         role: data.role,
         provider: data.provider,
         isVerified: data.isVerified,
         phone: data.phone || '',
-        dob: data.dob || '',
+        dob: data.dob ? data.dob.split('T')[0] : '',
       };
       setUser(commonUser);
       setIsAuthenticated(true);
 
       if (commonUser.role === 'doctor') {
-        try {
-          const docFull = await fetchDoctorProfileInternal(commonUser);
-          setUser(docFull);
-        } catch (e) {
-          console.error('Error fetching doctor-specific profile:', e);
+        const res2 = await api.get('/medical/doctor/me');
+        const d = res2.data;
+        let loc: LocationType | undefined;
+        if (d.location) {
+          if (typeof d.location === 'object' && 'address' in d.location) {
+            loc = {
+              lat: d.location.lat || 0,
+              lng: d.location.lng || 0,
+              address: d.location.address,
+            };
+          } else {
+            loc = { lat: 0, lng: 0, address: String(d.location) };
+          }
         }
+        setUser({
+          ...commonUser,
+          profileImageUrl: d.profileImageUrl,
+          specialty: d.specialty,
+          availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+          location: loc,
+          maxPatients: d.maxPatients,
+          experience: d.experience,
+          hospitalAffiliation: d.hospitalAffiliation,
+          bio: d.bio,
+          qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
+          languages: Array.isArray(d.languages) ? d.languages : [],
+          consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
+        });
       }
     } catch (err) {
-      console.error('fetchUserCommon error:', err);
-      logout(); // clear on error (e.g., invalid token)
+      console.error('fetchUserCommon error', err);
+      logout();
     } finally {
       setLoading(false);
     }
   };
 
-  // On mount: read token from localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      setToken(storedToken);
-      // Set axios default header as well
-      axios.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+    const stored = localStorage.getItem('authToken');
+    if (stored) {
+      setToken(stored);
+      setLoading(true);
       fetchUserCommon();
     } else {
       setLoading(false);
@@ -174,66 +202,76 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auth methods
+  // ----- Auth methods -----
+
   const sendEmailOtp = async (email: string) => {
-    try {
-      await api.post('/send-email-otp', { email });
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to send OTP.');
-    }
+    await api.post('/auth/send-email-otp', { email });
   };
+
   const verifyEmailOtp = async (email: string, otp: string) => {
-    try {
-      await api.post('/verify-email-otp', { email, otp });
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to verify OTP.');
-    }
+    await api.post('/auth/verify-email-otp', { email, otp });
   };
-  const signup = async (data: {
-    name: string;
-    email: string;
-    password: string;
-    role: 'patient' | 'doctor';
-  }) => {
-    try {
-      await api.post('/signup', data);
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Signup failed.');
-    }
+
+  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor'; }) => {
+    await api.post('/auth/signup', data);
   };
+
   const login = async (email: string, password: string) => {
     try {
-      const res = await api.post('/login', { email, password });
+      console.log('Login attempt payload:', { email, password }); // debug
+      const res = await api.post('/auth/login', { email, password });
       const newToken: string = res.data.token;
-      // store token
       localStorage.setItem('authToken', newToken);
       setToken(newToken);
-      axios.defaults.headers.common.Authorization = `Bearer ${newToken}`;
       setLoading(true);
       await fetchUserCommon();
     } catch (err: any) {
+      console.error('Login error response:', err.response?.data);
       throw new Error(err.response?.data?.message || 'Login failed.');
     }
   };
-  const signInWithGoogle = () => {
-    window.location.href = `${baseURL}/auth/google`;
+
+  const signUpWithGoogle = async (idToken: string): Promise<string> => {
+    const res = await api.post('/auth/google/signup', { token: idToken });
+    return res.data.tempToken;
   };
+
+  const completeGoogleSignup = async (tempToken: string, role: 'patient' | 'doctor') => {
+    await api.post('/auth/google/complete-signup', { token: tempToken, role });
+    navigate('/login?signup=success');
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    try {
+      const res = await api.post('/auth/google/login', { token: idToken });
+      const appJwt: string = res.data.token;
+      localStorage.setItem('authToken', appJwt);
+      setToken(appJwt);
+      setLoading(true);
+      await fetchUserCommon();
+      navigate(res.data.role === 'doctor' ? '/doc-dashboard' : '/home');
+    } catch (err: any) {
+      console.error('Google login error', err.response?.data);
+      throw new Error(err.response?.data?.message || 'Google login failed.');
+    }
+  };
+
   const loginWithToken = async (tkn: string) => {
     localStorage.setItem('authToken', tkn);
     setToken(tkn);
-    axios.defaults.headers.common.Authorization = `Bearer ${tkn}`;
     setLoading(true);
     await fetchUserCommon();
   };
+
   const logout = () => {
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    delete axios.defaults.headers.common.Authorization;
     navigate('/login');
   };
 
+  // Update profile
   const updateUserProfile = async (data: {
     name?: string;
     email?: string;
@@ -264,7 +302,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (data.profileImageFile) {
           form.append('profileImage', data.profileImageFile);
         }
-        const res = await api.put('/me', form, {
+        const res = await api.put('/auth/me', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const resUser = res.data;
@@ -275,7 +313,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 name: resUser.name,
                 email: resUser.email,
                 phone: resUser.phone || prev.phone,
-                dob: resUser.dob || prev.dob,
+                dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
                 profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
               }
             : prev
@@ -286,7 +324,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Internal: fetch full doctor profile
+  // Doctor profile helpers
   const fetchDoctorProfileInternal = async (commonUser: User): Promise<User> => {
     const res = await api.get('/medical/doctor/me');
     const d = res.data;
@@ -302,22 +340,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loc = { lat: 0, lng: 0, address: d.location };
       }
     }
-    const fee: number =
-      typeof d.consultationFee === 'number' ? d.consultationFee : 0;
+    const fee: number = typeof d.consultationFee === 'number' ? d.consultationFee : 0;
     const updated: User = {
-      id: d.id,
+      id: d._id || d.id,
       name: d.name,
       email: d.email,
       role: 'doctor',
       provider: commonUser.provider,
       isVerified: commonUser.isVerified,
       phone: d.phone || '',
-      dob: d.dob || '',
+      dob: d.dob ? d.dob.split('T')[0] : commonUser.dob,
       profileImageUrl: d.profileImageUrl,
       specialty: d.specialty,
-      availabilitySlots: Array.isArray(d.availabilitySlots)
-        ? d.availabilitySlots
-        : [],
+      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
       location: loc,
       maxPatients: d.maxPatients,
       experience: d.experience,
@@ -329,7 +364,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     return updated;
   };
-
   const fetchDoctorProfile = async (): Promise<User> => {
     try {
       if (!user) throw new Error('Not authenticated');
@@ -341,7 +375,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Failed to fetch doctor profile');
     }
   };
-
   const updateDoctorProfile = async (data: {
     name?: string;
     email?: string;
@@ -414,22 +447,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           loc = { lat: 0, lng: 0, address: d.location };
         }
       }
-      const fee: number =
-        typeof d.consultationFee === 'number' ? d.consultationFee : 0;
+      const fee: number = typeof d.consultationFee === 'number' ? d.consultationFee : 0;
       const updated: User = {
-        id: d.id,
+        id: d._id || d.id,
         name: d.name,
         email: d.email,
         role: 'doctor',
         provider: user?.provider,
         isVerified: user?.isVerified,
         phone: d.phone || '',
-        dob: d.dob || '',
+        dob: d.dob ? d.dob.split('T')[0] : user?.dob || '',
         profileImageUrl: d.profileImageUrl,
         specialty: d.specialty,
-        availabilitySlots: Array.isArray(d.availabilitySlots)
-          ? d.availabilitySlots
-          : [],
+        availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
         location: loc,
         maxPatients: d.maxPatients,
         experience: d.experience,
@@ -449,14 +479,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const sendPasswordResetOtp = async (email: string) => {
     try {
-      await api.post('/send-reset-otp', { email });
+      await api.post('/auth/send-reset-otp', { email });
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Failed to send reset OTP');
     }
   };
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
     try {
-      await api.post('/verify-reset-otp', { email, otp });
+      await api.post('/auth/verify-reset-otp', { email, otp });
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Failed to verify reset OTP');
     }
@@ -467,7 +497,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     newPassword: string
   ) => {
     try {
-      await api.post('/reset-password', { email, otp, newPassword });
+      await api.post('/auth/reset-password', { email, otp, newPassword });
       navigate('/login');
     } catch (err: any) {
       throw new Error(err.response?.data?.message || 'Password reset failed');
@@ -475,7 +505,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
   const deleteAccount = async (password: string) => {
     try {
-      await api.delete('/user', { data: { password } });
+      await api.delete('/auth/user', { data: { password } });
       localStorage.removeItem('authToken');
       setUser(null);
       setIsAuthenticated(false);
@@ -498,7 +528,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         verifyEmailOtp,
         signup,
         login,
-        signInWithGoogle,
+        signUpWithGoogle,
+        completeGoogleSignup,
+        loginWithGoogle,
         loginWithToken,
         logout,
         updateUserProfile,

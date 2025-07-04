@@ -7,6 +7,7 @@ export interface IPatient extends Document {
   name: string;
   email: string;
   passwordHash?: string;
+  googleId?: string;
   role: 'patient';
   provider: 'local' | 'google';
   isVerified: boolean;
@@ -18,7 +19,7 @@ export interface IPatient extends Document {
   };
   isActive: boolean;
   deleteAttempts: number;
-  deleteLockedUntil?: Date;
+  deleteLockedUntil?: Date | null;
 
   // Notification settings:
   notificationSettings: {
@@ -26,22 +27,30 @@ export interface IPatient extends Document {
     emailDoctorMessages: boolean;
     emailPromotions: boolean;
     smsAlerts: boolean;
-    smsPhone?: string;       // patient’s phone number for SMS
-    smsCarrierDomain?: string; // e.g. "txt.att.net"
+    smsPhone?: string;
+    smsCarrierDomain?: string;
     inAppNotifications: boolean;
   };
 
   createdAt: Date;
   updatedAt: Date;
 
-  comparePassword?: (password: string) => Promise<boolean>;
+  comparePassword(password: string): Promise<boolean>;
 }
 
 const PatientSchema = new Schema<IPatient>(
   {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
+    },
     passwordHash: { type: String },
+    googleId: { type: String, unique: true, sparse: true },
     role: { type: String, enum: ['patient'], default: 'patient' },
     provider: { type: String, enum: ['local', 'google'], default: 'local' },
     isVerified: { type: Boolean, default: false },
@@ -52,6 +61,7 @@ const PatientSchema = new Schema<IPatient>(
       data: Buffer,
       contentType: String,
     },
+
     isActive: { type: Boolean, default: true },
     deleteAttempts: { type: Number, default: 0 },
     deleteLockedUntil: { type: Date, default: null },
@@ -72,22 +82,41 @@ const PatientSchema = new Schema<IPatient>(
   }
 );
 
-// Index on email
+// Indexes
 PatientSchema.index({ email: 1 }, { unique: true });
+PatientSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
 // toJSON transform: remove sensitive fields
 PatientSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
     delete ret.__v;
+    // Optionally remove googleId from response if you don't want to expose it:
+    // delete ret.googleId;
+    if (ret.profileImage) {
+      delete ret.profileImage.data;
+    }
     return ret;
   },
+});
+
+// Pre-save: hash password if modified and provider is 'local'
+PatientSchema.pre<IPatient>('save', async function (next) {
+  if (this.isModified('passwordHash') && this.passwordHash) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
 });
 
 // Instance method to compare password
 PatientSchema.methods.comparePassword = async function (password: string) {
   if (!this.passwordHash) return false;
-  return await bcrypt.compare(password, this.passwordHash);
+  return bcrypt.compare(password, this.passwordHash);
 };
 
 export default mongoose.model<IPatient>('Patient', PatientSchema);

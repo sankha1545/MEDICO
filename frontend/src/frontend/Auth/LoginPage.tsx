@@ -1,5 +1,4 @@
-// LoginPage.tsx
-// React component: Sign In with embedded Forgot Password flow via modal overlays, preserving original UI.
+// File: frontend/src/pages/LoginPage.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -9,174 +8,436 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { FadeIn, SlideIn } from '../components/animations/Transitions';
-import { FcGoogle } from "react-icons/fc";
-import logo  from '../assets/Logo.png'
+import logo from '../assets/Logo.png';
 
 const OTP_LENGTH = 6;
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 const LoginPage: React.FC = () => {
-  const { login, loginWithToken, user, isAuthenticated,
-          sendPasswordResetOtp, verifyPasswordResetOtp, resetPassword } = useAuth();
+  const {
+    login,
+    loginWithToken,
+    loginWithGoogle,
+    user,
+    isAuthenticated,
+    sendPasswordResetOtp,
+    verifyPasswordResetOtp,
+    resetPassword,
+  } = useAuth();
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Login form state
+  // — Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Forgot password modal state
+  // — Google button state
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [gsiLoaded, setGsiLoaded] = useState(false);
+  const [gsiInitialized, setGsiInitialized] = useState(false);
+
+  // — Forgot-password modal state
   const [showForgot, setShowForgot] = useState(false);
-  const [stage, setStage] = useState<'email'|'otp'|'reset'>('email');
+  const [stage, setStage] = useState<'email' | 'otp' | 'reset'>('email');
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const inputRefs = useRef<HTMLInputElement[]>([]);
 
-  // OAuth token on mount
+  // — If a token is present in URL (e.g. ?token=…), log in with it
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) loginWithToken(token).catch(() => setError('Google login failed'));
+    if (token) {
+      setIsLoading(true);
+      loginWithToken(token)
+        .catch(() => setError('Google login failed'))
+        .finally(() => setIsLoading(false));
+    }
   }, [searchParams, loginWithToken]);
 
-  // Redirect after login
+  // — Redirect after successful login
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role==='doctor'?'/doc-dashboard':'/home');
+      navigate(user.role === 'doctor' ? '/doc-dashboard' : '/home');
     }
-  }, [isAuthenticated,user,navigate]);
+  }, [isAuthenticated, user, navigate]);
 
-  // Login
+  // — Load Google Identity Services script once
+  useEffect(() => {
+    if (gsiLoaded) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGsiLoaded(true);
+    script.onerror = () => console.error('GSI script load error');
+    document.body.appendChild(script);
+  }, [gsiLoaded]);
+
+  // — Initialize & render the GSI button
+  useEffect(() => {
+    if (!gsiLoaded || gsiInitialized) return;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+    if (!clientId) {
+      console.error('Missing VITE_GOOGLE_CLIENT_ID');
+      return;
+    }
+    if (!googleBtnRef.current) return;
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async ({ credential }: { credential: string }) => {
+        if (!credential) {
+          setError('No credential returned by Google');
+          return;
+        }
+        setError('');
+        setGoogleLoading(true);
+        try {
+          await loginWithGoogle(credential);
+        } catch (err: any) {
+          console.error('Google login error:', err.response?.data || err);
+          setError(err.message || 'Google login failed');
+        } finally {
+          setGoogleLoading(false);
+        }
+      },
+      ux_mode: 'popup',
+    });
+
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: 250,
+      text: 'signin_with',
+    });
+
+    setGsiInitialized(true);
+  }, [gsiLoaded, gsiInitialized, loginWithGoogle]);
+
+  // — Standard email/password login
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setIsLoading(true);
-    try { await login(email,password); }
-    catch(err:any){ setError(err.message); }
-    finally{ setIsLoading(false); }
-  };
-
-  // Forgot: send OTP
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setIsLoading(true);
-    try {
-      await sendPasswordResetOtp(email);
-      setStage('otp');
-    } catch(err:any){ setError(err.message); }
-    finally{ setIsLoading(false); }
-  };
-
-  // Forgot: verify OTP
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setIsLoading(true);
-    const code=otp.join('');
-    if(code.length!==OTP_LENGTH){ setError('Enter full code'); setIsLoading(false); return; }
-    try{
-      await verifyPasswordResetOtp(email,code);
-      setStage('reset');
-    }catch(err:any){ setError(err.message); }
-    finally{ setIsLoading(false); }
-  };
-
-  // Forgot: reset password
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault(); setError('');
-    if(newPass!==confirmPass){ setError('Passwords must match'); return; }
+    e.preventDefault();
+    setError('');
     setIsLoading(true);
-    try{
-      await resetPassword(email, otp.join(''), newPass);
-      setShowForgot(false); setStage('email'); setError('Password updated. Please login.');
-    }catch(err:any){ setError(err.message); }
-    finally{ setIsLoading(false); }
+
+    const trimmedEmail = email.trim();
+    const trimmedPass = password.trim();
+
+    // Debug: log exactly what we're sending
+    console.debug('Attempting login with payload:', { email: trimmedEmail, password: trimmedPass });
+
+    try {
+      await login(trimmedEmail, trimmedPass);
+      // redirect happens in useEffect
+    } catch (err: any) {
+      console.error('Login error response:', err.response?.data || err);
+      setError(err.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // OTP input
-  const handleOtpChange=(i:number,v:string)=>{
-    if(!/^[0-9]?$/.test(v))return;
-    const arr=[...otp]; arr[i]=v; setOtp(arr);
-    if(v&&i<OTP_LENGTH-1) inputRefs.current[i+1]?.focus();
+  // — Forgot password: send OTP
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      await sendPasswordResetOtp(email.trim());
+      setStage('otp');
+      setOtp(Array(OTP_LENGTH).fill(''));
+    } catch (err: any) {
+      console.error('Send OTP error:', err.response?.data || err);
+      setError(err.message || 'Failed to send OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // — Verify OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    const code = otp.join('');
+    if (code.length < OTP_LENGTH) {
+      setError('Please enter the full code');
+      setIsLoading(false);
+      return;
+    }
+    try {
+      await verifyPasswordResetOtp(email.trim(), code);
+      setStage('reset');
+    } catch (err: any) {
+      console.error('Verify OTP error:', err.response?.data || err);
+      setError(err.message || 'OTP verification failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // — Reset password
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (newPass !== confirmPass) {
+      setError('Passwords do not match');
+      return;
+    }
+    const code = otp.join('');
+    if (code.length < OTP_LENGTH) {
+      setError('Invalid OTP');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await resetPassword(email.trim(), code, newPass);
+      setShowForgot(false);
+      setStage('email');
+      setError('Password updated. Please log in.');
+    } catch (err: any) {
+      console.error('Reset password error:', err.response?.data || err);
+      setError(err.message || 'Password reset failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpChange = (idx: number, val: string) => {
+    if (!/^[0-9]?$/.test(val)) return;
+    const next = [...otp];
+    next[idx] = val;
+    setOtp(next);
+    if (val && idx < OTP_LENGTH - 1) {
+      inputRefs.current[idx + 1]?.focus();
+    }
   };
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-gray-100">
-      {/* Left UI unchanged */}
+      {/* — Left: Login Form */}
       <FadeIn>
         <div className="flex items-center justify-center p-8 md:p-12">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5 text-2xl font-bold">
-                <span className="text-primary-500"><img src={logo} /></span>
+                <img src={logo} alt="Logo" className="h-8 w-auto" />
               </Link>
               <h1 className="text-3xl font-bold text-gray-800">Welcome back</h1>
               <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
             </div>
-            {error&&<motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</motion.div>}
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-red-100 text-red-700 p-3 rounded-md mb-4"
+              >
+                {error}
+              </motion.div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-4">
-              <Input type="email" id="email" label="Email Address" placeholder="you@example.com" icon={<UserIcon size={16}/>} value={email} onChange={e=>setEmail(e.target.value)} required fullWidth />
-              <Input type="password" id="password" label="Password" placeholder="••••••••" icon={<Lock size={16}/>} value={password} onChange={e=>setPassword(e.target.value)} required fullWidth />
+              <Input
+                type="email"
+                id="login-email"
+                label="Email Address"
+                placeholder="you@example.com"
+                icon={<UserIcon size={16} />}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                fullWidth
+              />
+              <Input
+                type="password"
+                id="login-password"
+                label="Password"
+                placeholder="••••••••"
+                icon={<Lock size={16} />}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                fullWidth
+              />
+
               <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded" />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">Remember me</label>
-                </div>
-                <button type="button" className="text-sm text-primary-500 hover:text-primary-600" onClick={()=>{setShowForgot(true);setStage('email');setError('');}}>Forgot password?</button>
+                <label className="flex items-center text-sm text-gray-700">
+                  <input type="checkbox" className="h-4 w-4 text-primary-500 border-gray-300 rounded" />
+                  <span className="ml-2">Remember me</span>
+                </label>
+                <button
+                  type="button"
+                  className="text-sm text-primary-500 hover:text-primary-600"
+                  onClick={() => {
+                    setShowForgot(true);
+                    setStage('email');
+                    setError('');
+                    setOtp(Array(OTP_LENGTH).fill(''));
+                    setNewPass('');
+                    setConfirmPass('');
+                  }}
+                >
+                  Forgot password?
+                </button>
               </div>
-              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>Sign In</Button>
+
+              <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
+                Sign In
+              </Button>
             </form>
-            <div className="mt-4">
-              <Button variant="outline" fullWidth onClick={()=>window.location.href=`${import.meta.env.VITE_API_URL}/auth/google`}> <FcGoogle className="mr-2 h-5 w-5" />Continue with Google</Button>
+
+            <div className="mt-4 flex justify-center">
+              <div ref={googleBtnRef} />
             </div>
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">Don’t have an account? <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">Sign up</Link></p>
-            </div>
+            {googleLoading && (
+              <p className="text-center text-sm text-gray-600 mt-2">
+                Processing Google login...
+              </p>
+            )}
+
+            <p className="mt-6 text-center text-sm text-gray-600">
+              Don’t have an account?{' '}
+              <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">
+                Sign up
+              </Link>
+            </p>
           </div>
         </div>
       </FadeIn>
 
-      {/* Right UI unchanged */}
+      {/* — Right: Promo Image */}
       <SlideIn direction="right">
         <div className="hidden md:block relative">
-          <img src="https://images.pexels.com/photos/7579831/pexels-photo-7579831.jpeg?auto=compress&cs=tinysrgb&w=1260" alt="Medical professionals" className="h-full w-full object-cover" />
+          <img
+            src="https://images.pexels.com/photos/7579831/pexels-photo-7579831.jpeg?auto=compress&cs=tinysrgb&w=1260"
+            alt="Healthcare professionals"
+            className="h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="text-white text-center max-w-sm p-8">
               <h2 className="text-2xl font-bold mb-4">Your health is our priority</h2>
-              <p>Book appointments with top doctors, get digital prescriptions, and manage your health record—all in one place.</p>
+              <p>Book appointments with top doctors, manage your records, and stay on top of your health—all from one place.</p>
             </div>
           </div>
         </div>
       </SlideIn>
 
-      {/* Forgot Password Modal */}
+      {/* — Forgot Password Modal */}
       <AnimatePresence>
         {showForgot && (
-          <motion.div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <motion.div className="bg-white rounded-xl shadow-xl p-6 w-11/12 max-w-md" initial={{scale:0.8,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.8,opacity:0}}>
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-xl shadow-xl p-6 w-11/12 max-w-md"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+            >
               <h3 className="text-xl font-semibold mb-4">Forgot Password</h3>
-              {stage==='email'&&(
+
+              {stage === 'email' && (
                 <form onSubmit={handleSendOtp} className="space-y-4">
-                  <Input type="email" label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} required fullWidth icon={<Mail size={16}/>} />
-                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>Send OTP</Button>
+                  <Input
+                    type="email"
+                    label="Email Address"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    fullWidth
+                    icon={<Mail size={16} />}
+                  />
+                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
+                    Send OTP
+                  </Button>
                 </form>
               )}
-              {stage==='otp'&&(
+
+              {stage === 'otp' && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div className="flex justify-between">
-                    {otp.map((d,i)=>(
-                      <input key={i} type="text" maxLength={1} inputMode="numeric" value={d} onChange={e=>handleOtpChange(i,e.target.value)} ref={el=>el&& (inputRefs.current[i]=el)} className="w-12 h-12 text-center border rounded" autoFocus={i===0}/>
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        type="text"
+                        maxLength={1}
+                        inputMode="numeric"
+                        value={digit}
+                        onChange={e => handleOtpChange(i, e.target.value)}
+                        ref={el => el && (inputRefs.current[i] = el)}
+                        className="w-12 h-12 text-center border rounded"
+                        autoFocus={i === 0}
+                      />
                     ))}
                   </div>
-                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>Verify OTP</Button>
+                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
+                    Verify OTP
+                  </Button>
                 </form>
               )}
-              {stage==='reset'&&(
+
+              {stage === 'reset' && (
                 <form onSubmit={handleReset} className="space-y-4">
-                  <Input type="password" label="New Password" value={newPass} onChange={e=>setNewPass(e.target.value)} required fullWidth icon={<Lock size={16}/>} />
-                  <Input type="password" label="Confirm Password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} required fullWidth icon={<Lock size={16}/>} />
-                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>Reset Password</Button>
+                  <Input
+                    type="password"
+                    label="New Password"
+                    value={newPass}
+                    onChange={e => setNewPass(e.target.value)}
+                    required
+                    fullWidth
+                    icon={<Lock size={16} />}
+                  />
+                  <Input
+                    type="password"
+                    label="Confirm Password"
+                    value={confirmPass}
+                    onChange={e => setConfirmPass(e.target.value)}
+                    required
+                    fullWidth
+                    icon={<Lock size={16} />}
+                  />
+                  <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
+                    Reset Password
+                  </Button>
                 </form>
               )}
+
               <div className="mt-4 text-center">
-                <button className="text-sm text-gray-600 mr-4" onClick={()=>{setShowForgot(false); setError('');}}>Cancel</button>
-                {stage!=='email'&&<button className="text-sm text-primary-500" onClick={()=>{setStage('email');setError('');}}>Back</button>}
+                <button
+                  className="text-sm text-gray-600 mr-4"
+                  onClick={() => {
+                    setShowForgot(false);
+                    setError('');
+                  }}
+                >
+                  Cancel
+                </button>
+                {stage !== 'email' && (
+                  <button
+                    className="text-sm text-primary-500"
+                    onClick={() => {
+                      setStage('email');
+                      setError('');
+                      setOtp(Array(OTP_LENGTH).fill(''));
+                    }}
+                  >
+                    Back
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

@@ -8,6 +8,7 @@ import { Calendar, Search, CheckCircle, Users, Award, Car, Heart, Brain, Eye, St
 import { Button } from '../../components/common/Button';
 import Chatbot from '../../components/common/chatbot/chatbot';
 import earth from '../../assets/earth.png'
+import CombinedTutorial from '../../components/common/Tutorial';
 
 // 3D Earth Component with Digital Texture
 function EarthModel() {
@@ -145,7 +146,11 @@ export default function HomePage() {
   };
 
   return (
+   
     <main className="relative bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-hidden">
+        
+     <CombinedTutorial />   
+
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* 3D Background */}
@@ -394,7 +399,6 @@ export default function HomePage() {
             </motion.div>
           </div>
         </div>
-
         <Chatbot />
       </section>
     </main>
