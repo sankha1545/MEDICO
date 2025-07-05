@@ -3,19 +3,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User as UserIcon, Lock, Mail } from 'lucide-react';
+import { User as UserIcon, Mail, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
-import { Input } from '../components/common/Input';
 import { FadeIn, SlideIn } from '../components/animations/Transitions';
 import logo from '../assets/Logo.png';
 
 const OTP_LENGTH = 6;
 
 declare global {
-  interface Window {
-    google: any;
-  }
+  interface Window { google: any; }
 }
 
 const LoginPage: React.FC = () => {
@@ -29,31 +26,33 @@ const LoginPage: React.FC = () => {
     verifyPasswordResetOtp,
     resetPassword,
   } = useAuth();
-
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // — Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // — Google button state
+  // — Google login state
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [gsiLoaded, setGsiLoaded] = useState(false);
   const [gsiInitialized, setGsiInitialized] = useState(false);
 
-  // — Forgot-password modal state
+  // — Forgot password state
   const [showForgot, setShowForgot] = useState(false);
   const [stage, setStage] = useState<'email' | 'otp' | 'reset'>('email');
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const inputRefs = useRef<HTMLInputElement[]>([]);
 
-  // — If a token is present in URL (e.g. ?token=…), log in with it
+  // — Login via token in URL
   useEffect(() => {
     const token = searchParams.get('token');
     if (token) {
@@ -64,90 +63,72 @@ const LoginPage: React.FC = () => {
     }
   }, [searchParams, loginWithToken]);
 
-  // — Redirect after successful login
+  // — Redirect when authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
       navigate(user.role === 'doctor' ? '/doc-dashboard' : '/home');
     }
   }, [isAuthenticated, user, navigate]);
 
-  // — Load Google Identity Services script once
+  // — Load Google Identity script
   useEffect(() => {
-    if (gsiLoaded) return;
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setGsiLoaded(true);
-    script.onerror = () => console.error('GSI script load error');
-    document.body.appendChild(script);
+    if (!gsiLoaded) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setGsiLoaded(true);
+      document.body.appendChild(script);
+    }
   }, [gsiLoaded]);
 
-  // — Initialize & render the GSI button
+  // — Initialize & render Google button
   useEffect(() => {
-    if (!gsiLoaded || gsiInitialized) return;
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
-    if (!clientId) {
-      console.error('Missing VITE_GOOGLE_CLIENT_ID');
-      return;
+    if (gsiLoaded && !gsiInitialized && googleBtnRef.current) {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        ux_mode: 'popup',
+        callback: async ({ credential }: { credential: string }) => {
+          if (!credential) {
+            setError('No credential returned');
+            return;
+          }
+          setGoogleLoading(true);
+          try {
+            await loginWithGoogle(credential);
+          } catch (e: any) {
+            setError(e.message || 'Google login failed');
+          } finally {
+            setGoogleLoading(false);
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: 250,
+        text: 'signin_with',
+      });
+      setGsiInitialized(true);
     }
-    if (!googleBtnRef.current) return;
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async ({ credential }: { credential: string }) => {
-        if (!credential) {
-          setError('No credential returned by Google');
-          return;
-        }
-        setError('');
-        setGoogleLoading(true);
-        try {
-          await loginWithGoogle(credential);
-        } catch (err: any) {
-          console.error('Google login error:', err.response?.data || err);
-          setError(err.message || 'Google login failed');
-        } finally {
-          setGoogleLoading(false);
-        }
-      },
-      ux_mode: 'popup',
-    });
-
-    window.google.accounts.id.renderButton(googleBtnRef.current, {
-      theme: 'outline',
-      size: 'large',
-      width: 250,
-      text: 'signin_with',
-    });
-
-    setGsiInitialized(true);
   }, [gsiLoaded, gsiInitialized, loginWithGoogle]);
 
-  // — Standard email/password login
+  // — Handle standard email/password login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
-    const trimmedEmail = email.trim();
-    const trimmedPass = password.trim();
-
-    // Debug: log exactly what we're sending
-    console.debug('Attempting login with payload:', { email: trimmedEmail, password: trimmedPass });
-
     try {
-      await login(trimmedEmail, trimmedPass);
-      // redirect happens in useEffect
-    } catch (err: any) {
-      console.error('Login error response:', err.response?.data || err);
-      setError(err.message || 'Login failed');
+      await login(email.trim(), password.trim());
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // — Forgot password: send OTP
+  // — Send OTP for password reset
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -156,9 +137,8 @@ const LoginPage: React.FC = () => {
       await sendPasswordResetOtp(email.trim());
       setStage('otp');
       setOtp(Array(OTP_LENGTH).fill(''));
-    } catch (err: any) {
-      console.error('Send OTP error:', err.response?.data || err);
-      setError(err.message || 'Failed to send OTP');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Failed to send OTP');
     } finally {
       setIsLoading(false);
     }
@@ -178,9 +158,8 @@ const LoginPage: React.FC = () => {
     try {
       await verifyPasswordResetOtp(email.trim(), code);
       setStage('reset');
-    } catch (err: any) {
-      console.error('Verify OTP error:', err.response?.data || err);
-      setError(err.message || 'OTP verification failed');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'OTP verification failed');
     } finally {
       setIsLoading(false);
     }
@@ -205,14 +184,14 @@ const LoginPage: React.FC = () => {
       setShowForgot(false);
       setStage('email');
       setError('Password updated. Please log in.');
-    } catch (err: any) {
-      console.error('Reset password error:', err.response?.data || err);
-      setError(err.message || 'Password reset failed');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Password reset failed');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // — Handle OTP digit input
   const handleOtpChange = (idx: number, val: string) => {
     if (!/^[0-9]?$/.test(val)) return;
     const next = [...otp];
@@ -229,6 +208,7 @@ const LoginPage: React.FC = () => {
       <FadeIn>
         <div className="flex items-center justify-center p-8 md:p-12">
           <div className="w-full max-w-md">
+            {/* Header */}
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5 text-2xl font-bold">
                 <img src={logo} alt="Logo" className="h-8 w-auto" />
@@ -237,6 +217,7 @@ const LoginPage: React.FC = () => {
               <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
             </div>
 
+            {/* Error */}
             {error && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -247,33 +228,63 @@ const LoginPage: React.FC = () => {
               </motion.div>
             )}
 
+            {/* Login Form */}
             <form onSubmit={handleLogin} className="space-y-4">
-              <Input
-                type="email"
-                id="login-email"
-                label="Email Address"
-                placeholder="you@example.com"
-                icon={<UserIcon size={16} />}
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                fullWidth
-              />
-              <Input
-                type="password"
-                id="login-password"
-                label="Password"
-                placeholder="••••••••"
-                icon={<Lock size={16} />}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                fullWidth
-              />
+              {/* Email */}
+              <div>
+                <label htmlFor="login-email" className="block text-sm font-medium text-gray-700">
+                  Email Address
+                </label>
+                <div className="mt-1 relative">
+                  <input
+                    id="login-email"
+                    type="email"
+                    required
+                    className="block w-full pr-10 sm:text-sm border-gray-300 rounded-md"
+                    placeholder=" you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    style={{height:"35px"}}
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <UserIcon size={16} className="text-gray-400" />
+                  </div>
+                </div>
+              </div>
 
+              {/* Password */}
+              <div>
+                <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="mt-1 relative">
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    className="block w-full pr-10 sm:text-sm border-gray-300 rounded-md"
+                    placeholder=" ••••••••"
+                    value={password}
+                    style={{height:"35px"}}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
               <div className="flex items-center justify-between">
                 <label className="flex items-center text-sm text-gray-700">
-                  <input type="checkbox" className="h-4 w-4 text-primary-500 border-gray-300 rounded" />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-primary-500 border-gray-300 rounded"
+                  />
                   <span className="ml-2">Remember me</span>
                 </label>
                 <button
@@ -286,6 +297,8 @@ const LoginPage: React.FC = () => {
                     setOtp(Array(OTP_LENGTH).fill(''));
                     setNewPass('');
                     setConfirmPass('');
+                    setShowNewPass(false);
+                    setShowConfirmPass(false);
                   }}
                 >
                   Forgot password?
@@ -297,6 +310,7 @@ const LoginPage: React.FC = () => {
               </Button>
             </form>
 
+            {/* Google Login */}
             <div className="mt-4 flex justify-center">
               <div ref={googleBtnRef} />
             </div>
@@ -306,6 +320,7 @@ const LoginPage: React.FC = () => {
               </p>
             )}
 
+            {/* Sign up link */}
             <p className="mt-6 text-center text-sm text-gray-600">
               Don’t have an account?{' '}
               <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">
@@ -352,15 +367,25 @@ const LoginPage: React.FC = () => {
 
               {stage === 'email' && (
                 <form onSubmit={handleSendOtp} className="space-y-4">
-                  <Input
-                    type="email"
-                    label="Email Address"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                    fullWidth
-                    icon={<Mail size={16} />}
-                  />
+                  <div>
+                    <label htmlFor="fp-email" className="block text-sm font-medium text-gray-700">
+                      Email Address
+                    </label>
+                    <div className="mt-1 relative">
+                      <input
+                        id="fp-email"
+                        type="email"
+                        required
+                        className="block w-full pr-10 sm:text-sm border-gray-300 rounded-md"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                         style={{height:"35px"}}
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <Mail size={16} className="text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
                   <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
                     Send OTP
                   </Button>
@@ -392,24 +417,54 @@ const LoginPage: React.FC = () => {
 
               {stage === 'reset' && (
                 <form onSubmit={handleReset} className="space-y-4">
-                  <Input
-                    type="password"
-                    label="New Password"
-                    value={newPass}
-                    onChange={e => setNewPass(e.target.value)}
-                    required
-                    fullWidth
-                    icon={<Lock size={16} />}
-                  />
-                  <Input
-                    type="password"
-                    label="Confirm Password"
-                    value={confirmPass}
-                    onChange={e => setConfirmPass(e.target.value)}
-                    required
-                    fullWidth
-                    icon={<Lock size={16} />}
-                  />
+                  {/* New Password */}
+                  <div>
+                    <label htmlFor="fp-new-pass" className="block text-sm font-medium text-gray-700">
+                      New Password
+                    </label>
+                    <div className="mt-1 relative">
+                      <input
+                        id="fp-new-pass"
+                        type={showNewPass ? 'text' : 'password'}
+                        required
+                        className="block w-full pr-10 sm:text-sm border-gray-300 rounded-md"
+                        value={newPass}
+                        onChange={e => setNewPass(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(v => !v)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 focus:outline-none"
+                      >
+                        {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label htmlFor="fp-confirm-pass" className="block text-sm font-medium text-gray-700">
+                      Confirm Password
+                    </label>
+                    <div className="mt-1 relative">
+                      <input
+                        id="fp-confirm-pass"
+                        type={showConfirmPass ? 'text' : 'password'}
+                        required
+                        className="block w-full	pr-10 sm:text-sm border-gray-300 rounded-md"
+                        value={confirmPass}
+                        onChange={e => setConfirmPass(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPass(v => !v)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 focus:outline-none"
+                      >
+                        {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
                   <Button type="submit" variant="primary" isLoading={isLoading} fullWidth>
                     Reset Password
                   </Button>

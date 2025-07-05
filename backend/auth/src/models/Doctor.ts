@@ -12,7 +12,7 @@ export interface ILocation {
 export interface IDoctor extends Document {
   name: string;
   email: string;
-  passwordHash?: string;
+  passwordHash: string;
   googleId?: string;
   role: 'doctor';
   provider: 'local' | 'google';
@@ -43,7 +43,6 @@ export interface IDoctor extends Document {
   qualifications: string[];
   languages: string[];
 
-  // Razorpay onboarding fields
   razorpayContactId?: string | null;
   razorpayFundAccountId?: string | null;
 
@@ -79,7 +78,7 @@ const DoctorSchema = new Schema<IDoctor>(
       lowercase: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
     },
-    passwordHash: { type: String },
+    passwordHash: { type: String, required: true },
     googleId: { type: String, unique: true, sparse: true },
     role: { type: String, enum: ['doctor'], default: 'doctor' },
     provider: { type: String, enum: ['local', 'google'], default: 'local' },
@@ -122,22 +121,19 @@ const DoctorSchema = new Schema<IDoctor>(
   },
   {
     collection: 'doctors',
-    timestamps: true, // adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
-// Indexes
+// Indexes to prevent duplicate emails (triggers 11000 error code on insert/update)
 DoctorSchema.index({ email: 1 }, { unique: true });
 DoctorSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
-// toJSON transform: remove sensitive fields
+// Remove sensitive fields from JSON output
 DoctorSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
     delete ret.__v;
-    // Optionally remove googleId from client response if desired:
-    // delete ret.googleId;
-
     if (ret.profileImage) {
       delete ret.profileImage.data;
     }
@@ -145,23 +141,19 @@ DoctorSchema.set('toJSON', {
   },
 });
 
-// Pre-save: hash passwordHash if modified and provider is local
+// Pre-save hook: hash raw password exactly once
 DoctorSchema.pre<IDoctor>('save', async function (next) {
   if (this.isModified('passwordHash') && this.passwordHash) {
-    try {
-      const salt = await bcrypt.genSalt(10);
-      this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
-    } catch (err) {
-      return next(err);
-    }
+    const salt = await bcrypt.genSalt(10);
+    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
   }
   next();
 });
 
-// Instance method to compare password
-DoctorSchema.methods.comparePassword = async function (password: string) {
-  if (!this.passwordHash) return false;
-  return bcrypt.compare(password, this.passwordHash);
+// Instance method to compare a candidate password against the stored hash
+DoctorSchema.methods.comparePassword = function (candidate: string) {
+  if (!this.passwordHash) return Promise.resolve(false);
+  return bcrypt.compare(candidate, this.passwordHash);
 };
 
 export default mongoose.model<IDoctor>('Doctor', DoctorSchema);

@@ -44,7 +44,7 @@ const PatientSchema = new Schema<IPatient>(
     email: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // ensures MongoDB enforces uniqueness, triggers 11000 on duplicates
       trim: true,
       lowercase: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
@@ -82,17 +82,15 @@ const PatientSchema = new Schema<IPatient>(
   }
 );
 
-// Indexes
+// Indexes to enforce uniqueness at the database level
 PatientSchema.index({ email: 1 }, { unique: true });
 PatientSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
-// toJSON transform: remove sensitive fields
+// Remove sensitive fields from JSON output
 PatientSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
     delete ret.__v;
-    // Optionally remove googleId from response if you don't want to expose it:
-    // delete ret.googleId;
     if (ret.profileImage) {
       delete ret.profileImage.data;
     }
@@ -107,15 +105,15 @@ PatientSchema.pre<IPatient>('save', async function (next) {
       const salt = await bcrypt.genSalt(10);
       this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
     } catch (err) {
-      return next(err);
+      return next(err as any);
     }
   }
   next();
 });
 
-// Instance method to compare password
-PatientSchema.methods.comparePassword = async function (password: string) {
-  if (!this.passwordHash) return false;
+// Instance method to compare a candidate password against the stored hash
+PatientSchema.methods.comparePassword = function (password: string) {
+  if (!this.passwordHash) return Promise.resolve(false);
   return bcrypt.compare(password, this.passwordHash);
 };
 

@@ -1,11 +1,6 @@
 // File: frontend/src/pages/SignUpPage.tsx
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -176,7 +171,12 @@ const SignUpPage: React.FC = () => {
       setCanResendOtp(false);
       setOtp('');
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP');
+      const msg = err.response?.data?.message || err.message;
+      if (msg.includes('exists') || msg.includes('registered')) {
+        setError(msg);
+      } else {
+        setError(msg || 'Failed to send OTP');
+      }
     } finally {
       setSendingOtp(false);
     }
@@ -220,7 +220,11 @@ const SignUpPage: React.FC = () => {
       await signup({ name, email, password, role });
       navigate('/login?signup=success');
     } catch (err: any) {
-      setError(err.message || 'Signup failed');
+      if (err.message.includes('exists') || err.message.includes('in use')) {
+        setError('An account already exists with this email. Try another.');
+      } else {
+        setError(err.message || 'Signup failed');
+      }
     } finally {
       setCreating(false);
     }
@@ -265,11 +269,9 @@ const SignUpPage: React.FC = () => {
           const val = e.target.value.replace(/\D/, '');
           const newOtp = otp.split('');
           newOtp[idx] = val;
-          const joined = newOtp.join('');
-          setOtp(joined);
+          setOtp(newOtp.join(''));
           if (val && idx < 5) {
-            const next = document.getElementById(`otp-${idx + 1}`);
-            next?.focus();
+            document.getElementById(`otp-${idx + 1}`)?.focus();
           }
         }}
         id={`otp-${idx}`}
@@ -340,12 +342,12 @@ const SignUpPage: React.FC = () => {
             <div className="text-center mb-8">
               <Link to="/" className="inline-flex items-center mb-5">
                 <div className="text-primary-500 mr-2">{/* logo svg */}</div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
-                  MedBook
+                <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-primary-900 bg-clip-text text-transparent">
+                  MedicoX
                 </span>
               </Link>
               <h1 className="text-3xl font-bold text-gray-800">Create an account</h1>
-              <p className="text-gray-600 mt-2">Sign up to get started</p>
+              <p className="text-gray-600 mt-2 " >Sign up to get started</p>
             </div>
 
             {/* Success Banner */}
@@ -363,11 +365,11 @@ const SignUpPage: React.FC = () => {
             </AnimatePresence>
 
             {/* Error Banner */}
-            {error && (
+           {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-50 text-red-700 p-3 rounded-md mb-4"
+                className="bg-red-50 text-red-700 p-3 rounded-md mb-4 text-center"
               >
                 {error}
               </motion.div>
