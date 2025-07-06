@@ -343,7 +343,7 @@ const DoctorDashboardPage: React.FC = () => {
 
   if (loadingProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+      <div className="flex items-center justify-center min-h-screen text-white bg-gray-900">
         Loading profile...
       </div>
     );
@@ -351,29 +351,29 @@ const DoctorDashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="px-6 py-10 mx-auto max-w-7xl">
         <FadeIn>
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+          <header className="flex flex-col items-start justify-between mb-10 md:flex-row md:items-center">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gray-700 rounded-full overflow-hidden">
+              <div className="w-16 h-16 overflow-hidden bg-gray-700 rounded-full">
                 {profileImageUrl ? (
                   <img
                     src={profileImageUrl}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="object-cover w-full h-full"
                   />
                 ) : (
                   <UserIcon className="w-full h-full p-4 text-gray-500" />
                 )}
               </div>
-              <h1 className="text-4xl font-extrabold text-gray-100 tracking-tight">
+              <h1 className="text-4xl font-extrabold tracking-tight text-gray-100">
                 Dr. {profileName}
               </h1>
               <motion.button
                 onClick={() => setShowEditProfile(true)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl"
+                className="flex items-center px-4 py-2 space-x-2 text-white shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:shadow-xl"
               >
                 <Pencil className="w-5 h-5" /> <span>Edit Profile</span>
               </motion.button>
@@ -384,7 +384,7 @@ const DoctorDashboardPage: React.FC = () => {
               onClick={logout}
               className="mt-4 md:mt-0"
             >
-              <LogOut className="mr-2 w-4 h-4" /> Logout
+              <LogOut className="w-4 h-4 mr-2" /> Logout
             </Button>
           </header>
         </FadeIn>
@@ -415,7 +415,7 @@ const DoctorDashboardPage: React.FC = () => {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 gap-6 mb-12 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
               title: 'Upcoming Appointments',
@@ -456,12 +456,12 @@ const DoctorDashboardPage: React.FC = () => {
               <div
                 className={`${stat.gradient} rounded-2xl shadow-lg overflow-hidden text-white`}
               >
-                <div className="p-6 flex items-center">
-                  <div className="p-3 rounded-full bg-white bg-opacity-25 mr-4">
+                <div className="flex items-center p-6">
+                  <div className="p-3 mr-4 bg-white bg-opacity-25 rounded-full">
                     {stat.icon}
                   </div>
                   <div>
-                    <p className="text-sm uppercase tracking-wide">{stat.title}</p>
+                    <p className="text-sm tracking-wide uppercase">{stat.title}</p>
                     <p className="mt-1 text-2xl font-bold">{stat.value}</p>
                   </div>
                 </div>
@@ -471,7 +471,7 @@ const DoctorDashboardPage: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-gray-800 rounded-xl shadow-md border border-gray-700 mb-12 overflow-hidden">
+        <div className="mb-12 overflow-hidden bg-gray-800 border border-gray-700 shadow-md rounded-xl">
           <div className="flex overflow-x-auto border-b border-gray-700">
             {tabs.map(tab => (
               <button
@@ -496,12 +496,12 @@ const DoctorDashboardPage: React.FC = () => {
                 </span>
                 <span className="capitalize">{tab}</span>
                 {tab === 'appointments' && upcomingCount > 0 && (
-                  <span className="ml-1 inline-block bg-yellow-500 text-black text-xs rounded-full px-2">
+                  <span className="inline-block px-2 ml-1 text-xs text-black bg-yellow-500 rounded-full">
                     {upcomingCount}
                   </span>
                 )}
                 {tab === 'messages' && notifications.filter(n => !n.read).length > 0 && (
-                  <span className="ml-1 inline-block bg-red-500 text-white text-xs rounded-full px-2">
+                  <span className="inline-block px-2 ml-1 text-xs text-white bg-red-500 rounded-full">
                     {notifications.filter(n => !n.read).length}
                   </span>
                 )}
@@ -515,8 +515,8 @@ const DoctorDashboardPage: React.FC = () => {
                 <div className="space-y-8">
                   {/* Weekly Graph */}
                   <SlideIn direction="up" delay={0.1}>
-                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                    <div className="p-6 bg-gray-800 shadow-lg rounded-xl">
+                      <h3 className="mb-4 text-xl font-semibold text-gray-100">
                         Last 7 Days: Appointments
                       </h3>
                       <ResponsiveContainer width="100%" height={200}>
@@ -545,8 +545,8 @@ const DoctorDashboardPage: React.FC = () => {
                   </SlideIn>
                   {/* Monthly Graph */}
                   <SlideIn direction="up" delay={0.2}>
-                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                    <div className="p-6 bg-gray-800 shadow-lg rounded-xl">
+                      <h3 className="mb-4 text-xl font-semibold text-gray-100">
                         Last 12 Months: Appointments
                       </h3>
                       <ResponsiveContainer width="100%" height={200}>
@@ -575,8 +575,8 @@ const DoctorDashboardPage: React.FC = () => {
                   </SlideIn>
                   {/* Yearly Graph */}
                   <SlideIn direction="up" delay={0.3}>
-                    <div className="bg-gray-800 rounded-xl shadow-lg p-6">
-                      <h3 className="text-xl font-semibold text-gray-100 mb-4">
+                    <div className="p-6 bg-gray-800 shadow-lg rounded-xl">
+                      <h3 className="mb-4 text-xl font-semibold text-gray-100">
                         Last 5 Years: Appointments
                       </h3>
                       <ResponsiveContainer width="100%" height={200}>
@@ -612,26 +612,26 @@ const DoctorDashboardPage: React.FC = () => {
               <div className="space-y-6">
                 {/* Unread appointment notifications */}
                 {unreadNotifications.length > 0 && (
-                  <div className="bg-yellow-800/50 border border-yellow-600 rounded-lg p-4 space-y-3">
-                    <h3 className="text-lg font-semibold text-yellow-200 mb-2">
+                  <div className="p-4 space-y-3 border border-yellow-600 rounded-lg bg-yellow-800/50">
+                    <h3 className="mb-2 text-lg font-semibold text-yellow-200">
                       New Appointment Requests
                     </h3>
                     {unreadNotifications.map((notif) => (
                       <motion.div
                         key={notif._id}
-                        className="flex justify-between items-center bg-yellow-700/30 p-3 rounded"
+                        className="flex items-center justify-between p-3 rounded bg-yellow-700/30"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
                       >
                         <div className="flex items-center space-x-3">
                           <AlertCircle className="w-5 h-5 text-yellow-300" />
-                          <p className="text-yellow-100 text-sm">{notif.message}</p>
+                          <p className="text-sm text-yellow-100">{notif.message}</p>
                         </div>
                         <Button
                           variant="outline"
                           size="xs"
-                          className="border-yellow-300 text-yellow-200 hover:bg-yellow-600/20"
+                          className="text-yellow-200 border-yellow-300 hover:bg-yellow-600/20"
                           onClick={() => markNotificationRead(notif._id)}
                         >
                           Mark read
@@ -655,13 +655,13 @@ const DoctorDashboardPage: React.FC = () => {
                       <motion.div
                         key={a.id}
                         variants={staggeredItemVariants}
-                        className="bg-gray-800 rounded-lg shadow-sm p-6 flex justify-between items-center hover:shadow-md transition-shadow"
+                        className="flex items-center justify-between p-6 transition-shadow bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
                       >
                         <div>
                           <p className="font-semibold text-gray-100">
                             {a.patientName}
                           </p>
-                          <p className="text-gray-400 mt-1">
+                          <p className="mt-1 text-gray-400">
                             {format(dt, 'MMMM d, yyyy h:mm a')}
                           </p>
                           <span
@@ -718,12 +718,12 @@ const DoctorDashboardPage: React.FC = () => {
                 <h2 className="text-2xl font-semibold text-gray-100">
                   Earnings Overview
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <motion.div
                     variants={staggeredItemVariants}
-                    className="bg-gray-800 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+                    className="p-6 transition-shadow bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
                   >
-                    <p className="text-sm text-gray-400 uppercase tracking-wide">
+                    <p className="text-sm tracking-wide text-gray-400 uppercase">
                       This Month
                     </p>
                     <p className="mt-2 text-3xl font-bold text-gray-100">
@@ -739,9 +739,9 @@ const DoctorDashboardPage: React.FC = () => {
                   </motion.div>
                   <motion.div
                     variants={staggeredItemVariants}
-                    className="bg-gray-800 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+                    className="p-6 transition-shadow bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
                   >
-                    <p className="text-sm text-gray-400 uppercase tracking-wide">
+                    <p className="text-sm tracking-wide text-gray-400 uppercase">
                       Total to Date
                     </p>
                     <p className="mt-2 text-3xl font-bold text-gray-100">
@@ -764,27 +764,27 @@ const DoctorDashboardPage: React.FC = () => {
 
             {/* Profile Tab */}
             {activeTab === 'profile' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                 <motion.div
                   variants={staggeredItemVariants}
-                  className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
+                  className="p-6 transition-shadow bg-gray-800 shadow-sm rounded-xl hover:shadow-md"
                 >
-                  <h3 className="text-xl font-semibold text-gray-100 mb-5">
+                  <h3 className="mb-5 text-xl font-semibold text-gray-100">
                     Profile Details
                   </h3>
                   <div className="flex items-start space-x-6">
-                    <div className="w-20 h-20 bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-700 rounded-full">
                       {profileImageUrl ? (
                         <img
                           src={profileImageUrl}
                           alt="Profile"
-                          className="w-full h-full object-cover"
+                          className="object-cover w-full h-full"
                         />
                       ) : (
                         <UserIcon className="w-full h-full p-4 text-gray-500" />
                       )}
                     </div>
-                    <div className="space-y-3 text-gray-100 flex-1">
+                    <div className="flex-1 space-y-3 text-gray-100">
                       <div>
                         <p className="text-sm text-gray-400">Name</p>
                         <p className="font-medium">Dr. {profileName}</p>
@@ -863,14 +863,14 @@ const DoctorDashboardPage: React.FC = () => {
                 </motion.div>
                 <motion.div
                   variants={staggeredItemVariants}
-                  className="bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
+                  className="p-6 transition-shadow bg-gray-800 shadow-sm rounded-xl hover:shadow-md"
                 >
-                  <h3 className="text-xl font-semibold text-gray-100 mb-5">
+                  <h3 className="mb-5 text-xl font-semibold text-gray-100">
                     Account Settings
                   </h3>
                   <Link to="/doc-settings">
                     <Button variant="primary" size="sm">
-                      <SettingsIcon className="mr-2 w-4 h-4" /> Go to Settings
+                      <SettingsIcon className="w-4 h-4 mr-2" /> Go to Settings
                     </Button>
                   </Link>
                 </motion.div>
@@ -880,61 +880,61 @@ const DoctorDashboardPage: React.FC = () => {
             {/* Payout Tab */}
             {activeTab === 'payout' && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold text-gray-100 mb-4">
+                <h2 className="mb-4 text-2xl font-semibold text-gray-100">
                   Payout Account
                 </h2>
                 {existingPayoutAccountId ? (
-                  <div className="bg-gray-800 rounded-xl shadow-sm p-6">
+                  <div className="p-6 bg-gray-800 shadow-sm rounded-xl">
                     <p className="text-gray-300">
                       You have already added a payout account:
                     </p>
-                    <p className="text-white break-all font-medium">
+                    <p className="font-medium text-white break-all">
                       {existingPayoutAccountId}
                     </p>
-                    <p className="text-gray-400 mt-2">
+                    <p className="mt-2 text-gray-400">
                       If you need to update bank details, please contact support or remove and re-add below.
                     </p>
                   </div>
                 ) : (
                   <form
                     onSubmit={handleAddPayoutAccount}
-                    className="bg-gray-800 rounded-xl shadow-sm p-6 space-y-4"
+                    className="p-6 space-y-4 bg-gray-800 shadow-sm rounded-xl"
                   >
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">
+                      <label className="block mb-1 text-sm text-gray-400">
                         Account Holder Name
                       </label>
                       <input
                         type="text"
                         value={bankAccountName}
                         onChange={e => setBankAccountName(e.target.value)}
-                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 text-gray-100 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                         disabled={payoutLoading}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">
+                      <label className="block mb-1 text-sm text-gray-400">
                         Account Number
                       </label>
                       <input
                         type="text"
                         value={bankAccountNumber}
                         onChange={e => setBankAccountNumber(e.target.value)}
-                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 text-gray-100 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                         disabled={payoutLoading}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">
+                      <label className="block mb-1 text-sm text-gray-400">
                         IFSC Code
                       </label>
                       <input
                         type="text"
                         value={bankIFSC}
                         onChange={e => setBankIFSC(e.target.value)}
-                        className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 text-gray-100 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                         disabled={payoutLoading}
                       />
@@ -942,12 +942,12 @@ const DoctorDashboardPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={payoutLoading}
-                      className="mt-4 w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-2 rounded-lg disabled:opacity-50"
+                      className="w-full py-2 mt-4 text-white rounded-lg bg-gradient-to-r from-green-600 to-green-700 disabled:opacity-50"
                     >
                       {payoutLoading ? 'Adding...' : 'Add Payout Account'}
                     </button>
                     {payoutStatusMsg && (
-                      <p className="text-sm mt-2 text-center text-white">
+                      <p className="mt-2 text-sm text-center text-white">
                         {payoutStatusMsg}
                       </p>
                     )}
@@ -959,7 +959,7 @@ const DoctorDashboardPage: React.FC = () => {
         </div>
 
         {profileError && (
-          <div className="mt-4 bg-red-600 text-white p-3 rounded">{profileError}</div>
+          <div className="p-3 mt-4 text-white bg-red-600 rounded">{profileError}</div>
         )}
       </div>
     </div>

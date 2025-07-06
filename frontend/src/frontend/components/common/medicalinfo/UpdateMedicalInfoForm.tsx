@@ -101,7 +101,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence >
       <motion.div
         className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000]"
         variants={backdropVariants}

@@ -1102,13 +1102,20 @@ const DashboardPage1: React.FC = () => {
                               Update Medical Info
                             </Button>
                             {showUpdateMedical && (
-                              <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                              <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] overflow-auto bg-black bg-opacity-60 flex items-start justify-center pt-20"
+          >
+                              <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-auto shadow-lg">
                                 <UpdateMedicalInfoForm
                                   medicalInfo={medicalInfo}
                                   onClose={() => setShowUpdateMedical(false)}
                                   onSave={handleMedicalSave}
                                 />
                               </div>
+                              </motion.div>
                             )}
                           </div>
                         </motion.div>

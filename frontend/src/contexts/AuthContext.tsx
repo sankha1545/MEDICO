@@ -73,8 +73,6 @@ interface AuthContextValue {
     dob?: string;
     profileImageFile?: File | null;
   }) => Promise<void>;
-
-  fetchDoctorProfile: () => Promise<User>;
   updateDoctorProfile: (data: {
     name?: string;
     email?: string;
@@ -92,6 +90,10 @@ interface AuthContextValue {
     languages?: string[];
     consultationFee?: number;
   }) => Promise<User>;
+  fetchDoctorProfile: () => Promise<User>;
+
+  // **New alias** so you can call updateProfile(...) directly in any component:
+  updateProfile: (data: any) => Promise<void>;
 
   sendPasswordResetOtp: (email: string) => Promise<void>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
@@ -131,6 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [signupError, setSignupError] = useState<string | null>(null);
 
+  // Fetch common user info (patient or doctor base fields)
   const fetchUserCommon = async () => {
     try {
       const res = await api.get('/auth/me');
@@ -147,7 +150,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       setUser(commonUser);
       setIsAuthenticated(true);
-      // doctor-specific omitted for brevity
     } catch {
       logout();
     } finally {
@@ -166,7 +168,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   // ----- Auth methods -----
-
   const sendEmailOtp = async (email: string) => {
     await api.post('/auth/send-email-otp', { email });
   };
@@ -175,7 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await api.post('/auth/verify-email-otp', { email, otp });
   };
 
-  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor'; }) => {
+  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor' }) => {
     setSignupError(null);
     try {
       await api.post('/auth/signup', data);
@@ -183,7 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err: any) {
       const msg = err.response?.data?.message;
       if (err.response?.status === 409 || msg?.includes('exists')) {
-        setSignupError(msg || 'An account already exists with this email. Try another.');
+        setSignupError(msg || 'An account already exists with this email.');
       } else {
         setSignupError('Signup failed. Please try again.');
       }
@@ -202,7 +203,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(err.response?.data?.message || 'Login failed.');
     }
   };
-
 
   const signUpWithGoogle = async (idToken: string): Promise<string> => {
     const res = await api.post('/auth/google/signup', { token: idToken });
@@ -244,77 +244,65 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
-  // Update profile
+  // ----- Profile Updates -----
   const updateUserProfile = async (data: {
     name?: string;
     email?: string;
     phone?: string;
     dob?: string;
     profileImageFile?: File | null;
-  }) => {
+  }): Promise<void> => {
     if (user?.role === 'doctor') {
-      try {
-        const updatedDoc = await updateDoctorProfile({
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          dob: data.dob,
-          profileImageFile: data.profileImageFile,
-        });
-        setUser(updatedDoc);
-      } catch (err: any) {
-        throw err;
-      }
-    } else {
-      try {
-        const form = new FormData();
-        if (data.name) form.append('name', data.name);
-        if (data.email) form.append('email', data.email);
-        if (data.phone) form.append('phone', data.phone);
-        if (data.dob) form.append('dob', data.dob);
-        if (data.profileImageFile) {
-          form.append('profileImage', data.profileImageFile);
-        }
-        const res = await api.put('/auth/me', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const resUser = res.data;
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                name: resUser.name,
-                email: resUser.email,
-                phone: resUser.phone || prev.phone,
-                dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
-                profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
-              }
-            : prev
-        );
-      } catch (err: any) {
-        throw new Error(err.response?.data?.message || 'Failed to update profile');
-      }
+      // delegate to doctor updater
+      const updated = await updateDoctorProfile({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        dob: data.dob,
+        profileImageFile: data.profileImageFile,
+      });
+      setUser(updated);
+      return;
     }
+    // patient path
+    const form = new FormData();
+    if (data.name) form.append('name', data.name);
+    if (data.email) form.append('email', data.email);
+    if (data.phone) form.append('phone', data.phone);
+    if (data.dob) form.append('dob', data.dob);
+    if (data.profileImageFile) {
+      form.append('profileImage', data.profileImageFile);
+    }
+    const res = await api.put('/auth/me', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const resUser = res.data;
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: resUser.name,
+            email: resUser.email,
+            phone: resUser.phone || prev.phone,
+            dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
+            profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
+          }
+        : prev
+    );
   };
 
-  // Doctor profile helpers
   const fetchDoctorProfileInternal = async (commonUser: User): Promise<User> => {
     const res = await api.get('/medical/doctor/me');
     const d = res.data;
     let loc: LocationType | undefined;
     if (d.location) {
       if (typeof d.location === 'object' && 'address' in d.location) {
-        loc = {
-          lat: (d.location.lat as number) || 0,
-          lng: (d.location.lng as number) || 0,
-          address: d.location.address as string,
-        };
-      } else if (typeof d.location === 'string') {
-        loc = { lat: 0, lng: 0, address: d.location };
+        loc = { lat: d.location.lat || 0, lng: d.location.lng || 0, address: d.location.address };
+      } else {
+        loc = { lat: 0, lng: 0, address: d.location as string };
       }
     }
-    const fee: number = typeof d.consultationFee === 'number' ? d.consultationFee : 0;
-    const updated: User = {
+    return {
       id: d._id || d.id,
       name: d.name,
       email: d.email,
@@ -333,21 +321,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       bio: d.bio,
       qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
       languages: Array.isArray(d.languages) ? d.languages : [],
-      consultationFee: fee,
+      consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
     };
+  };
+
+  const fetchDoctorProfile = async (): Promise<User> => {
+    if (!user) throw new Error('Not authenticated');
+    const updated = await fetchDoctorProfileInternal(user);
+    setUser(updated);
     return updated;
   };
-  const fetchDoctorProfile = async (): Promise<User> => {
-    try {
-      if (!user) throw new Error('Not authenticated');
-      const updated = await fetchDoctorProfileInternal(user);
-      setUser(updated);
-      return updated;
-    } catch (err: any) {
-      console.error('fetchDoctorProfile error:', err);
-      throw new Error(err.response?.data?.message || 'Failed to fetch doctor profile');
-    }
-  };
+
   const updateDoctorProfile = async (data: {
     name?: string;
     email?: string;
@@ -365,128 +349,85 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     languages?: string[];
     consultationFee?: number;
   }): Promise<User> => {
-    try {
-      const form = new FormData();
-      if (data.name) form.append('name', data.name);
-      if (data.email) form.append('email', data.email);
-      if (data.phone) form.append('phone', data.phone);
-      if (data.dob) form.append('dob', data.dob);
-      if (data.specialty) form.append('specialty', data.specialty);
-      if (data.availabilitySlots) {
-        form.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
-      }
-      if (data.location) {
-        form.append('locationObj', JSON.stringify(data.location));
-        form.append('location', data.location.address);
-      }
-      if (data.maxPatients !== undefined) {
-        form.append('maxPatients', data.maxPatients.toString());
-      }
-      if (data.experience !== undefined) {
-        form.append('experience', data.experience);
-      }
-      if (data.hospitalAffiliation !== undefined) {
-        form.append('hospitalAffiliation', data.hospitalAffiliation);
-      }
-      if (data.bio !== undefined) {
-        form.append('bio', data.bio);
-      }
-      if (data.qualifications !== undefined) {
-        form.append('qualifications', JSON.stringify(data.qualifications));
-      }
-      if (data.languages !== undefined) {
-        form.append('languages', JSON.stringify(data.languages));
-      }
-      if (data.consultationFee !== undefined) {
-        form.append('consultationFee', data.consultationFee.toString());
-      }
-      if (data.profileImageFile) {
-        form.append('profileImage', data.profileImageFile);
-      }
-
-      const res = await api.put('/medical/doctor/me', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const d = res.data;
-      let loc: LocationType | undefined;
-      if (d.location) {
-        if (typeof d.location === 'object' && 'address' in d.location) {
-          loc = {
-            lat: (d.location.lat as number) || 0,
-            lng: (d.location.lng as number) || 0,
-            address: d.location.address as string,
-          };
-        } else if (typeof d.location === 'string') {
-          loc = { lat: 0, lng: 0, address: d.location };
-        }
-      }
-      const fee: number = typeof d.consultationFee === 'number' ? d.consultationFee : 0;
-      const updated: User = {
-        id: d._id || d.id,
-        name: d.name,
-        email: d.email,
-        role: 'doctor',
-        provider: user?.provider,
-        isVerified: user?.isVerified,
-        phone: d.phone || '',
-        dob: d.dob ? d.dob.split('T')[0] : user?.dob || '',
-        profileImageUrl: d.profileImageUrl,
-        specialty: d.specialty,
-        availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
-        location: loc,
-        maxPatients: d.maxPatients,
-        experience: d.experience,
-        hospitalAffiliation: d.hospitalAffiliation,
-        bio: d.bio,
-        qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
-        languages: Array.isArray(d.languages) ? d.languages : [],
-        consultationFee: fee,
-      };
-      setUser(updated);
-      return updated;
-    } catch (err: any) {
-      console.error('updateDoctorProfile error:', err);
-      throw new Error(err.response?.data?.message || 'Failed to update doctor profile');
+    const form = new FormData();
+    if (data.name) form.append('name', data.name);
+    if (data.email) form.append('email', data.email);
+    if (data.phone) form.append('phone', data.phone);
+    if (data.dob) form.append('dob', data.dob);
+    if (data.specialty) form.append('specialty', data.specialty);
+    if (data.availabilitySlots) form.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
+    if (data.location) {
+      form.append('locationObj', JSON.stringify(data.location));
+      form.append('location', data.location.address);
     }
+    if (data.maxPatients !== undefined) form.append('maxPatients', data.maxPatients.toString());
+    if (data.experience) form.append('experience', data.experience);
+    if (data.hospitalAffiliation) form.append('hospitalAffiliation', data.hospitalAffiliation);
+    if (data.bio) form.append('bio', data.bio);
+    if (data.qualifications) form.append('qualifications', JSON.stringify(data.qualifications));
+    if (data.languages) form.append('languages', JSON.stringify(data.languages));
+    if (data.consultationFee !== undefined) form.append('consultationFee', data.consultationFee.toString());
+    if (data.profileImageFile) form.append('profileImage', data.profileImageFile);
+
+    const res = await api.put('/medical/doctor/me', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const d = res.data;
+    let loc: LocationType | undefined;
+    if (d.location) {
+      if (typeof d.location === 'object' && 'address' in d.location) {
+        loc = { lat: d.location.lat || 0, lng: d.location.lng || 0, address: d.location.address };
+      } else {
+        loc = { lat: 0, lng: 0, address: d.location as string };
+      }
+    }
+    const updated: User = {
+      id: d._id || d.id,
+      name: d.name,
+      email: d.email,
+      role: 'doctor',
+      provider: user?.provider,
+      isVerified: user?.isVerified,
+      phone: d.phone || '',
+      dob: d.dob ? d.dob.split('T')[0] : user?.dob || '',
+      profileImageUrl: d.profileImageUrl,
+      specialty: d.specialty,
+      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+      location: loc,
+      maxPatients: d.maxPatients,
+      experience: d.experience,
+      hospitalAffiliation: d.hospitalAffiliation,
+      bio: d.bio,
+      qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
+      languages: Array.isArray(d.languages) ? d.languages : [],
+      consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
+    };
+    setUser(updated);
+    return updated;
   };
+
+  // convenience alias to avoid 'updateProfile is not a function' errors:
+  const updateProfile = updateUserProfile;
 
   const sendPasswordResetOtp = async (email: string) => {
-    try {
-      await api.post('/auth/send-reset-otp', { email });
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to send reset OTP');
-    }
+    await api.post('/auth/send-reset-otp', { email });
   };
+
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
-    try {
-      await api.post('/auth/verify-reset-otp', { email, otp });
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to verify reset OTP');
-    }
+    await api.post('/auth/verify-reset-otp', { email, otp });
   };
-  const resetPassword = async (
-    email: string,
-    otp: string,
-    newPassword: string
-  ) => {
-    try {
-      await api.post('/auth/reset-password', { email, otp, newPassword });
-      navigate('/login');
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Password reset failed');
-    }
+
+  const resetPassword = async (email: string, otp: string, newPassword: string) => {
+    await api.post('/auth/reset-password', { email, otp, newPassword });
+    navigate('/login');
   };
+
   const deleteAccount = async (password: string) => {
-    try {
-      await api.delete('/auth/user', { data: { password } });
-      localStorage.removeItem('authToken');
-      setUser(null);
-      setIsAuthenticated(false);
-      navigate('/signup');
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to delete account';
-      throw new Error(msg);
-    }
+    await api.delete('/auth/user', { data: { password } });
+    localStorage.removeItem('authToken');
+    setUser(null);
+    setIsAuthenticated(false);
+    navigate('/signup');
   };
 
   return (
@@ -497,6 +438,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         token,
         isAuthenticated,
         loading,
+        signupError,
         sendEmailOtp,
         verifyEmailOtp,
         signup,
@@ -507,8 +449,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithToken,
         logout,
         updateUserProfile,
-        fetchDoctorProfile,
         updateDoctorProfile,
+        fetchDoctorProfile,
+        updateProfile,           // <— newly exposed alias
         sendPasswordResetOtp,
         verifyPasswordResetOtp,
         resetPassword,
