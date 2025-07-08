@@ -1,3 +1,5 @@
+// File: backend/src/index.ts
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -21,16 +23,14 @@ import { startNotificationScheduler } from './utils/notificationsScheduler';
 dotenv.config();
 const app = express();
 
-// --- Middleware Setup ---
-
-// 1. Generate nonce for CSP per request
+// --- 1. Generate nonce for CSP per request ---
 app.use((req, res, next) => {
   const nonce = crypto.randomBytes(16).toString('base64');
   res.locals.nonce = nonce;
   next();
 });
 
-// 2. Helmet with dynamic CSP using the nonce, allowing GSI scripts and popups
+// --- 2. Helmet with CSP and other security headers ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -38,19 +38,12 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          // allow inline scripts with per-request nonce
           (req, res) => `'nonce-${res.locals.nonce}'`,
-          // allow Google Identity Services scripts
           'https://accounts.google.com',
           'https://accounts.gstatic.com',
           'https://apis.google.com',
         ],
-        frameSrc: [
-          "'self'",
-          // allow Google Identity Services iframe origin
-          'https://accounts.google.com',
-          'https://*.google.com',
-        ],
+        frameSrc: ["'self'", 'https://accounts.google.com', 'https://*.google.com'],
         connectSrc: ["'self'", 'https://www.googleapis.com'],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -60,25 +53,25 @@ app.use(
     },
     referrerPolicy: { policy: 'no-referrer' },
     frameguard: { action: 'deny' },
-    // Set Cross-Origin-Opener-Policy to allow popups to close themselves
     crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
-    // Disable COEP if previously set; allow embedding if needed
     crossOriginEmbedderPolicy: false,
   })
 );
 
-// 3. Logging
+// --- 3. Logging ---
 app.use(morgan('combined'));
 
-// 4. CORS: allow frontend origin
+// --- 4. CORS: allow frontend origin, methods, and headers for multipart + auth ---
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// 5. Session (for Passport; though JWT used, session init is needed for passport middleware)
+// --- 5. Session (for Passport, if needed) ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'defaultsecret',
@@ -92,15 +85,15 @@ app.use(
   })
 );
 
-// 6. Body parsers
+// --- 6. Body parsers ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 7. Passport initialization
+// --- 7. Passport initialization ---
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 8. Static files
+// --- 8. Static file serving for uploads ---
 app.use(
   '/uploads',
   express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' })
@@ -122,36 +115,36 @@ mongoose
 
 // --- Routes ---
 
-// Razorpay webhook: raw body
+// 9. Razorpay webhook needs raw body
 app.post(
   '/api/payments/webhook',
   express.raw({ type: 'application/json' }),
   webhookHandler
 );
 
-// Mount API routes
+// 10. Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
-// Health check
+// 11. Health check
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Handle Chrome DevTools preflight ping
+// 12. Chrome DevTools preflight ping
 app.use('/.well-known/appspecific/com.chrome.devtools.json', (_req, res) => {
   res.sendStatus(204);
 });
 
-// 404 handler
+// 13. 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({ message: 'Not Found' });
 });
 
-// Error handler
+// 14. Global error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Unhandled Error:', err);
   const status = err.status || 500;
@@ -159,6 +152,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message });
 });
 
-// Start server
+// 15. Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

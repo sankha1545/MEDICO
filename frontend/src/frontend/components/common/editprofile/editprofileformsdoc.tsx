@@ -1,8 +1,8 @@
 // File: frontend/src/components/common/editprofile/EditProfileForm.tsx
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { motion } from 'framer-motion';
-import { X as CloseIcon, Pencil } from 'lucide-react';
+import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X as CloseIcon, Trash2, Pencil } from 'lucide-react';
 import { Button } from '../../../components/common/Button';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -13,13 +13,10 @@ import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix Leaflet default icon paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl,
-  iconUrl,
-  shadowUrl,
-});
+L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
+
+const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
 
 export interface LocationType {
   lat: number;
@@ -32,10 +29,10 @@ interface EditProfileFormProps {
   currentEmail: string;
   currentSpecialty: string;
   currentProfileImageUrl?: string;
-  currentAvailabilitySlots?: string[]; // ISO strings truncated "YYYY-MM-DDTHH:mm"
+  currentAvailabilitySlots?: string[];
   currentLocation?: LocationType;
   currentMaxPatients?: number;
-  currentDob?: string; // "YYYY-MM-DD"
+  currentDob?: string;
   currentExperience?: string;
   currentHospitalAffiliation?: string;
   currentBio?: string;
@@ -49,7 +46,7 @@ interface EditProfileFormProps {
     specialty: string,
     profileImageFile: File | null,
     availabilitySlots: string[],
-    location: LocationType,
+    location: LocationType | null,
     maxPatients: number,
     dob: string,
     experience?: string,
@@ -62,548 +59,401 @@ interface EditProfileFormProps {
 }
 
 const SPECIALTIES = [
-  'Cardiology',
-  'Dermatology',
-  'Neurology',
-  'Oncology',
-  'Pediatrics',
-  'Psychiatry',
-  'Radiology',
-  'Urology',
-  'Orthopedics',
-  'Gastroenterology',
+  'Cardiology','Dermatology','Neurology','Oncology','Pediatrics',
+  'Psychiatry','Radiology','Urology','Orthopedics','Gastroenterology',
 ];
 
-// Helper: click-to-place-marker on map
 const LocationPicker: React.FC<{
   position: { lat: number; lng: number } | null;
   onSelect: (pos: { lat: number; lng: number }) => void;
 }> = ({ position, onSelect }) => {
-  useMapEvents({
-    click(e) {
-      onSelect(e.latlng);
-    },
-  });
+  useMapEvents({ click(e) { onSelect(e.latlng); } });
   return position ? <Marker position={position} /> : null;
 };
 
-const EditProfileForm: React.FC<EditProfileFormProps> = ({
-  currentName,
-  currentEmail,
-  currentSpecialty,
-  currentProfileImageUrl,
-  currentAvailabilitySlots,
-  currentLocation,
-  currentMaxPatients,
-  currentDob,
-  currentExperience,
-  currentHospitalAffiliation,
-  currentBio,
-  currentQualifications,
-  currentLanguages,
-  currentConsultationFee,
-  onCancel,
-  onSave,
-}) => {
-  const [name, setName] = useState(currentName);
-  const [email, setEmail] = useState(currentEmail);
+export default function EditProfileForm({
+  currentName, currentEmail, currentSpecialty, currentProfileImageUrl,
+  currentAvailabilitySlots, currentLocation, currentMaxPatients,
+  currentDob, currentExperience, currentHospitalAffiliation,
+  currentBio, currentQualifications, currentLanguages,
+  currentConsultationFee, onCancel, onSave
+}: EditProfileFormProps) {
+  // State, initialized from props so data persists on reopen
+  const [name] = useState(currentName);
+  const [email] = useState(currentEmail);
   const [specialty, setSpecialty] = useState(currentSpecialty);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentProfileImageUrl);
 
   const [availabilitySlots, setAvailabilitySlots] = useState<string[]>(
-    currentAvailabilitySlots && currentAvailabilitySlots.length > 0
-      ? currentAvailabilitySlots.map(s => s.slice(0, 16))
-      : ['']
+    currentAvailabilitySlots?.map(s => s.slice(0,16)) || ['']
   );
   const [location, setLocation] = useState<LocationType | null>(currentLocation || null);
-  const [maxPatients, setMaxPatients] = useState<number>(currentMaxPatients || 1);
-  const [dob, setDob] = useState<string>(currentDob || '');
-  const [experience, setExperience] = useState<string>(currentExperience || '');
-  const [hospitalAffiliation, setHospitalAffiliation] = useState<string>(currentHospitalAffiliation || '');
-  const [bio, setBio] = useState<string>(currentBio || '');
+  const [maxPatients, setMaxPatients] = useState(currentMaxPatients || 1);
+  const [dob, setDob] = useState(currentDob || '');
+  const [experience, setExperience] = useState(currentExperience || '');
+  const [hospitalAffiliation, setHospitalAffiliation] = useState(currentHospitalAffiliation || '');
+  const [bio, setBio] = useState(currentBio || '');
   const [qualifications, setQualifications] = useState<string[]>(currentQualifications || []);
   const [languages, setLanguages] = useState<string[]>(currentLanguages || []);
-  const [consultationFee, setConsultationFee] = useState<number>(currentConsultationFee ?? 0);
+  const [consultationFee, setConsultationFee] = useState(currentConsultationFee ?? 0);
 
-  const [error, setError] = useState<string>('');
-  const [saving, setSaving] = useState<boolean>(false);
-  const [geocoding, setGeocoding] = useState<boolean>(false);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
 
-  // Reverse-geocode using Nominatim
-  const fetchAddress = async (lat: number, lng: number): Promise<string> => {
+  // Fetch formatted address from coordinates
+  const fetchAddress = async (lat: number, lng: number) => {
+    setGeocoding(true);
     try {
-      setGeocoding(true);
       const res = await axios.get('https://nominatim.openstreetmap.org/reverse', {
-        params: { format: 'jsonv2', lat, lon: lng, addressdetails: 0 },
+        params: { format: 'jsonv2', lat, lon: lng }
       });
-      const data = res.data;
-      return data?.display_name || `Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`;
-    } catch (err) {
-      console.error('Reverse geocoding failed', err);
-      return `Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`;
+      return res.data.display_name || `Lat ${lat}, Lng ${lng}`;
+    } catch {
+      return `Lat ${lat}, Lng ${lng}`;
     } finally {
       setGeocoding(false);
     }
   };
 
+  const handleMapSelect = async (pos: { lat: number; lng: number }) => {
+    const addr = await fetchAddress(pos.lat, pos.lng);
+    setLocation({ lat: pos.lat, lng: pos.lng, address: addr });
+  };
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    if (file) {
-      setProfileImageFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
+    setProfileImageFile(file);
+    if (file) setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleMapSelect = async (pos: { lat: number; lng: number }) => {
-    const address = await fetchAddress(pos.lat, pos.lng);
-    setLocation({ lat: pos.lat, lng: pos.lng, address });
-  };
-
-  // Slot handling
-  const handleSlotChange = (index: number, value: string) => {
-    setAvailabilitySlots(prev => {
-      const arr = [...prev];
-      arr[index] = value;
+  // Slot handlers
+  const handleSlotChange = (i: number, v: string) => {
+    setAvailabilitySlots(slots => {
+      const arr = [...slots];
+      arr[i] = v;
       return arr;
     });
   };
-  const handleAddSlot = () => {
-    if (availabilitySlots.length < 5) {
-      setAvailabilitySlots(prev => [...prev, '']);
-    }
-  };
-  const handleRemoveSlot = (index: number) => {
-    setAvailabilitySlots(prev =>
-      prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev
+  const handleAddSlot = () =>
+    setAvailabilitySlots(slots => slots.length < 5 ? [...slots, ''] : slots);
+  const handleRemoveSlot = (i: number) =>
+    setAvailabilitySlots(slots =>
+      slots.length > 1 ? slots.filter((_, idx) => idx !== i) : slots
     );
-  };
 
-  // Qualifications and languages: comma-separated to array
-  const handleQualificationsChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const arr = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-    setQualifications(arr);
-  };
-  const handleLanguagesChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const arr = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-    setLanguages(arr);
-  };
+  const handleQualificationsChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setQualifications(e.target.value.split(',').map(s => s.trim()));
+  const handleLanguagesChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setLanguages(e.target.value.split(',').map(s => s.trim()));
 
+  // Save filled data
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-
-    // Required checks
-    if (!name.trim() || !email.trim() || !specialty || !dob || !location) {
-      setError('Fill required fields: name, email, specialty, DOB, location, and at least one slot.');
-      return;
+    if (!specialty || !dob || !location) {
+      return setError('Please fill all required fields.');
     }
-    // Email validation
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email.trim())) {
-      setError('Invalid email address.');
-      return;
+    if (new Date(dob) >= new Date()) {
+      return setError('Date of birth must be in the past.');
     }
-    // DOB past
-    const dobDate = new Date(dob);
-    if (isNaN(dobDate.getTime()) || dobDate >= new Date()) {
-      setError('Date of birth must be in the past.');
-      return;
+    if (availabilitySlots.some((slot, i) => new Date(slot) <= new Date())) {
+      return setError('All slots must be in the future.');
     }
-    // Max patients
-    if (maxPatients < 1) {
-      setError('Max patients must be at least 1.');
-      return;
-    }
-    // Slots: non-empty and future
-    for (let i = 0; i < availabilitySlots.length; i++) {
-      const slotStr = availabilitySlots[i];
-      if (!slotStr) {
-        setError(`Slot #${i + 1} is empty.`);
-        return;
-      }
-      const slotDate = new Date(slotStr);
-      if (isNaN(slotDate.getTime()) || slotDate <= new Date()) {
-        setError(`Slot #${i + 1} must be a future date-time.`);
-        return;
-      }
-    }
-    // Consultation fee: should be >= 0
     if (consultationFee < 0) {
-      setError('Consultation fee cannot be negative.');
-      return;
+      return setError('Consultation fee must be zero or more.');
     }
 
     setSaving(true);
     try {
       await onSave(
-        name.trim(),
-        email.trim(),
-        specialty,
-        profileImageFile,
-        availabilitySlots.map(s => s.slice(0, 16)),
-        location as LocationType,
-        maxPatients,
-        dob,
-        experience,
-        hospitalAffiliation,
-        bio,
-        qualifications,
-        languages,
-        consultationFee
+        name, email, specialty, profileImageFile,
+        availabilitySlots, location, maxPatients, dob,
+        experience, hospitalAffiliation, bio,
+        qualifications, languages, consultationFee
       );
-      // Parent should close form on success
     } catch (err: any) {
-      setError(err?.message || 'Failed to save changes.');
+      setError(err.message || 'Failed to save.');
     } finally {
       setSaving(false);
     }
   };
 
-  const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629]; // India center
+  // Clear all editable fields and database
+  const handleClear = async () => {
+    setError('');
+    setClearing(true);
+    try {
+      const token = localStorage.getItem('authToken') || '';
+      await axios.delete('/api/medical/doctor/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Reset local states (keep name & email)
+      setPreviewUrl(undefined);
+      setProfileImageFile(null);
+      setAvailabilitySlots(['']);
+      setLocation(null);
+      setMaxPatients(1);
+      setDob('');
+      setExperience('');
+      setHospitalAffiliation('');
+      setBio('');
+      setQualifications([]);
+      setLanguages([]);
+      setConsultationFee(0);
+    } catch (err: any) {
+      setError(err.message || 'Failed to clear data.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  // Animated input props
+  const animatedInput = {
+    whileFocus: { scale: 1.02, boxShadow: '0 0 8px rgba(0,255,255,0.7)' },
+    transition: { type: 'spring', stiffness: 300, damping: 20 }
+  };
+
+  const inputClass =
+    'w-full p-4 bg-gray-900/70 backdrop-blur-md text-white rounded-2xl border-2 border-transparent focus:outline-none';
 
   return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
+    <AnimatePresence>
       <motion.div
-        className="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-2xl overflow-y-auto max-h-[90vh]"
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
       >
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-gray-100 flex items-center space-x-2">
-            <Pencil /> <span>Edit Profile & Availability</span>
-          </h2>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-200 transition-colors"
-            aria-label="Close edit profile"
-            disabled={saving}
-          >
-            <CloseIcon size={24} />
-          </button>
-        </div>
+        <motion.div
+          className="bg-gradient-to-br from-indigo-900 via-purple-800 to-cyan-900 rounded-3xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="flex items-center gap-3 text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+              <Pencil className="w-7 h-7" /> Edit Profile
+            </h2>
+            <button onClick={onCancel} disabled={saving || clearing}>
+              <CloseIcon className="text-gray-400 transition-colors w-7 h-7 hover:text-white" />
+            </button>
+          </div>
 
-        {error && (
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-600 text-red-100 p-3 rounded-md mb-4 text-center"
-          >
-            {error}
-          </motion.p>
-        )}
+          {error && (
+            <motion.div
+              className="p-4 mb-6 text-white bg-red-600 rounded-2xl"
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {error}
+            </motion.div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Profile Image */}
-          <motion.div
-            className="flex flex-col items-center space-y-2"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="w-24 h-24 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Profile Preview" className="w-full h-full object-cover" />
-              ) : (
-                <Pencil className="w-8 h-8 text-gray-400" />
-              )}
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Profile Image */}
+            <div className="flex flex-col items-center">
+              <div className="w-32 h-32 p-1 mb-4 overflow-hidden rounded-full bg-gradient-to-br from-purple-700 to-indigo-700">
+                <img
+                  src={previewUrl || '/default-profile.jpg'}
+                  onError={e => (e.currentTarget.src = '/default-profile.jpg')}
+                  alt="Profile"
+                  className="object-cover w-full h-full rounded-full"
+                />
+              </div>
+              <Button variant="primary" disabled={saving || clearing}>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Pencil /> Upload Photo
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                </label>
+              </Button>
             </div>
-            <label className="inline-flex px-4 py-2 bg-primary-500 text-white rounded-lg cursor-pointer hover:bg-primary-600 transition-colors">
-              Upload Photo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={saving}
-              />
-            </label>
-          </motion.div>
 
-          {/* Name, Email, Specialty */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="edit-name" className="block text-sm text-gray-400 mb-1">
-                Full Name
-              </label>
-              <input
-                id="edit-name"
+            {/* Basic Info (read-only) */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <motion.input
                 type="text"
                 value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                required
-                disabled={saving}
+                readOnly
+                className={inputClass + ' cursor-not-allowed opacity-80'}
+                {...animatedInput}
               />
-            </div>
-            <div>
-              <label htmlFor="edit-email" className="block text-sm text-gray-400 mb-1">
-                Email Address
-              </label>
-              <input
-                id="edit-email"
+              <motion.input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
+                readOnly
+                className={inputClass + ' cursor-not-allowed opacity-80'}
+                {...animatedInput}
+              />
+              <motion.select
+                value={specialty}
+                onChange={e => setSpecialty(e.target.value)}
+                className={inputClass}
                 required
-                disabled={saving}
+                {...animatedInput}
+              >
+                <option value="">Select Specialty</option>
+                {SPECIALTIES.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </motion.select>
+              <motion.input
+                type="date"
+                value={dob}
+                onChange={e => setDob(e.target.value)}
+                className={inputClass}
+                required
+                {...animatedInput}
               />
             </div>
-            <div>
-              <label htmlFor="edit-specialty" className="block text-sm text-gray-400 mb-1">
-                Specialty
-              </label>
-              <select
-                id="edit-specialty"
-                value={specialty}
-              
-                onChange={e => setSpecialty(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                required
-                disabled={saving}
-              >
-                <option value="" disabled>
-                  Select specialty...
-                </option>
-                {SPECIALTIES.map(spec => (
-                  <option key={spec} value={spec}>
-                    {spec}
-                  </option>
-                ))}
-              </select>
+
+            {/* Location Picker */}
+            <div className="space-y-2">
+              <motion.input
+                type="text"
+                readOnly
+                value={location?.address || ''}
+                placeholder="Click on map to select location"
+                className={inputClass + ' cursor-pointer'}
+                {...animatedInput}
+              />
+              <div className="h-56 overflow-hidden border-2 border-gray-700 rounded-2xl">
+                <MapContainer
+                  center={location ? [location.lat, location.lng] : DEFAULT_CENTER}
+                  zoom={location ? 13 : 5}
+                  key={location ? `${location.lat}-${location.lng}` : 'default'}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <LocationPicker
+                    position={location ? { lat: location.lat, lng: location.lng } : null}
+                    onSelect={handleMapSelect}
+                  />
+                </MapContainer>
+              </div>
+              {geocoding && <p className="text-sm text-gray-300">Fetching address…</p>}
             </div>
-          </div>
 
-          {/* Date of Birth */}
-          <div>
-            <label htmlFor="dob-input" className="block text-sm text-gray-400 mb-1">
-              Date of Birth
-            </label>
-            <input
-              id="dob-input"
-              type="date"
-              value={dob}
-              onChange={e => setDob(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-              required
-              disabled={saving}
-            />
-          </div>
-
-          {/* Availability Slots */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Available Slots</label>
-            <div className="space-y-3">
-              {availabilitySlots.map((slot, idx) => (
-                <div key={idx} className="flex items-center space-x-2">
-                  <input
+            {/* Availability Slots */}
+            <div className="space-y-4">
+              <p className="font-medium text-white">Availability Slots</p>
+              {availabilitySlots.map((slot, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <motion.input
                     type="datetime-local"
                     value={slot}
-                    onChange={e => handleSlotChange(idx, e.target.value)}
-                    className="flex-1 px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                    required
-                    disabled={saving}
+                    onChange={e => handleSlotChange(i, e.target.value)}
+                    className={inputClass}
+                    {...animatedInput}
                   />
                   {availabilitySlots.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSlot(idx)}
-                      className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition-colors"
-                      disabled={saving}
+                    <Button
+                      variant="danger"
+                      onClick={() => handleRemoveSlot(i)}
+                      disabled={saving || clearing}
                     >
-                      Remove
-                    </button>
+                      <Trash2 size={16} /> Remove
+                    </Button>
                   )}
                 </div>
               ))}
-            </div>
-            <div className="mt-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={handleAddSlot}
-                className={`px-3 py-1 bg-green-600 text-white rounded hover:bg-green-500 transition-colors ${
-                  availabilitySlots.length >= 5 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                disabled={saving || availabilitySlots.length >= 5}
+                disabled={availabilitySlots.length >= 5 || saving || clearing}
               >
-                Add Slot ({availabilitySlots.length}/5)
-              </button>
+                + Add Slot ({availabilitySlots.length}/5)
+              </Button>
             </div>
-          </div>
 
-          {/* Max Patients */}
-          <div>
-            <label htmlFor="max-patients" className="block text-sm text-gray-400 mb-1">
-              Max Patients
-            </label>
-            <input
-              id="max-patients"
-              type="number"
-              min={1}
-              value={maxPatients}
-              onChange={e => setMaxPatients(parseInt(e.target.value, 10) || 1)}
-              className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-              required
-              disabled={saving}
-            />
-          </div>
-
-          {/* Location (read-only) */}
-          <div>
-            <label htmlFor="location-input" className="block text-sm text-gray-400 mb-1">
-              Location
-            </label>
-            <input
-              id="location-input"
-              type="text"
-              value={location?.address || ''}
-              readOnly
-              placeholder={geocoding ? 'Resolving address...' : 'Click map below to select'}
-              className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-              required
-              disabled
-            />
-          </div>
-
-          {/* Map Picker */}
-          <motion.div
-            className="h-64 rounded-lg overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <MapContainer
-              center={location ? [location.lat, location.lng] : DEFAULT_CENTER}
-              zoom={location ? 13 : 5}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://osm.org/">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            {/* Additional Details */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <motion.input
+                type="number"
+                min={1}
+                value={maxPatients}
+                onChange={e => setMaxPatients(+e.target.value)}
+                placeholder="Max Patients"
+                className={inputClass}
+                {...animatedInput}
               />
-              <LocationPicker
-                position={location ? { lat: location.lat, lng: location.lng } : null}
-                onSelect={handleMapSelect}
-              />
-            </MapContainer>
-          </motion.div>
-
-          {/* Experience & Consultation Fee */}
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="experience-input" className="block text-sm text-gray-400 mb-1">
-                Experience
-              </label>
-              <input
-                id="experience-input"
-                type="text"
-                value={experience}
-                onChange={e => setExperience(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label htmlFor="consultationFee-input" className="block text-sm text-gray-400 mb-1">
-                Consultation Fee (INR)
-              </label>
-              <input
-                id="consultationFee-input"
+              <motion.input
                 type="number"
                 min={0}
                 value={consultationFee}
-                onChange={e => setConsultationFee(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                disabled={saving}
+                onChange={e => setConsultationFee(+e.target.value)}
+                placeholder="Consultation Fee (₹)"
+                className={inputClass}
+                {...animatedInput}
               />
-            </div>
-            {/* Optional: hospital, bio, qualifications, languages */}
-            <div>
-              <label htmlFor="hospital-input" className="block text-sm text-gray-400 mb-1">
-                Hospital Affiliation
-              </label>
-              <input
-                id="hospital-input"
+              <motion.input
+                type="text"
+                value={experience}
+                onChange={e => setExperience(e.target.value)}
+                placeholder="Experience"
+                className={inputClass}
+                {...animatedInput}
+              />
+              <motion.input
                 type="text"
                 value={hospitalAffiliation}
                 onChange={e => setHospitalAffiliation(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                disabled={saving}
+                placeholder="Hospital Affiliation"
+                className={inputClass}
+                {...animatedInput}
               />
-            </div>
-            <div>
-              <label htmlFor="bio-input" className="block text-sm text-gray-400 mb-1">
-                Bio
-              </label>
-              <textarea
-                id="bio-input"
-                value={bio}
-                onChange={e => setBio(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                rows={3}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label htmlFor="qualifications-input" className="block text-sm text-gray-400 mb-1">
-                Qualifications (comma-separated)
-              </label>
-              <input
-                id="qualifications-input"
+              <motion.input
                 type="text"
                 value={qualifications.join(', ')}
                 onChange={handleQualificationsChange}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                disabled={saving}
+                placeholder="Qualifications (comma-separated)"
+                className={inputClass}
+                {...animatedInput}
               />
-            </div>
-            <div>
-              <label htmlFor="languages-input" className="block text-sm text-gray-400 mb-1">
-                Languages (comma-separated)
-              </label>
-              <input
-                id="languages-input"
+              <motion.input
                 type="text"
                 value={languages.join(', ')}
                 onChange={handleLanguagesChange}
-                className="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
-                disabled={saving}
+                placeholder="Languages (comma-separated)"
+                className={inputClass}
+                {...animatedInput}
               />
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <motion.div
-            className="flex justify-end space-x-3 mt-6"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              className="border-gray-500 text-gray-300 hover:border-gray-400 hover:text-gray-100"
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </motion.div>
-        </form>
+            <motion.textarea
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder="Short Bio (optional)"
+              rows={4}
+              className={inputClass + ' resize-none'}
+              {...animatedInput}
+            />
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-6 border-t border-gray-700">
+              <Button
+                variant="outline"
+                onClick={handleClear}
+                disabled={saving || clearing}
+              >
+                {clearing ? 'Clearing…' : <><Trash2 size={16} /> Clear Form</>}
+              </Button>
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={onCancel} disabled={saving || clearing}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" disabled={saving || clearing}>
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </AnimatePresence>
   );
-};
-
-export default EditProfileForm;
+}

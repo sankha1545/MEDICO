@@ -122,7 +122,7 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick, icon, count }) => (
       <motion.span
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+        className="absolute flex items-center justify-center w-5 h-5 text-xs text-white bg-red-500 rounded-full -top-2 -right-2"
       >
         {count}
       </motion.span>
@@ -355,15 +355,15 @@ const DashboardPage1: React.FC = () => {
       {/* Background animations */}
       <BackgroundAnimation />
 
-      <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+      <main className="relative z-10 min-h-screen overflow-y-auto text-gray-100">
+        <div className="px-6 py-10 mx-auto max-w-7xl sm:px-8 lg:px-10">
           <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
             {/* Header */}
             <motion.header variants={fadeInUp} className="relative">
               <div className="flex items-center justify-between">
                 <div>
                   <motion.h1
-                    className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2"
+                    className="mb-2 text-5xl font-bold text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text"
                     animate={{
                       backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
                     }}
@@ -372,7 +372,7 @@ const DashboardPage1: React.FC = () => {
                     Welcome back, {user?.name}
                   </motion.h1>
                   <motion.p
-                    className="text-gray-300 text-lg"
+                    className="text-lg text-gray-300"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
@@ -386,7 +386,7 @@ const DashboardPage1: React.FC = () => {
                     <Button
                       variant="outline"
                       size="md"
-                      className="flex items-center space-x-2 border-blue-400/30 text-blue-400 hover:bg-blue-400/10 backdrop-blur-sm"
+                      className="flex items-center space-x-2 text-blue-400 border-blue-400/30 hover:bg-blue-400/10 backdrop-blur-sm"
                     >
                       <SettingsIcon className="w-5 h-5" />
                       <span>Settings</span>
@@ -397,7 +397,7 @@ const DashboardPage1: React.FC = () => {
             </motion.header>
 
             {/* Stats Cards */}
-            <motion.div variants={staggerContainer} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <motion.div variants={staggerContainer} className="grid grid-cols-1 gap-6 mb-10 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   title: 'Upcoming Appointments',
@@ -457,7 +457,7 @@ const DashboardPage1: React.FC = () => {
                       </motion.div>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300 mb-1">{stat.title}</p>
+                      <p className="mb-1 text-sm text-gray-300">{stat.title}</p>
                       <motion.p
                         className="text-3xl font-bold text-white"
                         initial={{ scale: 0 }}
@@ -473,9 +473,9 @@ const DashboardPage1: React.FC = () => {
             </motion.div>
 
             {/* Tabs */}
-            <motion.div variants={fadeInUp} className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <motion.div variants={fadeInUp} className="overflow-hidden border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10">
               <div className="border-b border-white/10">
-                <div className="flex overflow-x-auto p-6 space-x-4">
+                <div className="flex p-6 space-x-4 overflow-x-auto">
                   <Tab
                     label="Overview"
                     isActive={activeTab === 'overview'}
@@ -518,7 +518,7 @@ const DashboardPage1: React.FC = () => {
                       className="space-y-10"
                     >
                       {/* Quick Actions */}
-                      <motion.div variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <motion.div variants={staggerContainer} className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         {[
                           {
                             title: 'Book Appointment',
@@ -555,9 +555,9 @@ const DashboardPage1: React.FC = () => {
                               className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
                             />
                             <div className="relative z-10">
-                              <div className="text-white mb-3">{action.icon}</div>
-                              <h3 className="text-lg font-semibold text-white mb-2">{action.title}</h3>
-                              <p className="text-gray-300 text-sm">{action.description}</p>
+                              <div className="mb-3 text-white">{action.icon}</div>
+                              <h3 className="mb-2 text-lg font-semibold text-white">{action.title}</h3>
+                              <p className="text-sm text-gray-300">{action.description}</p>
                             </div>
                           </motion.div>
                         ))}
@@ -565,10 +565,10 @@ const DashboardPage1: React.FC = () => {
 
                       {/* Upcoming Appointments */}
                       <motion.div variants={fadeInUp}>
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center justify-between mb-6">
                           <h2 className="text-2xl font-semibold text-white">Upcoming Appointments</h2>
                           <Link to="/appointments">
-                            <Button variant="outline" size="sm" className="border-blue-400/30 text-blue-400 hover:bg-blue-400/10">
+                            <Button variant="outline" size="sm" className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10">
                               View All
                             </Button>
                           </Link>
@@ -587,24 +587,24 @@ const DashboardPage1: React.FC = () => {
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: idx * 0.1 }}
                                   whileHover={cardHover}
-                                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex items-center group"
+                                  className="flex items-center p-6 border bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl group"
                                 >
                                   {imgUrl ? (
                                     <motion.img
                                       src={imgUrl}
                                       alt={appt.doctor.name}
-                                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-400/30 mr-6"
+                                      className="object-cover w-16 h-16 mr-6 border-2 rounded-full border-blue-400/30"
                                       whileHover={{ scale: 1.1 }}
                                     />
                                   ) : (
-                                    <motion.div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mr-6">
+                                    <motion.div className="flex items-center justify-center w-16 h-16 mr-6 bg-gray-700 rounded-full">
                                       <UserIcon className="text-gray-400" />
                                     </motion.div>
                                   )}
                                   <div className="flex-1">
-                                    <h3 className="text-lg font-medium text-white mb-1">{appt.doctor.name}</h3>
+                                    <h3 className="mb-1 text-lg font-medium text-white">{appt.doctor.name}</h3>
                                     {appt.doctor.specialty && (
-                                      <p className="text-blue-400 mb-2">{appt.doctor.specialty}</p>
+                                      <p className="mb-2 text-blue-400">{appt.doctor.specialty}</p>
                                     )}
                                     <div className="flex items-center space-x-4 text-sm text-gray-300">
                                       <span className="flex items-center">
@@ -654,10 +654,10 @@ const DashboardPage1: React.FC = () => {
 
                       {/* Recent Notifications */}
                       <motion.div variants={fadeInUp}>
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center justify-between mb-6">
                           <h2 className="text-2xl font-semibold text-white">Recent Activity</h2>
                           <Link to="/notifications">
-                            <Button variant="outline" size="sm" className="border-purple-400/30 text-purple-400 hover:bg-purple-400/10">
+                            <Button variant="outline" size="sm" className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10">
                               View All
                             </Button>
                           </Link>
@@ -704,7 +704,7 @@ const DashboardPage1: React.FC = () => {
                                     {iconNode}
                                   </motion.div>
                                   <div className="flex-1">
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex items-start justify-between">
                                       <h4 className="text-sm font-medium text-white">
                                         {notification.type === 'appointment_requested'
                                           ? 'Appointment Requested'
@@ -722,10 +722,10 @@ const DashboardPage1: React.FC = () => {
                                         {format(dateObj, 'MMM d')}
                                       </span>
                                     </div>
-                                    <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
+                                    <p className="mt-1 text-sm text-gray-300">{notification.message}</p>
                                   </div>
                                   {!notification.read && (
-                                    <motion.div animate={glowEffect} className="bg-blue-500 rounded-full w-3 h-3 ml-3" />
+                                    <motion.div animate={glowEffect} className="w-3 h-3 ml-3 bg-blue-500 rounded-full" />
                                   )}
                                 </motion.div>
                               );
@@ -748,9 +748,9 @@ const DashboardPage1: React.FC = () => {
                       exit="exit"
                       className="text-white"
                     >
-                      <motion.div variants={fadeInUp} className="text-center py-20">
-                        <Calendar size={64} className="mx-auto text-blue-400 mb-4" />
-                        <h3 className="text-2xl font-semibold mb-2">Appointments</h3>
+                      <motion.div variants={fadeInUp} className="py-20 text-center">
+                        <Calendar size={64} className="mx-auto mb-4 text-blue-400" />
+                        <h3 className="mb-2 text-2xl font-semibold">Appointments</h3>
                         <p className="text-gray-300">Manage your upcoming and past appointments</p>
                       </motion.div>
                       {/* List all appointments with filtering */}
@@ -773,25 +773,25 @@ const DashboardPage1: React.FC = () => {
                                 key={appt._id}
                                 variants={fadeInUp}
                                 whileHover={cardHover}
-                                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex items-center"
+                                className="flex items-center p-6 border bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl"
                               >
                                 {imgUrl ? (
                                   <motion.img
                                     src={imgUrl}
                                     alt={appt.doctor.name}
-                                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-400/30 mr-6"
+                                    className="object-cover w-16 h-16 mr-6 border-2 rounded-full border-blue-400/30"
                                   />
                                 ) : (
-                                  <motion.div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mr-6">
+                                  <motion.div className="flex items-center justify-center w-16 h-16 mr-6 bg-gray-700 rounded-full">
                                     <UserIcon className="text-gray-400" />
                                   </motion.div>
                                 )}
                                 <div className="flex-1">
-                                  <h3 className="text-lg font-medium text-white mb-1">{appt.doctor.name}</h3>
+                                  <h3 className="mb-1 text-lg font-medium text-white">{appt.doctor.name}</h3>
                                   {appt.doctor.specialty && (
-                                    <p className="text-blue-400 mb-2">{appt.doctor.specialty}</p>
+                                    <p className="mb-2 text-blue-400">{appt.doctor.specialty}</p>
                                   )}
-                                  <div className="flex items-center space-x-4 text-sm text-gray-300 mb-1">
+                                  <div className="flex items-center mb-1 space-x-4 text-sm text-gray-300">
                                     <span className="flex items-center">
                                       <Calendar size={14} className="mr-1" />
                                       {format(dt, 'MMM d, yyyy')}
@@ -812,7 +812,7 @@ const DashboardPage1: React.FC = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-gray-400 mb-1">
+                                  <div className="mb-1 text-xs text-gray-400">
                                     Status: {statusLabel}
                                   </div>
                                 </div>
@@ -849,12 +849,12 @@ const DashboardPage1: React.FC = () => {
                       exit="exit"
                       className="text-white"
                     >
-                      <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-semibold text-white">Notifications</h2>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-purple-400/30 text-purple-400 hover:bg-purple-400/10"
+                          className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10"
                           onClick={() => {
                             // Refresh notifications
                             setActiveTab('overview'); // trigger effect
@@ -903,7 +903,7 @@ const DashboardPage1: React.FC = () => {
                                   {iconNode}
                                 </motion.div>
                                 <div className="flex-1">
-                                  <div className="flex justify-between items-start">
+                                  <div className="flex items-start justify-between">
                                     <h4 className="text-sm font-medium text-white">
                                       {notification.type === 'appointment_requested'
                                         ? 'Appointment Requested'
@@ -921,7 +921,7 @@ const DashboardPage1: React.FC = () => {
                                       {format(dateObj, 'MMM d, yyyy')}
                                     </span>
                                   </div>
-                                  <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
+                                  <p className="mt-1 text-sm text-gray-300">{notification.message}</p>
                                 </div>
                                 {!notification.read && (
                                   <Button
@@ -985,9 +985,9 @@ const DashboardPage1: React.FC = () => {
                             onChange={handleFileChange}
                           />
                           {uploading && (
-                            <div className="absolute top-0 left-0 w-24 h-24 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                            <div className="absolute top-0 left-0 flex items-center justify-center w-24 h-24 bg-black bg-opacity-50 rounded-full">
                               <svg
-                                className="animate-spin h-6 w-6 text-white"
+                                className="w-6 h-6 text-white animate-spin"
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="none"
                                 viewBox="0 0 24 24"
@@ -1018,14 +1018,14 @@ const DashboardPage1: React.FC = () => {
                           </motion.p>
                         </div>
                       </motion.div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                         {/* Personal Info */}
                         <motion.div
                           variants={fadeInUp}
                           whileHover={cardHover}
-                          className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                          className="p-6 border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10"
                         >
-                          <h3 className="text-xl font-medium text-white mb-4">Personal Information</h3>
+                          <h3 className="mb-4 text-xl font-medium text-white">Personal Information</h3>
                           <div className="space-y-4">
                             <div>
                               <p className="text-sm text-gray-300">Full Name</p>
@@ -1048,13 +1048,13 @@ const DashboardPage1: React.FC = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-blue-400 text-blue-400 hover:bg-blue-400/10"
+                              className="text-blue-400 border-blue-400 hover:bg-blue-400/10"
                               onClick={() => setShowEditProfile(true)}
                             >
                               Edit Profile
                             </Button>
                             {showEditProfile && (
-                              <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
                                 <EditProfileForm
                                   user={{
                                     name: user?.name || '',
@@ -1073,9 +1073,9 @@ const DashboardPage1: React.FC = () => {
                         <motion.div
                           variants={fadeInUp}
                           whileHover={cardHover}
-                          className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                          className="p-6 border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10"
                         >
-                          <h3 className="text-xl font-medium text-white mb-4">Medical Information</h3>
+                          <h3 className="mb-4 text-xl font-medium text-white">Medical Information</h3>
                           <div className="space-y-4">
                             <div>
                               <p className="text-sm text-gray-300">Blood Type</p>
@@ -1121,42 +1121,45 @@ const DashboardPage1: React.FC = () => {
                         </motion.div>
                       </div>
                       {/* Account Settings */}
+                      <br/>
+                      <br/>
+                      <br/>
                       <motion.div
                         variants={fadeInUp}
                         whileHover={cardHover}
-                        className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6"
+                        className="p-6 border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10"
                       >
-                        <h3 className="text-xl font-medium text-white mb-4">Account Settings</h3>
+                        <h3 className="mb-4 text-xl font-medium text-white">Account Settings</h3>
                         <div className="space-y-6">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="text-gray-300 font-medium">Email Notifications</h4>
+                              <h4 className="font-medium text-gray-300">Email Notifications</h4>
                               <p className="text-sm text-gray-400">
                                 Receive emails about your appointments, reminders, and updates
                               </p>
                             </div>
                             <div className="relative inline-block w-12 h-6 rounded-full bg-white/10">
                               <input type="checkbox" className="sr-only peer" id="email-notifications" defaultChecked />
-                              <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-blue-500/60"></span>
-                              <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
+                              <span className="absolute inset-0 transition-colors rounded-full peer-checked:bg-blue-500/60"></span>
+                              <span className="absolute w-4 h-4 transition-transform bg-white rounded-full left-1 top-1 peer-checked:translate-x-6"></span>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="text-gray-300 font-medium">SMS Notifications</h4>
+                              <h4 className="font-medium text-gray-300">SMS Notifications</h4>
                               <p className="text-sm text-gray-400">Receive text messages for appointment reminders</p>
                             </div>
                             <div className="relative inline-block w-12 h-6 rounded-full bg-white/10">
                               <input type="checkbox" className="sr-only peer" id="sms-notifications" />
-                              <span className="absolute inset-0 rounded-full transition-colors peer-checked:bg-blue-500/60"></span>
-                              <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-6"></span>
+                              <span className="absolute inset-0 transition-colors rounded-full peer-checked:bg-blue-500/60"></span>
+                              <span className="absolute w-4 h-4 transition-transform bg-white rounded-full left-1 top-1 peer-checked:translate-x-6"></span>
                             </div>
                           </div>
                           <div className="pt-4 border-t border-white/10">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-500 hover:bg-red-700 border-red-500"
+                              className="text-red-500 border-red-500 hover:bg-red-700"
                             >
                               Settings
                             </Button>
@@ -1176,7 +1179,7 @@ const DashboardPage1: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
-        className="fixed bottom-6 right-6 z-50"
+        className="fixed z-50 bottom-6 right-6"
       >
         <Chatbot />
       </motion.div>

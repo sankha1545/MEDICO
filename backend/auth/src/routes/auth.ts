@@ -12,8 +12,6 @@ import Patient, { IPatient } from '../models/Patient';
 import Doctor, { IDoctor } from '../models/Doctor';
 import Otp from '../models/Otp';
 import { sendOtpEmail } from '../utils/email';
-import MedicalInfo from '../models/MedicalInfo';
-import Appointment from '../models/Appointment';
 
 dotenv.config();
 const router: Router = express.Router();
@@ -46,6 +44,7 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
+// JWT authentication middleware
 export const authenticateJWT = (
   req: Request,
   res: Response,
@@ -82,6 +81,7 @@ export const authenticateJWT = (
     });
 };
 
+// Generate and send OTP
 async function generateAndSendOtp(
   email: string,
   purpose: 'signup' | 'reset' | 'emailChange'
@@ -93,7 +93,7 @@ async function generateAndSendOtp(
   await sendOtpEmail(email, code, purpose);
 }
 
-// ─── ROUTES ─────────────────────────────────────────────────────────────────────
+// ─── AUTH ROUTES ────────────────────────────────────────────────────────────────
 
 // 1. Send signup OTP
 router.post('/send-email-otp', async (req, res) => {
@@ -105,12 +105,12 @@ router.post('/send-email-otp', async (req, res) => {
     if (exists) {
       return res
         .status(409)
-        .json({ message: 'An account already exists with this email. Try another.' });
+        .json({ message: 'An account already exists with this email.' });
     }
     await generateAndSendOtp(email, 'signup');
     res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Send signup OTP error:', err);
+    console.error('Send signup OTP error:', err);
     res.status(500).json({ message: 'Failed to send OTP' });
   }
 });
@@ -129,7 +129,7 @@ router.post('/verify-email-otp', async (req, res) => {
     await record.deleteOne();
     res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Verify signup OTP error:', err);
+    console.error('Verify signup OTP error:', err);
     res.status(500).json({ message: 'OTP verification failed' });
   }
 });
@@ -152,9 +152,8 @@ router.post('/signup', async (req, res) => {
     ) {
       return res
         .status(409)
-        .json({ message: 'An account already exists with this email. Try another.' });
+        .json({ message: 'An account already exists with this email.' });
     }
-    // Assign raw password; pre-save hook in model will hash it
     if (role === 'doctor') {
       await new Doctor({
         name,
@@ -178,11 +177,11 @@ router.post('/signup', async (req, res) => {
     }
     res.sendStatus(201);
   } catch (err: any) {
-    console.error('❌ Signup error:', err);
+    console.error('Signup error:', err);
     if (err.code === 11000) {
       res
         .status(409)
-        .json({ message: 'An account already exists with this email. Try another.' });
+        .json({ message: 'An account already exists with this email.' });
     } else {
       res.status(500).json({ message: 'Signup failed' });
     }
@@ -216,8 +215,8 @@ router.post('/login', async (req, res) => {
     }
     const token = signJwt({ id: user._id.toString(), role });
     res.json({ token, user: user.toJSON() });
-  } catch (err: any) {
-    console.error('❌ Login error:', err);
+  } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ message: 'Login failed' });
   }
 });
@@ -234,8 +233,8 @@ router.put(
   upload.single('profileImage'),
   async (req, res) => {
     const user = (req as any).user as IPatient | IDoctor;
-    const { name, email, phone, dob, specialty } = req.body;
     try {
+      const { name, email, phone, dob, specialty } = req.body;
       if (name) user.name = name;
       if (email) user.email = email;
       if (phone) (user as any).phone = phone;
@@ -252,11 +251,11 @@ router.put(
       const updated = await user.save();
       res.json(updated);
     } catch (err: any) {
-      console.error('❌ Update profile error:', err);
+      console.error('Update profile error:', err);
       if (err.code === 11000) {
         res
           .status(409)
-          .json({ message: 'An account already exists with this email. Try another.' });
+          .json({ message: 'An account already exists with this email.' });
       } else {
         res.status(500).json({ message: 'Update failed' });
       }
@@ -277,7 +276,7 @@ router.post('/send-reset-otp', async (req, res) => {
     await generateAndSendOtp(email, 'reset');
     res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Reset OTP error:', err);
+    console.error('Reset OTP error:', err);
     res.status(500).json({ message: 'Failed to send reset OTP' });
   }
 });
@@ -294,9 +293,10 @@ router.post('/verify-reset-otp', async (req, res) => {
       if (record) await record.deleteOne();
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
+    await record.deleteOne();
     res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Verify reset OTP error:', err);
+    console.error('Verify reset OTP error:', err);
     res.status(500).json({ message: 'OTP verification failed' });
   }
 });
@@ -325,13 +325,12 @@ router.post('/reset-password', async (req, res) => {
       await record.deleteOne();
       return res.status(404).json({ message: 'User not found' });
     }
-    // Assign raw newPassword; pre-save hook will hash it once
     user.passwordHash = newPassword;
     await user.save();
     await record.deleteOne();
     res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Reset password error:', err);
+    console.error('Reset password error:', err);
     res.status(500).json({ message: 'Password reset failed' });
   }
 });
@@ -344,7 +343,7 @@ router.put('/user/deactivate', authenticateJWT, async (req, res) => {
     await user.save();
     res.json({ message: 'Account has been deactivated.' });
   } catch (err) {
-    console.error('❌ Deactivate account error:', err);
+    console.error('Deactivate account error:', err);
     res.status(500).json({ message: 'Failed to deactivate account' });
   }
 });
@@ -376,13 +375,14 @@ router.delete('/user', authenticateJWT, async (req, res) => {
 
     res.json({ message: 'Account has been deleted successfully.' });
   } catch (err) {
-    console.error('❌ Delete account error:', err);
+    console.error('Delete account error:', err);
     res.status(500).json({ message: 'Failed to delete account' });
   }
 });
 
-// ─── GOOGLE OAUTH / GSI ROUTES ────────────────────────────────────────────────
+// ─── GOOGLE OAUTH ROUTES ───────────────────────────────────────────────────────
 
+// Google signup (get temp token)
 router.post('/google/signup', async (req, res) => {
   const { token: idToken } = req.body as { token?: string };
   if (!idToken) {
@@ -397,27 +397,26 @@ router.post('/google/signup', async (req, res) => {
     if (!payload?.email || !payload.sub) {
       return res.status(400).json({ message: 'Invalid ID token payload' });
     }
-
     const { email, name: fullName, sub: googleId } = payload;
     const exists =
       (await Patient.findOne({ email })) || (await Doctor.findOne({ email }));
     if (exists) {
       return res
         .status(409)
-        .json({ message: 'An account already exists with this email. Try another.' });
+        .json({ message: 'An account already exists with this email.' });
     }
-
     const tempToken = signJwt(
       { email, fullName, googleId, source: 'google-signup' },
       '15m'
     );
     res.json({ tempToken, frontendUrl: FRONTEND_URL });
   } catch (err) {
-    console.error('❌ Google signup error:', err);
+    console.error('Google signup error:', err);
     res.status(400).json({ message: 'Invalid or expired ID token' });
   }
 });
 
+// Google complete signup
 router.post('/google/complete-signup', async (req, res) => {
   const { token: tempToken, role } = req.body as {
     token?: string;
@@ -441,9 +440,8 @@ router.post('/google/complete-signup', async (req, res) => {
     if (already) {
       return res
         .status(409)
-        .json({ message: 'An account already exists with this email. Try another.' });
+        .json({ message: 'An account already exists with this email.' });
     }
-
     if (role === 'patient') {
       await new Patient({
         name: fullName,
@@ -456,7 +454,7 @@ router.post('/google/complete-signup', async (req, res) => {
         isActive: true,
       }).save();
     } else {
-      await new Doctor({
+      await newDoctor({
         name: fullName,
         email,
         passwordHash: '',
@@ -467,14 +465,14 @@ router.post('/google/complete-signup', async (req, res) => {
         isActive: true,
       }).save();
     }
-
     res.json({ message: 'Account created' });
   } catch (err) {
-    console.error('❌ Complete Google signup error:', err);
+    console.error('Complete Google signup error:', err);
     res.status(400).json({ message: 'Invalid or expired token' });
   }
 });
 
+// Google login
 router.post('/google/login', async (req, res) => {
   const { token: idToken } = req.body as { token?: string };
   if (!idToken) {
@@ -489,11 +487,9 @@ router.post('/google/login', async (req, res) => {
     if (!payload?.email || !payload.sub) {
       return res.status(400).json({ message: 'Invalid ID token payload' });
     }
-
     const { email, sub: googleId } = payload;
     let user = await Patient.findOne({ googleId });
     let role: 'patient' | 'doctor' = 'patient';
-
     if (!user) {
       user = await Patient.findOne({ email });
     }
@@ -515,16 +511,14 @@ router.post('/google/login', async (req, res) => {
         .status(403)
         .json({ message: 'Account inactive or not verified' });
     }
-
     if (!user.googleId) {
       user.googleId = googleId;
       await user.save();
     }
-
     const appJwt = signJwt({ id: user._id.toString(), role }, '1d');
     res.json({ token: appJwt, role });
   } catch (err) {
-    console.error('❌ Google login error:', err);
+    console.error('Google login error:', err);
     res.status(400).json({ message: 'Invalid or expired ID token' });
   }
 });

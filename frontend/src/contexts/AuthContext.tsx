@@ -92,8 +92,9 @@ interface AuthContextValue {
   }) => Promise<User>;
   fetchDoctorProfile: () => Promise<User>;
 
-  // **New alias** so you can call updateProfile(...) directly in any component:
+  // convenience aliases
   updateProfile: (data: any) => Promise<void>;
+  updateMedicalInfo: (data: any) => Promise<User>;
 
   sendPasswordResetOtp: (email: string) => Promise<void>;
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
@@ -123,7 +124,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   api.interceptors.request.use((config) => {
     const t = localStorage.getItem('authToken');
-    if (t && config.headers) config.headers.Authorization = `Bearer ${t}`;
+    if (t && config.headers) {
+      config.headers.Authorization = `Bearer ${t}`;
+    }
     return config;
   });
 
@@ -133,7 +136,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [signupError, setSignupError] = useState<string | null>(null);
 
-  // Fetch common user info (patient or doctor base fields)
   const fetchUserCommon = async () => {
     try {
       const res = await api.get('/auth/me');
@@ -167,7 +169,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // ----- Auth methods -----
   const sendEmailOtp = async (email: string) => {
     await api.post('/auth/send-email-otp', { email });
   };
@@ -253,42 +254,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     profileImageFile?: File | null;
   }): Promise<void> => {
     if (user?.role === 'doctor') {
-      // delegate to doctor updater
-      const updated = await updateDoctorProfile({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        dob: data.dob,
-        profileImageFile: data.profileImageFile,
-      });
+      const updated = await updateDoctorProfile({ ...data });
       setUser(updated);
       return;
     }
-    // patient path
     const form = new FormData();
     if (data.name) form.append('name', data.name);
     if (data.email) form.append('email', data.email);
     if (data.phone) form.append('phone', data.phone);
     if (data.dob) form.append('dob', data.dob);
-    if (data.profileImageFile) {
-      form.append('profileImage', data.profileImageFile);
-    }
-    const res = await api.put('/auth/me', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    if (data.profileImageFile) form.append('profileImage', data.profileImageFile);
+
+    // <-- No manual Content-Type header here!
+    const res = await api.put('/auth/me', form);
     const resUser = res.data;
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            name: resUser.name,
-            email: resUser.email,
-            phone: resUser.phone || prev.phone,
-            dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
-            profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
-          }
-        : prev
-    );
+    setUser(prev => prev ? {
+      ...prev,
+      name: resUser.name,
+      email: resUser.email,
+      phone: resUser.phone || prev.phone,
+      dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
+      profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
+    } : prev);
   };
 
   const fetchDoctorProfileInternal = async (commonUser: User): Promise<User> => {
@@ -369,9 +356,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.consultationFee !== undefined) form.append('consultationFee', data.consultationFee.toString());
     if (data.profileImageFile) form.append('profileImage', data.profileImageFile);
 
-    const res = await api.put('/medical/doctor/me', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    // <-- And here, too, no manual header override
+    const res = await api.put('/medical/doctor/me', form);
     const d = res.data;
     let loc: LocationType | undefined;
     if (d.location) {
@@ -406,8 +392,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return updated;
   };
 
-  // convenience alias to avoid 'updateProfile is not a function' errors:
+  // aliases to avoid calling errors
   const updateProfile = updateUserProfile;
+  const updateMedicalInfo = updateDoctorProfile;
 
   const sendPasswordResetOtp = async (email: string) => {
     await api.post('/auth/send-reset-otp', { email });
@@ -424,40 +411,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteAccount = async (password: string) => {
     await api.delete('/auth/user', { data: { password } });
-    localStorage.removeItem('authToken');
-    setUser(null);
-    setIsAuthenticated(false);
-    navigate('/signup');
+    logout();
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        setUser,
-        token,
-        isAuthenticated,
-        loading,
-        signupError,
-        sendEmailOtp,
-        verifyEmailOtp,
-        signup,
-        login,
-        signUpWithGoogle,
-        completeGoogleSignup,
-        loginWithGoogle,
-        loginWithToken,
-        logout,
-        updateUserProfile,
-        updateDoctorProfile,
-        fetchDoctorProfile,
-        updateProfile,           // <— newly exposed alias
-        sendPasswordResetOtp,
-        verifyPasswordResetOtp,
-        resetPassword,
-        deleteAccount,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      setUser,
+      token,
+      isAuthenticated,
+      loading,
+      signupError,
+      sendEmailOtp,
+      verifyEmailOtp,
+      signup,
+      login,
+      signUpWithGoogle,
+      completeGoogleSignup,
+      loginWithGoogle,
+      loginWithToken,
+      logout,
+      updateUserProfile,
+      updateDoctorProfile,
+      fetchDoctorProfile,
+      updateProfile,
+      updateMedicalInfo,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      resetPassword,
+      deleteAccount,
+    }}>
       {children}
     </AuthContext.Provider>
   );
