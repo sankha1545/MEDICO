@@ -5,24 +5,23 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Proxy all /api calls (including /api/medical) to your Express backend on port 5000
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:4000',
         changeOrigin: true,
         secure: false,
       },
     },
-    // No need to set COOP here; we do it in configureServer below
+    // We inject Cross‑Origin‑Opener‑Policy via configureServer below
   },
   optimizeDeps: {
-    include: ['animejs'], // ✅ Important fix for animejs default import
+    // Ensure animejs default import works correctly
+    include: ['animejs'],
   },
-  // Add this hook to set the header on all responses
   configureServer(server) {
+    // Add a middleware to set COOP on every response
     server.middlewares.use((req, res, next) => {
-      // Set COOP to allow popups to close themselves
       res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-      // If you had set Cross-Origin-Embedder-Policy elsewhere, ensure it's not too strict:
-      // res.removeHeader('Cross-Origin-Embedder-Policy');
       next();
     });
   },

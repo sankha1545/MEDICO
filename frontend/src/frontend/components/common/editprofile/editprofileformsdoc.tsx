@@ -1,22 +1,33 @@
-// File: frontend/src/components/common/editprofile/EditProfileForm.tsx
+// File: frontend/src/components/common/editprofile/editprofileformsdoc.tsx
 
-import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  ChangeEvent,
+  FormEvent
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X as CloseIcon, Trash2, Pencil } from 'lucide-react';
 import { Button } from '../../../components/common/Button';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents
+} from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
+// Leaflet icon asset imports
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
+// Configure Leaflet icon paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
-
-const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
 
 export interface LocationType {
   lat: number;
@@ -24,236 +35,270 @@ export interface LocationType {
   address: string;
 }
 
-interface EditProfileFormProps {
-  currentName: string;
-  currentEmail: string;
-  currentSpecialty: string;
-  currentProfileImageUrl?: string;
-  currentAvailabilitySlots?: string[];
-  currentLocation?: LocationType;
-  currentMaxPatients?: number;
-  currentDob?: string;
-  currentExperience?: string;
-  currentHospitalAffiliation?: string;
-  currentBio?: string;
-  currentQualifications?: string[];
-  currentLanguages?: string[];
-  currentConsultationFee?: number;
-  onCancel: () => void;
-  onSave: (
-    name: string,
-    email: string,
-    specialty: string,
-    profileImageFile: File | null,
-    availabilitySlots: string[],
-    location: LocationType | null,
-    maxPatients: number,
-    dob: string,
-    experience?: string,
-    hospitalAffiliation?: string,
-    bio?: string,
-    qualifications?: string[],
-    languages?: string[],
-    consultationFee?: number
-  ) => Promise<void>;
-}
-
 const SPECIALTIES = [
-  'Cardiology','Dermatology','Neurology','Oncology','Pediatrics',
-  'Psychiatry','Radiology','Urology','Orthopedics','Gastroenterology',
+  'Cardiology',
+  'Dermatology',
+  'Neurology',
+  'Oncology',
+  'Pediatrics',
+  'Psychiatry',
+  'Radiology',
+  'Urology',
+  'Orthopedics',
+  'Gastroenterology',
 ];
+
+const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
+
+// Axios instance via Vite proxy
+const api = axios.create({
+  baseURL: '/api/medical',
+});
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem('authToken') || '';
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const fetchAddress = async (lat: number, lng: number): Promise<string> => {
+  try {
+    const res = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+      params: { format: 'jsonv2', lat, lon: lng }
+    });
+    return res.data.display_name;
+  } catch {
+    return `Lat ${lat}, Lng ${lng}`;
+  }
+};
 
 const LocationPicker: React.FC<{
   position: { lat: number; lng: number } | null;
   onSelect: (pos: { lat: number; lng: number }) => void;
 }> = ({ position, onSelect }) => {
-  useMapEvents({ click(e) { onSelect(e.latlng); } });
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng);
+    }
+  });
   return position ? <Marker position={position} /> : null;
 };
 
 export default function EditProfileForm({
-  currentName, currentEmail, currentSpecialty, currentProfileImageUrl,
-  currentAvailabilitySlots, currentLocation, currentMaxPatients,
-  currentDob, currentExperience, currentHospitalAffiliation,
-  currentBio, currentQualifications, currentLanguages,
-  currentConsultationFee, onCancel, onSave
-}: EditProfileFormProps) {
-  // State, initialized from props so data persists on reopen
-  const [name] = useState(currentName);
-  const [email] = useState(currentEmail);
-  const [specialty, setSpecialty] = useState(currentSpecialty);
-  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentProfileImageUrl);
+  onCancel
+}: {
+  onCancel: () => void;
+}) {
+  // Profile fields
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>();
+  const [availability, setAvailability] = useState<string[]>(['']);
+  const [location, setLocation] = useState<LocationType | null>(null);
+  const [maxPatients, setMaxPatients] = useState(1);
+  const [dob, setDob] = useState('');
+  const [experience, setExperience] = useState('');
+  const [hospitalAff, setHospitalAff] = useState('');
+  const [bio, setBio] = useState('');
+  const [quals, setQuals] = useState<string[]>([]);
+  const [langs, setLangs] = useState<string[]>([]);
+  const [fee, setFee] = useState(0);
 
-  const [availabilitySlots, setAvailabilitySlots] = useState<string[]>(
-    currentAvailabilitySlots?.map(s => s.slice(0,16)) || ['']
-  );
-  const [location, setLocation] = useState<LocationType | null>(currentLocation || null);
-  const [maxPatients, setMaxPatients] = useState(currentMaxPatients || 1);
-  const [dob, setDob] = useState(currentDob || '');
-  const [experience, setExperience] = useState(currentExperience || '');
-  const [hospitalAffiliation, setHospitalAffiliation] = useState(currentHospitalAffiliation || '');
-  const [bio, setBio] = useState(currentBio || '');
-  const [qualifications, setQualifications] = useState<string[]>(currentQualifications || []);
-  const [languages, setLanguages] = useState<string[]>(currentLanguages || []);
-  const [consultationFee, setConsultationFee] = useState(currentConsultationFee ?? 0);
-
-  const [error, setError] = useState('');
+  // UI state
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState<string>('');
   const [geocoding, setGeocoding] = useState(false);
 
-  // Fetch formatted address from coordinates
-  const fetchAddress = async (lat: number, lng: number) => {
+  // Load initial profile
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await api.get('/doctor/me', { headers: getAuthHeader() });
+        const d = res.data as any;
+        setName(d.name || '');
+        setEmail(d.email || '');
+        setSpecialty(d.specialty || '');
+        setPreviewUrl(d.profileImageUrl);
+        setAvailability(
+          Array.isArray(d.availabilitySlots) && d.availabilitySlots.length
+            ? d.availabilitySlots.map((s: string) => s.slice(0, 16))
+            : ['']
+        );
+        setLocation(d.locationObj || null);
+        setMaxPatients(d.maxPatients ?? 1);
+        setDob(d.dob || '');  // Ensure DOB is loaded
+        setExperience(d.experience || '');
+        setHospitalAff(d.hospitalAffiliation || '');
+        setBio(d.bio || '');
+        setQuals(d.qualifications || []);
+        setLangs(d.languages || []);
+        setFee(d.consultationFee ?? 0);
+      } catch (err) {
+        const msg = (err as AxiosError).response?.data?.message
+          || (err as Error).message
+          || 'Failed to load profile';
+        console.error('Load profile error:', err);
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Handlers
+  const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setProfileFile(f);
+    if (f) setPreviewUrl(URL.createObjectURL(f));
+  }, []);
+
+  const handleMapSelect = useCallback(async (pos: { lat: number; lng: number }) => {
     setGeocoding(true);
-    try {
-      const res = await axios.get('https://nominatim.openstreetmap.org/reverse', {
-        params: { format: 'jsonv2', lat, lon: lng }
-      });
-      return res.data.display_name || `Lat ${lat}, Lng ${lng}`;
-    } catch {
-      return `Lat ${lat}, Lng ${lng}`;
-    } finally {
-      setGeocoding(false);
-    }
-  };
-
-  const handleMapSelect = async (pos: { lat: number; lng: number }) => {
     const addr = await fetchAddress(pos.lat, pos.lng);
+    setGeocoding(false);
     setLocation({ lat: pos.lat, lng: pos.lng, address: addr });
-  };
+  }, []);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setProfileImageFile(file);
-    if (file) setPreviewUrl(URL.createObjectURL(file));
-  };
+  const updateSlot = useCallback((i: number, v: string) =>
+    setAvailability(slots => slots.map((s, idx) => idx === i ? v : s))
+  , []);
 
-  // Slot handlers
-  const handleSlotChange = (i: number, v: string) => {
-    setAvailabilitySlots(slots => {
-      const arr = [...slots];
-      arr[i] = v;
-      return arr;
-    });
-  };
-  const handleAddSlot = () =>
-    setAvailabilitySlots(slots => slots.length < 5 ? [...slots, ''] : slots);
-  const handleRemoveSlot = (i: number) =>
-    setAvailabilitySlots(slots =>
-      slots.length > 1 ? slots.filter((_, idx) => idx !== i) : slots
-    );
+  const addSlot = useCallback(() =>
+    setAvailability(slots => slots.length < 5 ? [...slots, ''] : slots)
+  , []);
 
-  const handleQualificationsChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setQualifications(e.target.value.split(',').map(s => s.trim()));
-  const handleLanguagesChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setLanguages(e.target.value.split(',').map(s => s.trim()));
+  const removeSlot = useCallback((i: number) =>
+    setAvailability(slots => slots.length > 1 ? slots.filter((_, idx) => idx !== i) : slots)
+  , []);
 
-  // Save filled data
-  const handleSubmit = async (e: FormEvent) => {
+  const handleQualsChange = useCallback((e: ChangeEvent<HTMLInputElement>) =>
+    setQuals(e.target.value.split(',').map(s => s.trim()))
+  , []);
+
+  const handleLangsChange = useCallback((e: ChangeEvent<HTMLInputElement>) =>
+    setLangs(e.target.value.split(',').map(s => s.trim()))
+  , []);
+
+  const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     if (!specialty || !dob || !location) {
-      return setError('Please fill all required fields.');
+      setError('Please fill all required fields.');
+      return;
     }
-    if (new Date(dob) >= new Date()) {
-      return setError('Date of birth must be in the past.');
-    }
-    if (availabilitySlots.some((slot, i) => new Date(slot) <= new Date())) {
-      return setError('All slots must be in the future.');
-    }
-    if (consultationFee < 0) {
-      return setError('Consultation fee must be zero or more.');
-    }
-
     setSaving(true);
     try {
-      await onSave(
-        name, email, specialty, profileImageFile,
-        availabilitySlots, location, maxPatients, dob,
-        experience, hospitalAffiliation, bio,
-        qualifications, languages, consultationFee
-      );
-    } catch (err: any) {
-      setError(err.message || 'Failed to save.');
+      const form = new FormData();
+      form.append('specialty', specialty);
+      if (profileFile) form.append('photo', profileFile);
+      form.append('availabilitySlots', JSON.stringify(availability));
+      form.append('locationObj', JSON.stringify(location));
+      form.append('maxPatients', String(maxPatients));
+      form.append('dob', dob);  // Include DOB now
+      form.append('experience', experience);
+      form.append('hospitalAffiliation', hospitalAff);
+      form.append('bio', bio);
+      form.append('qualifications', JSON.stringify(quals));
+      form.append('languages', JSON.stringify(langs));
+      form.append('consultationFee', String(fee));
+
+      const res = await api.put('/doctor/me', form, {
+        headers: { 
+          ...getAuthHeader(), 
+          'Content-Type': 'multipart/form-data' 
+        }
+      });
+
+      if (res.data.profileImageUrl) {
+        setPreviewUrl(res.data.profileImageUrl);
+      }
+    } catch (err) {
+      const msg = (err as AxiosError).response?.data?.message
+        || (err as Error).message
+        || 'Save failed';
+      console.error('Save error:', err);
+      setError(msg);
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    specialty, profileFile, availability, location,
+    maxPatients, experience, hospitalAff, bio, quals, langs, fee, dob
+  ]);
 
-  // Clear all editable fields and database
-  const handleClear = async () => {
+  const handleClear = useCallback(async () => {
     setError('');
     setClearing(true);
     try {
-      const token = localStorage.getItem('authToken') || '';
-      await axios.delete('/api/medical/doctor/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // Reset local states (keep name & email)
+      // only clear editable fields
+      setProfileFile(null);
       setPreviewUrl(undefined);
-      setProfileImageFile(null);
-      setAvailabilitySlots(['']);
+      setAvailability(['']);
       setLocation(null);
       setMaxPatients(1);
-      setDob('');
+      // keep name, email, dob, specialty
       setExperience('');
-      setHospitalAffiliation('');
+      setHospitalAff('');
       setBio('');
-      setQualifications([]);
-      setLanguages([]);
-      setConsultationFee(0);
-    } catch (err: any) {
-      setError(err.message || 'Failed to clear data.');
+      setQuals([]);
+      setLangs([]);
+      setFee(0);
+      // inform backend if needed
+      await api.post('/doctor/me/clear', {}, { headers: getAuthHeader() });
+    } catch (err) {
+      const msg = (err as AxiosError).response?.data?.message
+        || (err as Error).message
+        || 'Clear failed';
+      console.error('Clear error:', err);
+      setError(msg);
     } finally {
       setClearing(false);
     }
-  };
+  }, []);
 
-  // Animated input props
-  const animatedInput = {
-    whileFocus: { scale: 1.02, boxShadow: '0 0 8px rgba(0,255,255,0.7)' },
-    transition: { type: 'spring', stiffness: 300, damping: 20 }
-  };
+  if (loading) {
+    return <div className="p-8 text-center text-white">Loading profile…</div>;
+  }
 
-  const inputClass =
-    'w-full p-4 bg-gray-900/70 backdrop-blur-md text-white rounded-2xl border-2 border-transparent focus:outline-none';
+  const inputClass = 'w-full p-4 bg-gray-900/70 backdrop-blur-md text-white rounded-2xl border-2 border-transparent focus:outline-none';
 
   return (
     <AnimatePresence>
       <motion.div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       >
         <motion.div
           className="bg-gradient-to-br from-indigo-900 via-purple-800 to-cyan-900 rounded-3xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
         >
+          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <h2 className="flex items-center gap-3 text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-              <Pencil className="w-7 h-7" /> Edit Profile
+              <Pencil className="w-7 h-7"/> Edit Profile
             </h2>
             <button onClick={onCancel} disabled={saving || clearing}>
-              <CloseIcon className="text-gray-400 transition-colors w-7 h-7 hover:text-white" />
+              <CloseIcon className="text-gray-400 transition-colors w-7 h-7 hover:text-white"/>
             </button>
           </div>
 
+          {/* Error */}
           {error && (
             <motion.div
               className="p-4 mb-6 text-white bg-red-600 rounded-2xl"
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.3 }}
+              initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}
             >
               {error}
             </motion.div>
           )}
 
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Profile Image */}
             <div className="flex flex-col items-center">
@@ -267,72 +312,64 @@ export default function EditProfileForm({
               </div>
               <Button variant="primary" disabled={saving || clearing}>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <Pencil /> Upload Photo
-                  <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                  <Pencil/> Upload Photo
+                  <input
+                    type="file" accept="image/*" className="hidden"
+                    onChange={handleFileChange}
+                  />
                 </label>
               </Button>
             </div>
 
-            {/* Basic Info (read-only) */}
+            {/* Name & Email (read-only) */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <motion.input
-                type="text"
-                value={name}
-                readOnly
-                className={inputClass + ' cursor-not-allowed opacity-80'}
-                {...animatedInput}
+              <input
+                type="text" value={name} readOnly
+                className={`${inputClass} cursor-not-allowed opacity-80`}
               />
-              <motion.input
-                type="email"
-                value={email}
-                readOnly
-                className={inputClass + ' cursor-not-allowed opacity-80'}
-                {...animatedInput}
+              <input
+                type="email" value={email} readOnly
+                className={`${inputClass} cursor-not-allowed opacity-80`}
               />
-              <motion.select
+            </div>
+
+            {/* Specialty & DOB */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <select
                 value={specialty}
                 onChange={e => setSpecialty(e.target.value)}
                 className={inputClass}
                 required
-                {...animatedInput}
               >
                 <option value="">Select Specialty</option>
                 {SPECIALTIES.map(spec => (
                   <option key={spec} value={spec}>{spec}</option>
                 ))}
-              </motion.select>
-              <motion.input
-                type="date"
-                value={dob}
-                onChange={e => setDob(e.target.value)}
+              </select>
+              <input
+                type="date" value={dob}
+                onChange={e => setDob(e.target.value)}  // Make DOB editable
                 className={inputClass}
                 required
-                {...animatedInput}
               />
             </div>
 
             {/* Location Picker */}
             <div className="space-y-2">
-              <motion.input
-                type="text"
-                readOnly
+              <input
+                type="text" readOnly
                 value={location?.address || ''}
-                placeholder="Click on map to select location"
-                className={inputClass + ' cursor-pointer'}
-                {...animatedInput}
+                placeholder="Click map to set location"
+                className={`${inputClass} cursor-pointer`}
               />
               <div className="h-56 overflow-hidden border-2 border-gray-700 rounded-2xl">
                 <MapContainer
                   center={location ? [location.lat, location.lng] : DEFAULT_CENTER}
                   zoom={location ? 13 : 5}
-                  key={location ? `${location.lat}-${location.lng}` : 'default'}
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <LocationPicker
-                    position={location ? { lat: location.lat, lng: location.lng } : null}
-                    onSelect={handleMapSelect}
-                  />
+                  <LocationPicker position={location} onSelect={handleMapSelect} />
                 </MapContainer>
               </div>
               {geocoding && <p className="text-sm text-gray-300">Fetching address…</p>}
@@ -341,111 +378,87 @@ export default function EditProfileForm({
             {/* Availability Slots */}
             <div className="space-y-4">
               <p className="font-medium text-white">Availability Slots</p>
-              {availabilitySlots.map((slot, i) => (
+              {availability.map((slot, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <motion.input
+                  <input
                     type="datetime-local"
                     value={slot}
-                    onChange={e => handleSlotChange(i, e.target.value)}
+                    onChange={e => updateSlot(i, e.target.value)}
                     className={inputClass}
-                    {...animatedInput}
                   />
-                  {availabilitySlots.length > 1 && (
-                    <Button
-                      variant="danger"
-                      onClick={() => handleRemoveSlot(i)}
-                      disabled={saving || clearing}
-                    >
-                      <Trash2 size={16} /> Remove
+                  {availability.length > 1 && (
+                    <Button variant="danger" onClick={() => removeSlot(i)} disabled={saving || clearing}>
+                      <Trash2 size={16}/> Remove
                     </Button>
                   )}
                 </div>
               ))}
-              <Button
-                variant="secondary"
-                onClick={handleAddSlot}
-                disabled={availabilitySlots.length >= 5 || saving || clearing}
-              >
-                + Add Slot ({availabilitySlots.length}/5)
+              <Button variant="secondary" onClick={addSlot} disabled={availability.length >= 5 || saving || clearing}>
+                + Add Slot ({availability.length}/5)
               </Button>
             </div>
 
             {/* Additional Details */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <motion.input
-                type="number"
-                min={1}
+              <input
+                type="number" min={1}
                 value={maxPatients}
                 onChange={e => setMaxPatients(+e.target.value)}
                 placeholder="Max Patients"
                 className={inputClass}
-                {...animatedInput}
               />
-              <motion.input
-                type="number"
-                min={0}
-                value={consultationFee}
-                onChange={e => setConsultationFee(+e.target.value)}
+              <input
+                type="number" min={0}
+                value={fee}
+                onChange={e => setFee(+e.target.value)}
                 placeholder="Consultation Fee (₹)"
                 className={inputClass}
-                {...animatedInput}
               />
-              <motion.input
+              <input
                 type="text"
                 value={experience}
                 onChange={e => setExperience(e.target.value)}
                 placeholder="Experience"
                 className={inputClass}
-                {...animatedInput}
               />
-              <motion.input
+              <input
                 type="text"
-                value={hospitalAffiliation}
-                onChange={e => setHospitalAffiliation(e.target.value)}
+                value={hospitalAff}
+                onChange={e => setHospitalAff(e.target.value)}
                 placeholder="Hospital Affiliation"
                 className={inputClass}
-                {...animatedInput}
               />
-              <motion.input
+              <input
                 type="text"
-                value={qualifications.join(', ')}
-                onChange={handleQualificationsChange}
+                value={quals.join(', ')}
+                onChange={handleQualsChange}
                 placeholder="Qualifications (comma-separated)"
                 className={inputClass}
-                {...animatedInput}
               />
-              <motion.input
+              <input
                 type="text"
-                value={languages.join(', ')}
-                onChange={handleLanguagesChange}
+                value={langs.join(', ')}
+                onChange={handleLangsChange}
                 placeholder="Languages (comma-separated)"
                 className={inputClass}
-                {...animatedInput}
               />
             </div>
 
-            <motion.textarea
+            <textarea
               value={bio}
               onChange={e => setBio(e.target.value)}
               placeholder="Short Bio (optional)"
               rows={4}
-              className={inputClass + ' resize-none'}
-              {...animatedInput}
+              className={`${inputClass} resize-none`}
             />
 
-            {/* Action Buttons */}
+            {/* Actions */}
             <div className="flex items-center justify-between pt-6 border-t border-gray-700">
-              <Button
-                variant="outline"
-                onClick={handleClear}
-                disabled={saving || clearing}
-              >
-                {clearing ? 'Clearing…' : <><Trash2 size={16} /> Clear Form</>}
+              <Button variant="outline" onClick={handleClear} disabled={saving || clearing}>
+                {clearing ? 'Clearing…' : (<><Trash2 size={16}/> Clear Form</>)}
               </Button>
               <div className="flex gap-4">
-                <Button variant="outline" onClick={onCancel} disabled={saving || clearing}>
-                  Cancel
-                </Button>
+                <Button variant="outline" onClick={onCancel} disabled={saving || clearing}>Cancel</Button>
                 <Button type="submit" variant="primary" disabled={saving || clearing}>
                   {saving ? 'Saving…' : 'Save Changes'}
                 </Button>

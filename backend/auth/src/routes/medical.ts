@@ -15,46 +15,55 @@ const router = express.Router();
 // JWT secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
-// --- Auth middleware: verifies JWT, fetches user, enforces active status ---
+// --- Auth middleware -------------------------------------------------------
 interface AuthRequest extends Request {
   user?: { id: string; role: 'doctor' | 'patient' };
 }
 
 async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) {
+  if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided' });
   }
-  const token = auth.slice(7);
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    const { id, role } = payload;
-    if (!id || !role) {
-      return res.status(401).json({ message: 'Invalid token payload' });
-    }
 
+  const token = auth.slice(7);
+  let payload: any;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error('JWT error:', err);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+
+  const { id, role } = payload;
+  if (!id || !role) {
+    return res.status(401).json({ message: 'Invalid token payload' });
+  }
+
+  try {
     if (role === 'doctor') {
-      const doc = await Doctor.findById(id).exec();
-      if (!doc) return res.status(401).json({ message: 'Doctor not found' });
-      if (!doc.isActive) return res.status(403).json({ message: 'Account is deactivated' });
+      const doc = await Doctor.findById(id);
+      if (!doc)   return res.status(401).json({ message: 'Doctor not found' });
+      if (!doc.isActive) return res.status(403).json({ message: 'Account deactivated' });
       req.user = { id: doc._id.toString(), role: 'doctor' };
-    } else if (role === 'patient') {
-      const pat = await Patient.findById(id).exec();
-      if (!pat) return res.status(401).json({ message: 'Patient not found' });
-      if (!pat.isActive) return res.status(403).json({ message: 'Account is deactivated' });
+    }
+    else if (role === 'patient') {
+      const pat = await Patient.findById(id);
+      if (!pat)   return res.status(401).json({ message: 'Patient not found' });
+      if (!pat.isActive) return res.status(403).json({ message: 'Account deactivated' });
       req.user = { id: pat._id.toString(), role: 'patient' };
-    } else {
+    }
+    else {
       return res.status(403).json({ message: 'Unknown role' });
     }
-
     next();
   } catch (err) {
-    console.error('authMiddleware error:', err);
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    console.error('authMiddleware DB error:', err);
+    res.status(500).json({ message: 'Authentication failed' });
   }
 }
 
-// --- Multer for profileImage upload ---
+// --- Multer for photo uploads (field name = "photo") ----------------------
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -63,7 +72,7 @@ const upload = multer({
   },
 });
 
-// --- Helper to sanitize doctor for public listing ---
+// --- Helper to shape doctor for public listing ---------------------------
 function sanitizeDoctor(doc: IDoctor) {
   const now = new Date();
   const slotsIso = Array.isArray(doc.availabilitySlots)
@@ -93,27 +102,25 @@ function sanitizeDoctor(doc: IDoctor) {
   };
 }
 
-// --------- Public Routes ---------
+// --------- Public Routes --------------------------------------------------
 
-// GET /api/medical/specialties
+// GET specialties
 router.get('/specialties', (_req, res) => {
-  res.json({
-    specialties: [
-      'Cardiology','Dermatology','Neurology','Oncology',
-      'Pediatrics','Psychiatry','Radiology','Urology',
-      'Orthopedics','Gastroenterology',
-    ]
-  });
+  res.json({ specialties: [
+    'Cardiology','Dermatology','Neurology','Oncology',
+    'Pediatrics','Psychiatry','Radiology','Urology',
+    'Orthopedics','Gastroenterology',
+  ] });
 });
 
-// GET /api/medical/doctors
+// GET doctors (with filter/pagination)
 router.get('/doctors', async (req, res) => {
   try {
     const { specialty, search, page = '1', limit = '10' } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10));
     const limitNum = Math.max(1, parseInt(limit as string, 10));
-    const filter: any = { isActive: true };
 
+    const filter: any = { isActive: true };
     if (typeof specialty === 'string' && specialty.trim()) {
       filter.specialty = specialty;
     }
@@ -121,12 +128,11 @@ router.get('/doctors', async (req, res) => {
       filter.name = { $regex: search, $options: 'i' };
     }
 
-    const total = await Doctor.countDocuments(filter).exec();
-    const docs = await Doctor.find(filter)
+    const total = await Doctor.countDocuments(filter);
+    const docs  = await Doctor.find(filter)
       .sort({ rating: -1, reviewCount: -1 })
       .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .exec();
+      .limit(limitNum);
 
     res.json({
       page: pageNum,
@@ -140,10 +146,10 @@ router.get('/doctors', async (req, res) => {
   }
 });
 
-// GET /api/medical/doctors/:id
+// GET single doctor by id
 router.get('/doctors/:id', async (req, res) => {
   try {
-    const doc = await Doctor.findById(req.params.id).exec();
+    const doc = await Doctor.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Doctor not found' });
 
     const now = new Date();
@@ -182,12 +188,11 @@ router.get('/doctors/:id', async (req, res) => {
   }
 });
 
-// GET /api/medical/doctor/:id/profile-image
+// GET profile image
 router.get('/doctor/:id/profile-image', async (req, res) => {
   try {
-    const doc = await Doctor.findById(req.params.id).exec();
+    const doc = await Doctor.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Doctor not found' });
-
     const img = (doc as any).profileImage;
     if (img?.data) {
       res.type(img.contentType || 'image/jpeg');
@@ -200,15 +205,19 @@ router.get('/doctor/:id/profile-image', async (req, res) => {
   }
 });
 
-// --------- Authenticated Doctor Routes ---------
+// --------- Authenticated Doctor Routes ------------------------------------
 
-// GET /api/medical/doctor/me
+// GET my profile
 router.get('/doctor/me', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+  if (req.user.role !== 'doctor') {
+    return res.status(403).json({ message: 'Access denied: not a doctor' });
+  }
+
   try {
-    if (req.user?.role !== 'doctor') {
-      return res.status(403).json({ message: 'Access denied: not a doctor' });
-    }
-    const doc = await Doctor.findById(req.user.id).exec();
+    const doc = await Doctor.findById(req.user.id);
     if (!doc) return res.status(404).json({ message: 'Doctor profile not found' });
 
     const now = new Date();
@@ -221,7 +230,7 @@ router.get('/doctor/me', authMiddleware, async (req: AuthRequest, res) => {
       .sort((a, b) => a.getTime() - b.getTime());
     const nextSlots = future.slice(0, 5).map(d => d.toISOString());
 
-    res.json({
+    return res.json({
       id: doc._id,
       name: doc.name,
       email: doc.email,
@@ -247,19 +256,18 @@ router.get('/doctor/me', authMiddleware, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     console.error('GET /doctor/me error:', err);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-// GET /api/medical/doctor/me/profile-image
+// GET my profile image
 router.get('/doctor/me/profile-image', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'doctor') {
+    return res.status(403).json({ message: 'Access denied' });
+  }
   try {
-    if (req.user?.role !== 'doctor') {
-      return res.status(403).json({ message: 'Access denied: not a doctor' });
-    }
-    const doc = await Doctor.findById(req.user.id).exec();
+    const doc = await Doctor.findById(req.user.id);
     if (!doc) return res.status(404).json({ message: 'Doctor profile not found' });
-
     const img = (doc as any).profileImage;
     if (img?.data) {
       res.type(img.contentType || 'image/jpeg');
@@ -272,20 +280,20 @@ router.get('/doctor/me/profile-image', authMiddleware, async (req: AuthRequest, 
   }
 });
 
-// PUT /api/medical/doctor/me
+// PUT (upsert) my profile
 router.put(
   '/doctor/me',
   authMiddleware,
-  upload.single('profileImage'),
+  upload.single('photo'),
   async (req: AuthRequest, res) => {
+    if (!req.user || req.user.role !== 'doctor') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     try {
-      if (req.user?.role !== 'doctor') {
-        return res.status(403).json({ message: 'Access denied: not a doctor' });
-      }
-      const doc = await Doctor.findById(req.user.id).exec();
+      const doc = await Doctor.findById(req.user.id);
       if (!doc) return res.status(404).json({ message: 'Doctor profile not found' });
 
-      // Destructure request body
+      // Destructure and assign all incoming fields...
       const {
         name, email, specialty, phone, dob,
         locationObj, availabilitySlots,
@@ -293,29 +301,29 @@ router.put(
         bio, qualifications, languages, consultationFee,
       } = req.body;
 
-      if (name !== undefined) doc.name = name;
-      if (email !== undefined) doc.email = email;
-      if (specialty !== undefined) doc.specialty = specialty;
-      if (phone !== undefined) doc.phone = phone;
+      if (name               !== undefined) doc.name               = name;
+      if (email              !== undefined) doc.email              = email;
+      if (specialty          !== undefined) doc.specialty          = specialty;
+      if (phone              !== undefined) doc.phone              = phone;
       if (dob) {
         const d = new Date(dob);
         if (!isNaN(d.getTime())) doc.dob = d;
       }
 
-      // Parse locationObj
+      // locationObj JSON → object
       if (locationObj) {
         try {
           const loc = typeof locationObj === 'string'
             ? JSON.parse(locationObj)
             : locationObj;
           if (loc.address && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
-            doc.locationObj = loc;
-            doc.location = loc.address;
+            doc.locationObj  = loc;
+            doc.location     = loc.address;
           }
         } catch {}
       }
 
-      // Parse availabilitySlots
+      // availabilitySlots JSON → Date[]
       if (availabilitySlots) {
         try {
           const arr = typeof availabilitySlots === 'string'
@@ -329,16 +337,16 @@ router.put(
         } catch {}
       }
 
-      if (maxPatients !== undefined) {
+      if (maxPatients        !== undefined) {
         const mp = parseInt(String(maxPatients), 10);
         if (!isNaN(mp) && mp >= 1) doc.maxPatients = mp;
       }
-      if (experience !== undefined) doc.experience = experience;
-      if (hospitalAffiliation !== undefined) doc.hospitalAffiliation = hospitalAffiliation;
-      if (bio !== undefined) doc.bio = bio;
+      if (experience         !== undefined) doc.experience         = experience;
+      if (hospitalAffiliation!== undefined) doc.hospitalAffiliation= hospitalAffiliation;
+      if (bio                !== undefined) doc.bio                = bio;
 
-      // Qualifications
-      if (qualifications !== undefined) {
+      // qualifications
+      if (qualifications) {
         try {
           const arr = typeof qualifications === 'string'
             ? JSON.parse(qualifications)
@@ -351,8 +359,8 @@ router.put(
         }
       }
 
-      // Languages
-      if (languages !== undefined) {
+      // languages
+      if (languages) {
         try {
           const arr = typeof languages === 'string'
             ? JSON.parse(languages)
@@ -365,15 +373,12 @@ router.put(
         }
       }
 
-      // Consultation fee
       if (consultationFee !== undefined) {
-        const fee = parseFloat(String(consultationFee));
-        if (!isNaN(fee) && fee >= 0) {
-          doc.consultationFee = fee;
-        }
+        const cf = parseFloat(String(consultationFee));
+        if (!isNaN(cf) && cf >= 0) doc.consultationFee = cf;
       }
 
-      // Profile image
+      // save uploaded photo
       if (req.file) {
         (doc as any).profileImage = {
           data: req.file.buffer,
@@ -389,7 +394,7 @@ router.put(
         ? doc.availabilitySlots.map(d => d.toISOString())
         : [];
 
-      res.json({
+      return res.json({
         id: doc._id,
         name: doc.name,
         email: doc.email,
@@ -412,23 +417,36 @@ router.put(
       });
     } catch (err) {
       console.error('PUT /doctor/me error:', err);
-      res.status(500).json({ message: 'Server error' });
+      return res.status(500).json({ message: 'Server error' });
     }
   }
 );
 
-// GET /api/medical/doctor/:id/appointments
-router.get('/doctor/:id/appointments', authMiddleware, async (req: AuthRequest, res) => {
+// DELETE my profile
+router.delete('/doctor/me', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'doctor') {
+    return res.status(403).json({ message: 'Access denied' });
+  }
   try {
-    const { id } = req.params;
-    if (req.user?.role !== 'doctor' || req.user.id !== id) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    const appointments = await Appointment.find({ doctor: id }).sort({ date: 1 }).exec();
-    res.json({ appointments });
+    await Doctor.findByIdAndDelete(req.user.id);
+    return res.json({ message: 'Profile deleted' });
+  } catch (err) {
+    console.error('DELETE /doctor/me error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET my appointments
+router.get('/doctor/:id/appointments', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'doctor' || req.user.id !== req.params.id) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  try {
+    const appointments = await Appointment.find({ doctor: req.params.id }).sort({ date: 1 });
+    return res.json({ appointments });
   } catch (err) {
     console.error('GET /doctor/:id/appointments error:', err);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
