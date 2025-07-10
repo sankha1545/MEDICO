@@ -60,16 +60,7 @@ export const DoctorFooter: React.FC = () => {
           </section>
 
           {/* Navigation */}
-          <section>
-            <h3 className="mb-4 text-xl font-semibold">Navigate</h3>
-            <ul className="space-y-2">
-              {['Dashboard', 'Appointments', 'Patients', 'Earnings', 'Settings'].map((label) => (
-                <FooterLink key={label} to={`/doctor/${label.toLowerCase()}`}>
-                  {label}
-                </FooterLink>
-              ))}
-            </ul>
-          </section>
+         
 
           {/* Resources */}
           <section>

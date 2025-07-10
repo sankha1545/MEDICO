@@ -12,7 +12,7 @@ export interface IAppointment extends Document {
   message?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
-  paymentStatus?: 'pending' | 'paid' | 'failed';
+  paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
   // ...other fields
 }
 
@@ -32,8 +32,9 @@ const AppointmentSchema = new Schema<IAppointment>({
   razorpayPaymentId: { type: String },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'failed'],
+    enum: ['pending', 'paid', 'failed', 'refunded'],
     default: 'pending',
   },
 });
+
 export default mongoose.model<IAppointment>('Appointment', AppointmentSchema);

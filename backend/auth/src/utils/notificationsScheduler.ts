@@ -3,7 +3,7 @@
 import cron from 'node-cron';
 import Patient from '../models/Patient';
 import { sendMail } from './sendMail';
-import { sendSmsViaEmail } from './sendSmsViaEmail';
+import { sendSmsViaEmail } from './sendSMSViaEmail';
 
 export const startNotificationScheduler = () => {
   // Runs every day at 9:00 AM
