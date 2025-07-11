@@ -1,4 +1,3 @@
-// File: frontend/src/pages/DocDashboardPage.tsx
 
 import React, {
   useState,
@@ -36,11 +35,15 @@ import EditProfileForm, {
   LocationType,
 } from '../../components/common/editprofile/editprofileformsdoc';
 
+import seatImg from '../../assets/chair.avif';
+import doctorSeatImg from '../../assets/doctorseat.png';
+
 interface DoctorAppointment {
   id: string;
   patientName: string;
   date: string;
   status: 'upcoming' | 'completed' | 'pending' | 'cancelled';
+  createdAt: string; // track booking time
 }
 
 interface AppointmentDetail {
@@ -80,13 +83,14 @@ export default function DocDashboardPage() {
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
-  // State
+  /*** State ***/
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState('');
 
+  // Profile
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profileSpecialty, setProfileSpecialty] = useState('');
@@ -96,16 +100,19 @@ export default function DocDashboardPage() {
   const [profileLocation, setProfileLocation] = useState('');
   const [profileConsultationFee, setProfileConsultationFee] = useState(0);
 
+  // Appointments & notifications
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Appointment detail & cancel
   const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<AppointmentDetail | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // Payout
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankIFSC, setBankIFSC] = useState('');
@@ -115,7 +122,7 @@ export default function DocDashboardPage() {
 
   const fetchedProfileRef = useRef(false);
 
-  // Handlers
+  /*** Handlers ***/
   const handleLogout = () => setIsLogoutModalOpen(true);
   const confirmLogout = async () => {
     await logout();
@@ -160,7 +167,7 @@ export default function DocDashboardPage() {
     }
   };
 
-  // Fetch profile once
+  /*** Data Fetching ***/
   useEffect(() => {
     if (user?.role === 'doctor' && !fetchedProfileRef.current) {
       fetchedProfileRef.current = true;
@@ -187,17 +194,21 @@ export default function DocDashboardPage() {
     }
   }, [user, fetchDoctorProfile]);
 
-  // Fetch appointments & notifications
   useEffect(() => {
     if (!token) return;
+
     axios
       .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        setAppointments(res.data);
+        // assume API returns a `createdAt` timestamp
+        const sorted = res.data
+          .filter(a => a.status !== 'cancelled')
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setAppointments(sorted);
         setUpcomingCount(
-          res.data.filter((a) => a.status === 'upcoming' && new Date(a.date) > new Date()).length
+          sorted.filter((a) => a.status === 'upcoming' && new Date(a.date) > new Date()).length
         );
       })
       .catch(console.error);
@@ -213,7 +224,7 @@ export default function DocDashboardPage() {
       .catch(console.error);
   }, [token]);
 
-  // Chart data
+  /*** Chart Data ***/
   const weeklyData = useMemo(() => {
     const now = new Date();
     return Array.from({ length: 7 }).map((_, i) => {
@@ -259,15 +270,28 @@ export default function DocDashboardPage() {
     });
   }, [appointments]);
 
-  if (loadingProfile) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-white bg-gray-900">
-        Loading profile...
-      </div>
-    );
-  }
+  /*** Slot grouping & FCFS ordering ***/
+  const slotGroups = useMemo(() => {
+    const groups: Record<string, DoctorAppointment[]> = {};
+    if (user?.availabilitySlots) {
+      user.availabilitySlots.forEach((slotIso) => {
+        const label = format(new Date(slotIso), 'PPP p');
+        groups[label] = [];
+      });
+    }
+    appointments.forEach((a) => {
+      const label = format(new Date(a.date), 'PPP p');
+      if (groups[label]) groups[label].push(a);
+      else {
+        groups.Other = groups.Other || [];
+        groups.Other.push(a);
+      }
+    });
+    // Already in FCFS order by createdAt from fetch hook
+    return groups;
+  }, [appointments, user]);
 
-  // Fetch appointment detail and map _id → id
+  /*** Appointment detail fetch ***/
   const fetchAppointmentDetails = async (id: string) => {
     setDetailsLoading(true);
     setShowCancelConfirm(false);
@@ -294,7 +318,7 @@ export default function DocDashboardPage() {
     }
   };
 
-  // Cancel endpoint
+  /*** Cancel appointment ***/
   const handleCancelAppointment = async () => {
     if (!selectedAppointmentDetail) return;
     setCancelling(true);
@@ -332,6 +356,16 @@ export default function DocDashboardPage() {
     }
   };
 
+  // Early return AFTER hooks
+  if (loadingProfile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-white bg-gray-900">
+        Loading profile...
+      </div>
+    );
+  }
+
+  /*** Render ***/
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
       <ThreeBackground activeTab={activeTab} />
@@ -528,27 +562,40 @@ export default function DocDashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -30 }}
               transition={{ duration: 0.5 }}
-              className="space-y-6"
+              className="space-y-8"
             >
-              <h2 className="text-2xl font-bold text-white">Patients</h2>
-              <div className="relative">
-                <div className="flex items-center justify-center w-32 h-32 mx-auto mb-8 text-white bg-gray-800 rounded-full">
-                  Doctor
-                </div>
-                <div className="grid grid-cols-5 gap-4 justify-items-center">
-                  {appointments
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                    .map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex items-center justify-center w-24 h-24 text-white bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600"
-                        onClick={() => fetchAppointmentDetails(a.id)}
-                      >
-                        {a.patientName.split(' ')[0]}
-                      </div>
-                    ))}
-                </div>
+              <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
+              <div className="flex justify-center mb-6">
+                <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
               </div>
+              {Object.entries(slotGroups).map(([slot, appts]) => (
+                <div key={slot} className="mb-8">
+                  <h3 className="mb-2 text-xl font-semibold text-white">{slot}</h3>
+                  <div className="grid grid-cols-5 gap-4 justify-items-center">
+                    {appts.length > 0
+                      ? appts.map((a) => (
+                          <div
+                            key={a.id}
+                            className="flex flex-col items-center cursor-pointer"
+                            onClick={() => fetchAppointmentDetails(a.id)}
+                          >
+                            <img src={seatImg} alt="Seat" className="w-12 h-12" />
+                            <span className="w-16 mt-1 text-sm text-center text-white truncate">
+                              {a.patientName}
+                            </span>
+                          </div>
+                        ))
+                      : Array.from({ length: user?.maxPatients || 5 }).map((_, i) => (
+                          <img
+                            key={i}
+                            src={seatImg}
+                            alt="Empty Seat"
+                            className="w-12 h-12 opacity-30"
+                          />
+                        ))}
+                  </div>
+                </div>
+              ))}
             </motion.div>
           )}
 
@@ -615,24 +662,12 @@ export default function DocDashboardPage() {
               <div className="flex items-center space-x-6">
                 <ProfileAvatar3D imageUrl={profileImageUrl} name={profileName} size={100} />
                 <div className="space-y-2">
-                  <p>
-                    <strong>Name:</strong> {profileName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {profileEmail}
-                  </p>
-                  <p>
-                    <strong>Specialty:</strong> {profileSpecialty}
-                  </p>
-                  <p>
-                    <strong>Experience:</strong> {profileExperience} years
-                  </p>
-                  <p>
-                    <strong>Location:</strong> {profileLocation}
-                  </p>
-                  <p>
-                    <strong>Consultation Fee:</strong> ₹{profileConsultationFee.toLocaleString()}
-                  </p>
+                  <p><strong>Name:</strong> {profileName}</p>
+                  <p><strong>Email:</strong> {profileEmail}</p>
+                  <p><strong>Specialty:</strong> {profileSpecialty}</p>
+                  <p><strong>Experience:</strong> {profileExperience} years</p>
+                  <p><strong>Location:</strong> {profileLocation}</p>
+                  <p><strong>Consultation Fee:</strong> ₹{profileConsultationFee.toLocaleString()}</p>
                 </div>
               </div>
             </motion.div>
@@ -651,7 +686,32 @@ export default function DocDashboardPage() {
               {existingPayoutAccountId ? (
                 <p className="text-white">Account ID: {existingPayoutAccountId}</p>
               ) : (
-                <form onSubmit={handleAddPayoutAccount} className="space-y-4">
+                <form onSubmit={async (e: FormEvent) => {
+                    e.preventDefault();
+                    setPayoutLoading(true);
+                    setPayoutStatusMsg(null);
+                    try {
+                      const { data } = await axios.post(
+                        buildUrl('/medical/doctor/payout-account'),
+                        {
+                          accountHolderName: bankAccountName.trim(),
+                          accountNumber: bankAccountNumber.trim(),
+                          ifsc: bankIFSC.trim(),
+                        },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      setExistingPayoutAccountId(data.fundAccountId || data.razorpayAccountId);
+                      setPayoutStatusMsg('Payout account added successfully.');
+                      setBankAccountName(''); setBankAccountNumber(''); setBankIFSC('');
+                    } catch (err: any) {
+                      console.error(err);
+                      setPayoutStatusMsg(err.message || 'Failed to add payout account');
+                    } finally {
+                      setPayoutLoading(false);
+                    }
+                  }}
+                  className="space-y-4"
+                >
                   <input
                     type="text"
                     placeholder="Account Holder Name"
