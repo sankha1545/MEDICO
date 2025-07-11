@@ -94,7 +94,7 @@ export const DoctorFooter: React.FC = () => {
         <div className="flex flex-col items-center justify-between pt-8 mt-16 text-sm text-gray-400 border-t border-gray-700 md:flex-row">
           <p>© {currentYear} MedBook. All rights reserved.</p>
           <div className="flex mt-4 space-x-6 md:mt-0">
-            <Link to="/privacy" className="transition hover:text-green-300">
+            <Link to="/privacypolicy" className="transition hover:text-green-300">
               Privacy
             </Link>
             <Link to="/terms" className="transition hover:text-green-300">

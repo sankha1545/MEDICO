@@ -44,7 +44,7 @@ export default function CombinedTutorial() {
   return (
     <>
       {showIntro && (
-        <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
           <div className="w-3/4 max-w-lg">
             <Lottie
               animationData={MedicoIntro}

@@ -927,7 +927,7 @@ const DashboardPage1: React.FC = () => {
                                   <Button
                                     variant="outline"
                                     size="xs"
-                                    className="ml-3 text-white border-white/30 hover:bg-white/10"
+                                    className="ml-3 text-black border-white/30 hover:bg-white/10"
                                     onClick={() => markAsRead(notification._id)}
                                   >
                                     Mark read

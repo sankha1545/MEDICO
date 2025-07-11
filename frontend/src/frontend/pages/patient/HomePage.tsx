@@ -8,7 +8,7 @@ import { Calendar, Search, CheckCircle, Users, Award, Car, Heart, Brain, Eye, St
 import { Button } from '../../components/common/Button';
 import Chatbot from '../../components/common/chatbot/chatbot';
 import earth from '../../assets/earth.png'
-import CombinedTutorial from '../../components/common/Tutorial';
+import CombinedTutorial from '../../components/common/StartJourneyModal';
 
 // 3D Earth Component with Digital Texture
 function EarthModel() {
