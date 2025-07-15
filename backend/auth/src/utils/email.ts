@@ -4,11 +4,18 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
+interface Attachment {
+  filename: string;
+  content: Buffer | string;
+  path?: string;
+}
+
 interface MailOptions {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  attachments?: Attachment[];
 }
 
 const {
@@ -17,14 +24,12 @@ const {
   SMTP_SECURE,
   SMTP_USER,
   SMTP_PASS,
-  NODE_ENV,
   OTP_EXPIRY_MINUTES = '10',
   SERVER_TIMEZONE = 'UTC',
 } = process.env;
 
-// Validate required env vars at startup
 if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-  console.warn('⚠️ Missing SMTP configuration. Email functionality may fail.');
+  console.warn('⚠️ Missing SMTP configuration. Emails will likely fail.');
 }
 
 const transporter = nodemailer.createTransport({
@@ -35,135 +40,136 @@ const transporter = nodemailer.createTransport({
     user: SMTP_USER,
     pass: SMTP_PASS,
   },
-  tls: {
-    rejectUnauthorized: false,
-  },
+  tls: { rejectUnauthorized: false },
 });
 
 /**
- * Generic sendMail function.
- * Usage: await sendMail({ to, subject, text, html });
+ * Generic email sender with attachment support.
  */
-export async function sendMail({ to, subject, text, html }: MailOptions) {
-  const mailData: any = {
-    from: `MedBook <${SMTP_USER}>`,
+export async function sendMail({ to, subject, text, html, attachments }: MailOptions) {
+  const mailData = {
+    from: `MedicoX <${SMTP_USER}>`,
     to,
     subject,
     text,
+    html,
+    attachments,
   };
-  if (html) mailData.html = html;
 
   try {
     const info = await transporter.sendMail(mailData);
-    console.log(`📤 Email sent to ${to}: ${info.messageId}`);
+    console.log(`📧 Email sent to ${to} (ID: ${info.messageId})`);
     return info;
   } catch (err: any) {
-    console.error(`🚨 Email send error to ${to}:`, err.message || err);
-    throw new Error('Failed to send email. Please check SMTP settings.');
+    console.error(`❌ Failed to send email to ${to}:`, err);
+    throw new Error(`Email to ${to} failed: ${err.message || err}`);
   }
 }
 
-/**
- * Send OTP email for signup, reset, or email change.
- */
+// ------------------------ OTP EMAILS ------------------------
+
 export async function sendOtpEmail(
   email: string,
   code: string,
   purpose: 'signup' | 'reset' | 'emailChange'
 ) {
-  let subject: string;
-  let text: string;
+  const subjectMap = {
+    signup: 'Your MedicoX Signup Verification Code',
+    reset: 'Your MedicoX Password Reset Code',
+    emailChange: 'Your MedicoX Email Change Verification Code',
+  };
 
-  switch (purpose) {
-    case 'signup':
-      subject = 'Your MedBook Signup Verification Code';
-      text = `Welcome to MedBook! Your code is ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-      break;
-    case 'reset':
-      subject = 'Your MedBook Password Reset Code';
-      text = `You requested a password reset. Your code is ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-      break;
-    case 'emailChange':
-      subject = 'Your MedBook Email Change Verification Code';
-      text = `You requested to change your email. Code: ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-      break;
-    default:
-      subject = 'Your MedBook Verification Code';
-      text = `Your verification code is ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-  }
+  const subject = subjectMap[purpose] || 'MedicoX Verification Code';
+  const text = `Your code is ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
 
   return sendMail({ to: email, subject, text });
 }
 
-/**
- * Appointment Reminder Email
- */
+// ------------------------ APPOINTMENT REMINDER ------------------------
+
 export async function sendAppointmentReminderEmail(
   patientEmail: string,
   doctorName: string,
   appointmentDateTime: string | Date,
   appointmentLink?: string
 ) {
-  const dt = typeof appointmentDateTime === 'string'
-    ? new Date(appointmentDateTime)
-    : appointmentDateTime;
+  const dt = typeof appointmentDateTime === 'string' ? new Date(appointmentDateTime) : appointmentDateTime;
 
-  const formatted = dt.toLocaleString('en-US', {
+  const formatted = dt.toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: SERVER_TIMEZONE,
   });
 
-  const subject = `Reminder: Appointment with Dr. ${doctorName}`;
-  let text = `You have an appointment with Dr. ${doctorName} on ${formatted}.`;
-  let html = `<p>Your appointment with <strong>Dr. ${doctorName}</strong> is scheduled for <strong>${formatted}</strong>.</p>`;
+  const subject = `⏰ Reminder: Appointment with Dr. ${doctorName}`;
+  let html = `<p>Your appointment with <strong>Dr. ${doctorName}</strong> is on <strong>${formatted}</strong>.</p>`;
+  if (appointmentLink) html += `<p><a href="${appointmentLink}">View Appointment</a></p>`;
+  html += `<p>Thanks for using MedicoX.</p>`;
 
-  if (appointmentLink) {
-    text += ` View details: ${appointmentLink}`;
-    html += `<p><a href="${appointmentLink}">View appointment</a></p>`;
-  }
-
-  html += `<p>Thank you for using MedBook!</p>`;
+  const text = `Appointment with Dr. ${doctorName} on ${formatted}.${appointmentLink ? ' View: ' + appointmentLink : ''}`;
 
   return sendMail({ to: patientEmail, subject, text, html });
 }
 
-/**
- * Doctor Message Email
- */
+// ------------------------ PRESCRIPTION EMAIL ------------------------
+
+export async function sendPrescriptionEmail(
+  patientEmail: string,
+  doctorName: string,
+  pdfBuffer: Buffer
+) {
+  const subject = `📋 Your Prescription from Dr. ${doctorName}`;
+  const text = `Please find attached your digital prescription from Dr. ${doctorName}.`;
+  const html = `<p>Please find attached your prescription from <strong>Dr. ${doctorName}</strong>.</p><p>Thank you for using MedicoX!</p>`;
+
+  if (!Buffer.isBuffer(pdfBuffer)) {
+    console.warn('⚠️ PDF buffer passed is not valid. Skipping email.');
+    throw new Error('Invalid PDF buffer for prescription.');
+  }
+
+  return sendMail({
+    to: patientEmail,
+    subject,
+    text,
+    html,
+    attachments: [
+      {
+        filename: 'prescription.pdf',
+        content: pdfBuffer,
+      },
+    ],
+  });
+}
+
+// ------------------------ MESSAGE EMAIL ------------------------
+
 export async function sendDoctorMessageEmail(
   patientEmail: string,
   doctorName: string,
   messagePreview: string,
   messageLink: string
 ) {
-  const subject = `New Message from Dr. ${doctorName}`;
-  const text = `Dr. ${doctorName} sent: "${messagePreview}". View: ${messageLink}`;
+  const subject = `💬 New Message from Dr. ${doctorName}`;
   const html = `
     <p><strong>Dr. ${doctorName}</strong> sent you a message:</p>
     <blockquote>${messagePreview}</blockquote>
-    <p><a href="${messageLink}">View full message</a></p>
-    <p>Thank you for using MedBook!</p>
+    <p><a href="${messageLink}">View Full Message</a></p>
+    <p>— MedicoX</p>
   `;
+  const text = `Dr. ${doctorName} sent: "${messagePreview}". Link: ${messageLink}`;
 
   return sendMail({ to: patientEmail, subject, text, html });
 }
 
-/**
- * Promotional Email
- */
-export async function sendPromotionalEmail(
-  to: string,
-  promoSubject: string,
-  promoHtml: string
-) {
+// ------------------------ PROMOTIONAL EMAIL ------------------------
+
+export async function sendPromotionalEmail(to: string, promoSubject: string, promoHtml: string) {
   const text = promoHtml.replace(/<[^>]+>/g, '');
   return sendMail({ to, subject: promoSubject, text, html: promoHtml });
 }
 
-/**
- * Generic Notification Email
- */
+// ------------------------ NOTIFICATION EMAIL ------------------------
+
 export async function sendNotificationEmail(
   to: string,
   title: string,

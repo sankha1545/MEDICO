@@ -10,7 +10,7 @@ export default {
           200: '#BFDBFE',
           300: '#93C5FD',
           400: '#60A5FA',
-          500: '#4F8DF5', // Primary color
+          500: '#4F8DF5',
           600: '#2563EB',
           700: '#1D4ED8',
           800: '#1E40AF',
@@ -22,7 +22,7 @@ export default {
           100: '#D1FAE5',
           200: '#A7F3D0',
           300: '#6EE7B7',
-          400: '#34D399', // Secondary color
+          400: '#34D399',
           500: '#10B981',
           600: '#059669',
           700: '#047857',
@@ -84,7 +84,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter var', 'sans-serif'],
+        // replaced Inter var with Inter
+        sans: ['Inter', 'sans-serif'],
         serif: ['Georgia', 'serif'],
       },
       boxShadow: {

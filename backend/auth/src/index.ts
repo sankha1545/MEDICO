@@ -18,6 +18,7 @@ import appointmentRoutes from './routes/appointment';
 import paymentsRoutes from './routes/payment';
 import notificationsRoutes from './routes/notifications';
 import webhookHandler from './routes/Webhook';
+import payoutRouter from './routes/payout';
 import { startNotificationScheduler } from './utils/notificationsScheduler';
 
 dotenv.config();
@@ -128,6 +129,7 @@ app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/payout', payoutRouter);
 
 // 11. Health check
 app.get('/api/health', (_req: Request, res: Response) => {

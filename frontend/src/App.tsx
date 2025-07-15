@@ -32,6 +32,8 @@ import Docpatient from './frontend/pages/doctor/PatientAdmission';
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 import SettingsPage from './frontend/components/common/settingspage';
+import { ToastContainer } from 'react-toastify';
+
 
 // Common
 import Bookappointment from './frontend/components/common/bookappointment/BookAppointment';
@@ -76,7 +78,7 @@ const App: React.FC = () => {
     <AuthProvider>
       {/* Animated custom cursor covering entire app */}
       <AnimatedCursor />
-     
+      <ToastContainer />
       {/* Hide default OS cursor */}
       <div className="cursor">
         <Routes>

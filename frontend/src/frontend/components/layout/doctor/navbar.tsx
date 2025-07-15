@@ -67,12 +67,12 @@ export const DoctorNavbar = () => {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-secondary-500"
+              className="text-blue-600"
             >
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
             <motion.span
-              className="ml-2 text-xl font-bold text-transparent bg-gradient-to-r from-secondary-500 to-primary-500 bg-clip-text"
+              className="ml-2 text-xl font-bold text-transparent bg-gradient-to-r from-pink-600 to-primary-500 bg-clip-text"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
@@ -87,7 +87,7 @@ export const DoctorNavbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsProfileOpen((open) => !open)}
-                  className="flex items-center space-x-1 text-gray-700 hover:text-secondary-500"
+                  className="flex items-center space-x-1 text-white hover:text-red-400"
                 >
                   <User size={16} />
                   <span>{user?.name}</span>
@@ -103,19 +103,8 @@ export const DoctorNavbar = () => {
                       transition={{ duration: 0.2 }}
                       className="absolute right-0 w-48 mt-2 overflow-hidden bg-white border border-gray-200 rounded-md shadow-lg"
                     >
-                      <Link
-                        to="/doctor/settings"
-                        onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
-                      >
-                        <Settings size={16} className="mr-2" />Settings
-                      </Link>
-                      <button
-                        onClick={handleLogoutClick}
-                        className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100"
-                      >
-                        <LogOut size={16} className="mr-2" />Logout
-                      </button>
+                      
+                      
                     </motion.div>
                   )}
                 </AnimatePresence>

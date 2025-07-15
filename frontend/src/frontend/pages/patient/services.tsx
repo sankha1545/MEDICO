@@ -1,4 +1,4 @@
-// File: src/pages/ServicesPage.tsx
+// File: src/pages/ServicesPage.tsx 
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,6 @@ import {
   Clock,
   Award,
   Users,
-  Star,
   ArrowRight,
   CheckCircle,
   Play,
@@ -25,6 +24,8 @@ import {
 import { BackgroundAnimation } from '../../components/animations/BackGroundAnimations';
 import { Button } from '../../components/common/Button';
 import videoSrc from '../../assets/MedicoX_Your_Health_Simplified_free.mp4_1750278640502.mp4'
+import image1 from '../../assets/company  (1).svg'; // Replace with your image path
+import image2 from '../../assets/company  (2).svg'; // Replace with your image path
 
 interface Service {
   id: string;
@@ -33,9 +34,7 @@ interface Service {
   icon: React.ReactNode;
   color: string;
   features: string[];
- 
   duration: string;
-  
   availability: 'available' | 'limited' | 'busy';
 }
 
@@ -47,9 +46,7 @@ const services: Service[] = [
     icon: <Stethoscope className="w-8 h-8" />,
     color: 'from-blue-500 to-cyan-500',
     features: ['Health Screening', 'Preventive Care', 'Chronic Disease Management', 'Health Reports'],
-    
     duration: '30 min',
-   
     availability: 'available',
   },
   {
@@ -59,9 +56,7 @@ const services: Service[] = [
     icon: <Heart className="w-8 h-8" />,
     color: 'from-red-500 to-pink-500',
     features: ['ECG & Echo', 'Cardiac Catheterization', 'Heart Surgery', 'Rehabilitation'],
-   
     duration: '45 min',
-   
     availability: 'limited',
   },
   {
@@ -71,9 +66,7 @@ const services: Service[] = [
     icon: <Brain className="w-8 h-8" />,
     color: 'from-purple-500 to-indigo-500',
     features: ['Brain Imaging', 'Stroke Care', 'Epilepsy Treatment', 'Memory Disorders'],
-   
     duration: '60 min',
-   
     availability: 'busy',
   },
   {
@@ -83,9 +76,7 @@ const services: Service[] = [
     icon: <Baby className="w-8 h-8" />,
     color: 'from-green-500 to-emerald-500',
     features: ['Vaccinations', 'Growth Monitoring', 'Pediatric Surgery', 'Development Assessment'],
-   
     duration: '30 min',
-    
     availability: 'available',
   },
   {
@@ -95,9 +86,7 @@ const services: Service[] = [
     icon: <Eye className="w-8 h-8" />,
     color: 'from-yellow-500 to-orange-500',
     features: ['Vision Testing', 'Cataract Surgery', 'Retinal Care', 'LASIK Surgery'],
-   
     duration: '40 min',
-   
     availability: 'available',
   },
   {
@@ -107,9 +96,7 @@ const services: Service[] = [
     icon: <Tooth className="w-8 h-8" />,
     color: 'from-teal-500 to-cyan-500',
     features: ['Dental Cleaning', 'Root Canal', 'Cosmetic Dentistry', 'Orthodontics'],
-    
     duration: '45 min',
-    
     availability: 'available',
   },
 ];
@@ -198,8 +185,8 @@ const ServicesPage: React.FC = () => {
     <div className="relative min-h-screen overflow-hidden">
       <BackgroundAnimation />
 
-      <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+      <main className="relative z-10 min-h-screen overflow-y-auto text-gray-100">
+        <div className="px-6 py-10 mx-auto max-w-7xl sm:px-8 lg:px-10">
           <motion.div
             variants={containerVariants}
             initial="hidden"
@@ -207,16 +194,16 @@ const ServicesPage: React.FC = () => {
             className="space-y-12"
           >
             {/* Header */}
-            <motion.div variants={itemVariants} className="text-center mb-16">
+            <motion.div variants={itemVariants} className="mb-16 text-center">
               <motion.h1
-                className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6"
+                className="mb-6 text-6xl font-bold text-transparent md:text-7xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text"
                 animate={{ backgroundPosition: ['0% 50%','100% 50%','0% 50%'] }}
                 transition={{ duration: 5, repeat: Infinity }}
               >
                 Medical Services
               </motion.h1>
               <motion.p
-                className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto mb-8"
+                className="max-w-4xl mx-auto mb-8 text-xl text-gray-300 md:text-2xl"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
@@ -227,26 +214,26 @@ const ServicesPage: React.FC = () => {
 
               {/* Stats */}
               <motion.div
-                className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-4xl mx-auto"
+                className="grid max-w-4xl grid-cols-1 gap-6 mx-auto md:grid-cols-4"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
               >
-                {[
-                  { icon: <Users size={24}/>,    label: 'Expert Doctors',     value: '500+' },
+                {[ 
+                  { icon: <Users size={24}/>, label: 'Expert Doctors', value: '500+' },
                   { icon: <Activity size={24}/>, label: 'Services Available', value: '50+' },
-                  { icon: <Heart size={24}/>,    label: 'Happy Patients',     value: '10K+' },
-                  { icon: <Award size={24}/>,    label: 'Years Experience',   value: '25+' },
+                  { icon: <Heart size={24}/>, label: 'Happy Patients', value: '10K+' },
+                  { icon: <Award size={24}/>, label: 'Years Experience', value: '25+' },
                 ].map((stat, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.7 + i*0.1, type: 'spring', stiffness: 200 }}
-                    className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10"
+                    className="p-6 border bg-white/5 backdrop-blur-sm rounded-2xl border-white/10"
                   >
-                    <div className="text-blue-400 mb-2 flex justify-center">{stat.icon}</div>
-                    <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
+                    <div className="flex justify-center mb-2 text-blue-400">{stat.icon}</div>
+                    <div className="mb-1 text-2xl font-bold text-white">{stat.value}</div>
                     <div className="text-sm text-gray-400">{stat.label}</div>
                   </motion.div>
                 ))}
@@ -255,7 +242,7 @@ const ServicesPage: React.FC = () => {
 
             {/* Category Filter */}
             <motion.div variants={itemVariants} className="flex justify-center mb-12">
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-2 border border-white/10">
+              <div className="p-2 border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10">
                 <div className="flex space-x-2">
                   {categories.map(cat => (
                     <motion.button
@@ -277,16 +264,16 @@ const ServicesPage: React.FC = () => {
             </motion.div>
 
             {/* Services Grid */}
-            <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <motion.div variants={containerVariants} className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {filteredServices.map(svc => (
                 <motion.div
                   key={svc.id}
                   variants={itemVariants}
                   whileHover={cardHover}
-                  className="group relative bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden"
+                  className="relative overflow-hidden border group bg-white/5 backdrop-blur-xl rounded-3xl border-white/10"
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br ${svc.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
-                  <div className="relative z-10 p-8 flex flex-col h-full">
+                  <div className="relative z-10 flex flex-col h-full p-8">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-6">
                       <motion.div
@@ -303,10 +290,10 @@ const ServicesPage: React.FC = () => {
                       </div>
                     </div>
                     {/* Content */}
-                    <h3 className="text-2xl font-bold text-white mb-3">{svc.title}</h3>
-                    <p className="text-gray-400 mb-6 leading-relaxed">{svc.description}</p>
+                    <h3 className="mb-3 text-2xl font-bold text-white">{svc.title}</h3>
+                    <p className="mb-6 leading-relaxed text-gray-400">{svc.description}</p>
                     {/* Features */}
-                    <div className="space-y-2 mb-6">
+                    <div className="mb-6 space-y-2">
                       {svc.features.map((f,i) => (
                         <motion.div
                           key={i}
@@ -323,16 +310,8 @@ const ServicesPage: React.FC = () => {
                     {/* Stats */}
                     <div className="flex items-center justify-between mb-6 text-sm">
                       <div className="flex items-center space-x-4">
-                        
+                        {/* Price & Glimpse */}
                       </div>
-                      <div className="text-gray-400">{svc.duration}</div>
-                    </div>
-                    {/* Price & Glimpse */}
-                    <div className="flex items-center justify-between mt-auto">
-                      
-                      <Button variant="gradient" size="sm"  className={`bg-gradient-to-r ${svc.color}`}>
-                       Video call 📹<ArrowRight size={16} className="ml-2" />
-                      </Button>
                     </div>
                   </div>
                 </motion.div>
@@ -340,10 +319,10 @@ const ServicesPage: React.FC = () => {
             </motion.div>
 
             {/* CTA Section */}
-            <motion.div variants={itemVariants} className="text-center mt-20">
-              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-xl rounded-3xl border border-blue-400/30 p-12">
+            <motion.div variants={itemVariants} className="mt-20 text-center">
+              <div className="p-12 border bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-xl rounded-3xl border-blue-400/30">
                 <motion.h2
-                  className="text-4xl md:text-5xl font-bold text-white mb-6"
+                  className="mb-6 text-4xl font-bold text-white md:text-5xl"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8 }}
@@ -352,7 +331,7 @@ const ServicesPage: React.FC = () => {
                   Ready to Experience the Future of Healthcare?
                 </motion.h2>
                 <motion.p
-                  className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto"
+                  className="max-w-3xl mx-auto mb-8 text-xl text-gray-300"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
@@ -362,7 +341,7 @@ const ServicesPage: React.FC = () => {
                   Book your appointment today and take the first step towards better health.
                 </motion.p>
                 <motion.div
-                  className="flex flex-col sm:flex-row gap-4 justify-center"
+                  className="flex flex-col justify-center gap-4 sm:flex-row"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
@@ -371,30 +350,12 @@ const ServicesPage: React.FC = () => {
                   <Button variant="gradient" size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600">
                     Glimpse<ArrowRight size={20} className="ml-2" onClick={openModal}/>
                   </Button>
-                  <Button variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10">
+                  <Button variant="outline" size="lg" className="text-white border-white/20 hover:bg-white/10">
                     Learn More
                   </Button>
                 </motion.div>
               </div>
             </motion.div>
-
-            {/* Floating Medical Icons */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
-              {[Heart, Brain, Eye, Stethoscope].map((Icon, idx) => (
-                <motion.div
-                  key={idx}
-                  animate={{ y: [0,-20,0], rotate: [0,10,0], opacity: [0.1,0.3,0.1] }}
-                  transition={{ duration: 4+idx, repeat: Infinity, ease: 'easeInOut', delay: idx*0.5 }}
-                  className={`absolute text-blue-400/20 ${
-                    idx===0?'top-1/4 left-1/4':
-                    idx===1?'top-1/3 right-1/4':
-                    idx===2?'bottom-1/3 left-1/3':'bottom-1/4 right-1/3'
-                  }`}
-                >
-                  <Icon size={60}/>
-                </motion.div>
-              ))}
-            </div>
           </motion.div>
         </div>
       </main>
@@ -403,14 +364,14 @@ const ServicesPage: React.FC = () => {
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
-            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeModal}
           >
             <motion.div
-              className="relative bg-black rounded-2xl overflow-hidden"
+              className="relative overflow-hidden bg-black rounded-2xl"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.8 }}
@@ -419,7 +380,7 @@ const ServicesPage: React.FC = () => {
             >
               <button
                 onClick={closeModal}
-                className="absolute top-3 right-3 text-white bg-black/50 rounded-full p-1 z-10"
+                className="absolute z-10 p-1 text-white rounded-full top-3 right-3 bg-black/50"
               >
                 <X size={20}/>
               </button>
@@ -428,7 +389,7 @@ const ServicesPage: React.FC = () => {
                 src={videoSrc}
                 className="w-[80vw] max-w-3xl aspect-video bg-black"
               />
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center space-x-6">
+              <div className="absolute flex items-center space-x-6 transform -translate-x-1/2 bottom-4 left-1/2">
                 <button onClick={() => seek(-5)} className="text-white"><Rewind size={24}/></button>
                 <button onClick={togglePlay} className="text-white">
                   {videoRef.current?.paused ? <Play size={28}/> : <Pause size={28}/>}
@@ -439,6 +400,9 @@ const ServicesPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      
+     
     </div>
   );
 };

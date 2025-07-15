@@ -38,6 +38,26 @@ export interface User {
   consultationFee?: number;
 }
 
+/**
+ * Data needed to issue a prescription.
+ */
+export interface PrescriptionInput {
+  medicineName: string;
+  timesPerDay: number;
+  intervalDays: number;
+  durationDays: number;
+  beginDate: string;  // e.g. "2025-07-12"
+  endDate: string;    // e.g. "2025-07-19"
+}
+
+interface PayoutSetupData {
+  accountHolderName: string;
+  accountNumber: string;
+  ifsc: string;
+  upiId?: string;
+}
+
+
 interface AuthContextValue {
   user: User | null;
   setUser: (u: User | null) => void;
@@ -100,8 +120,23 @@ interface AuthContextValue {
   verifyPasswordResetOtp: (email: string, otp: string) => Promise<void>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
-}
 
+  /**
+   * Issue a prescription for a given appointment.
+   * Returns the fileUrl where the generated PDF is served.
+   */
+  issuePrescription: (
+    appointmentId: string,
+    data: PrescriptionInput
+  ) => Promise<string>;
+}
+const setupPayout = async (data: PayoutSetupData) => {
+  await api.post('/payout/setup', data);
+};
+
+const executePayout = async (doctorId: string, amountPaise: number, appointmentId: string) => {
+  await api.post('/payout/execute', { doctorId, amountInPaise: amountPaise, appointmentId });
+};
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export { AuthContext };
 
@@ -177,7 +212,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await api.post('/auth/verify-email-otp', { email, otp });
   };
 
-  const signup = async (data: { name: string; email: string; password: string; role: 'patient' | 'doctor' }) => {
+  const signup = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'patient' | 'doctor';
+  }) => {
     setSignupError(null);
     try {
       await api.post('/auth/signup', data);
@@ -265,17 +305,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.dob) form.append('dob', data.dob);
     if (data.profileImageFile) form.append('profileImage', data.profileImageFile);
 
-    // <-- No manual Content-Type header here!
     const res = await api.put('/auth/me', form);
     const resUser = res.data;
-    setUser(prev => prev ? {
-      ...prev,
-      name: resUser.name,
-      email: resUser.email,
-      phone: resUser.phone || prev.phone,
-      dob: resUser.dob ? resUser.dob.split('T')[0] : prev.dob,
-      profileImageUrl: resUser.profileImageUrl || prev.profileImageUrl,
-    } : prev);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: resUser.name,
+            email: resUser.email,
+            phone: resUser.phone || prev.phone,
+            dob:
+              resUser.dob
+                ? resUser.dob.split('T')[0]
+                : prev.dob,
+            profileImageUrl:
+              resUser.profileImageUrl || prev.profileImageUrl,
+          }
+        : prev
+    );
   };
 
   const fetchDoctorProfileInternal = async (commonUser: User): Promise<User> => {
@@ -284,9 +331,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let loc: LocationType | undefined;
     if (d.location) {
       if (typeof d.location === 'object' && 'address' in d.location) {
-        loc = { lat: d.location.lat || 0, lng: d.location.lng || 0, address: d.location.address };
+        loc = {
+          lat: d.location.lat || 0,
+          lng: d.location.lng || 0,
+          address: d.location.address,
+        };
       } else {
-        loc = { lat: 0, lng: 0, address: d.location as string };
+        loc = {
+          lat: 0,
+          lng: 0,
+          address: d.location as string,
+        };
       }
     }
     return {
@@ -297,18 +352,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       provider: commonUser.provider,
       isVerified: commonUser.isVerified,
       phone: d.phone || '',
-      dob: d.dob ? d.dob.split('T')[0] : commonUser.dob,
+      dob: d.dob
+        ? d.dob.split('T')[0]
+        : commonUser.dob,
       profileImageUrl: d.profileImageUrl,
       specialty: d.specialty,
-      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+      availabilitySlots: Array.isArray(d.availabilitySlots)
+        ? d.availabilitySlots
+        : [],
       location: loc,
       maxPatients: d.maxPatients,
       experience: d.experience,
       hospitalAffiliation: d.hospitalAffiliation,
       bio: d.bio,
-      qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
-      languages: Array.isArray(d.languages) ? d.languages : [],
-      consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
+      qualifications: Array.isArray(d.qualifications)
+        ? d.qualifications
+        : [],
+      languages: Array.isArray(d.languages)
+        ? d.languages
+        : [],
+      consultationFee:
+        typeof d.consultationFee === 'number'
+          ? d.consultationFee
+          : 0,
     };
   };
 
@@ -342,29 +408,68 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.phone) form.append('phone', data.phone);
     if (data.dob) form.append('dob', data.dob);
     if (data.specialty) form.append('specialty', data.specialty);
-    if (data.availabilitySlots) form.append('availabilitySlots', JSON.stringify(data.availabilitySlots));
+    if (data.availabilitySlots)
+      form.append(
+        'availabilitySlots',
+        JSON.stringify(data.availabilitySlots)
+      );
     if (data.location) {
-      form.append('locationObj', JSON.stringify(data.location));
+      form.append(
+        'locationObj',
+        JSON.stringify(data.location)
+      );
       form.append('location', data.location.address);
     }
-    if (data.maxPatients !== undefined) form.append('maxPatients', data.maxPatients.toString());
-    if (data.experience) form.append('experience', data.experience);
-    if (data.hospitalAffiliation) form.append('hospitalAffiliation', data.hospitalAffiliation);
+    if (data.maxPatients !== undefined)
+      form.append(
+        'maxPatients',
+        data.maxPatients.toString()
+      );
+    if (data.experience)
+      form.append('experience', data.experience);
+    if (data.hospitalAffiliation)
+      form.append(
+        'hospitalAffiliation',
+        data.hospitalAffiliation
+      );
     if (data.bio) form.append('bio', data.bio);
-    if (data.qualifications) form.append('qualifications', JSON.stringify(data.qualifications));
-    if (data.languages) form.append('languages', JSON.stringify(data.languages));
-    if (data.consultationFee !== undefined) form.append('consultationFee', data.consultationFee.toString());
-    if (data.profileImageFile) form.append('profileImage', data.profileImageFile);
+    if (data.qualifications)
+      form.append(
+        'qualifications',
+        JSON.stringify(data.qualifications)
+      );
+    if (data.languages)
+      form.append(
+        'languages',
+        JSON.stringify(data.languages)
+      );
+    if (data.consultationFee !== undefined)
+      form.append(
+        'consultationFee',
+        data.consultationFee.toString()
+      );
+    if (data.profileImageFile)
+      form.append(
+        'profileImage',
+        data.profileImageFile
+      );
 
-    // <-- And here, too, no manual header override
     const res = await api.put('/medical/doctor/me', form);
     const d = res.data;
     let loc: LocationType | undefined;
     if (d.location) {
       if (typeof d.location === 'object' && 'address' in d.location) {
-        loc = { lat: d.location.lat || 0, lng: d.location.lng || 0, address: d.location.address };
+        loc = {
+          lat: d.location.lat || 0,
+          lng: d.location.lng || 0,
+          address: d.location.address,
+        };
       } else {
-        loc = { lat: 0, lng: 0, address: d.location as string };
+        loc = {
+          lat: 0,
+          lng: 0,
+          address: d.location as string,
+        };
       }
     }
     const updated: User = {
@@ -375,24 +480,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       provider: user?.provider,
       isVerified: user?.isVerified,
       phone: d.phone || '',
-      dob: d.dob ? d.dob.split('T')[0] : user?.dob || '',
+      dob: d.dob
+        ? d.dob.split('T')[0]
+        : user?.dob || '',
       profileImageUrl: d.profileImageUrl,
       specialty: d.specialty,
-      availabilitySlots: Array.isArray(d.availabilitySlots) ? d.availabilitySlots : [],
+      availabilitySlots: Array.isArray(d.availabilitySlots)
+        ? d.availabilitySlots
+        : [],
       location: loc,
       maxPatients: d.maxPatients,
       experience: d.experience,
       hospitalAffiliation: d.hospitalAffiliation,
       bio: d.bio,
-      qualifications: Array.isArray(d.qualifications) ? d.qualifications : [],
-      languages: Array.isArray(d.languages) ? d.languages : [],
-      consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
+      qualifications: Array.isArray(d.qualifications)
+        ? d.qualifications
+        : [],
+      languages: Array.isArray(d.languages)
+        ? d.languages
+        : [],
+      consultationFee:
+        typeof d.consultationFee === 'number'
+          ? d.consultationFee
+          : 0,
     };
     setUser(updated);
     return updated;
   };
 
-  // aliases to avoid calling errors
+  // convenience aliases
   const updateProfile = updateUserProfile;
   const updateMedicalInfo = updateDoctorProfile;
 
@@ -400,12 +516,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await api.post('/auth/send-reset-otp', { email });
   };
 
-  const verifyPasswordResetOtp = async (email: string, otp: string) => {
+  const verifyPasswordResetOtp = async (
+    email: string,
+    otp: string
+  ) => {
     await api.post('/auth/verify-reset-otp', { email, otp });
   };
 
-  const resetPassword = async (email: string, otp: string, newPassword: string) => {
-    await api.post('/auth/reset-password', { email, otp, newPassword });
+  const resetPassword = async (
+    email: string,
+    otp: string,
+    newPassword: string
+  ) => {
+    await api.post('/auth/reset-password', {
+      email,
+      otp,
+      newPassword,
+    });
     navigate('/login');
   };
 
@@ -414,33 +541,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout();
   };
 
+  /**
+   * Issue a prescription: calls backend to generate & email a PDF,
+   * and returns the fileUrl where it’s served.
+   */
+  const issuePrescription = async (
+    appointmentId: string,
+    data: PrescriptionInput
+  ): Promise<string> => {
+    const res = await api.post(
+      `/api/appointments/${appointmentId}/prescription`,
+      data
+    );
+    return res.data.fileUrl;
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      setUser,
-      token,
-      isAuthenticated,
-      loading,
-      signupError,
-      sendEmailOtp,
-      verifyEmailOtp,
-      signup,
-      login,
-      signUpWithGoogle,
-      completeGoogleSignup,
-      loginWithGoogle,
-      loginWithToken,
-      logout,
-      updateUserProfile,
-      updateDoctorProfile,
-      fetchDoctorProfile,
-      updateProfile,
-      updateMedicalInfo,
-      sendPasswordResetOtp,
-      verifyPasswordResetOtp,
-      resetPassword,
-      deleteAccount,
-    }}>
+    <AuthContext.Provider
+      value={{
+         setupPayout,
+  executePayout,
+        user,
+        setUser,
+        token,
+        isAuthenticated,
+        loading,
+        signupError,
+        sendEmailOtp,
+        verifyEmailOtp,
+        signup,
+        login,
+        signUpWithGoogle,
+        completeGoogleSignup,
+        loginWithGoogle,
+        loginWithToken,
+        logout,
+        updateUserProfile,
+        updateDoctorProfile,
+        fetchDoctorProfile,
+        updateProfile,
+        updateMedicalInfo,
+        sendPasswordResetOtp,
+        verifyPasswordResetOtp,
+        resetPassword,
+        deleteAccount,
+        issuePrescription,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

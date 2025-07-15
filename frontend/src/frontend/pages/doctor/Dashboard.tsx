@@ -1,3 +1,4 @@
+// File: src/pages/doctor/docdashboardpage.tsx
 
 import React, {
   useState,
@@ -11,7 +12,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   format,
   isValid,
-  subDays,
   subMonths,
   subYears,
 } from 'date-fns';
@@ -21,29 +21,40 @@ import {
   DollarSign,
   Bell,
   Pencil,
+  FileText,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../contexts/AuthContext';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
+import { useAuth } from '../../../contexts/AuthContext';
 import ThreeBackground from '../../components/animations/doctor/ThreeBackground';
 import FloatingNavbar from '../../components/animations/doctor/FloatingNavbar';
 import StatsCard from '../../components/animations/doctor/StatsCard';
 import AnimatedChart from '../../components/animations/doctor/AnimatedChart';
 import ProfileAvatar3D from '../../components/animations/doctor/ProfileAvatar3D';
-import EditProfileForm, {
-  LocationType,
-} from '../../components/common/editprofile/editprofileformsdoc';
-
+import EditProfileForm, { LocationType } from '../../components/common/editprofile/editprofileformsdoc';
+import { PayoutSetupForm } from '../../components/PayoutSetupForm';
 import seatImg from '../../assets/chair.avif';
 import doctorSeatImg from '../../assets/doctorseat.png';
+
+import 'react-toastify/dist/ReactToastify.css';
 
 interface DoctorAppointment {
   id: string;
   patientName: string;
   date: string;
+  createdAt?: string;
   status: 'upcoming' | 'completed' | 'pending' | 'cancelled';
-  createdAt: string; // track booking time
+  amount: number;
+}
+
+function getBookedDate(a: DoctorAppointment): Date {
+  if (a.createdAt) {
+    return new Date(a.createdAt);
+  }
+  const ts = parseInt(a.id.slice(0, 8), 16) * 1000;
+  return new Date(ts);
 }
 
 interface AppointmentDetail {
@@ -51,6 +62,7 @@ interface AppointmentDetail {
   datetime: string;
   status: string;
   patient: {
+    id: string;
     name: string;
     email: string;
     phone: string;
@@ -76,22 +88,31 @@ type TabKey =
   | 'payout';
 
 export default function DocDashboardPage() {
-  const { user, logout, fetchDoctorProfile, updateDoctorProfile } = useAuth();
+  const {
+    user,
+    logout,
+    fetchDoctorProfile,
+    updateDoctorProfile,
+    setupPayout,
+    executePayout,
+  } = useAuth();
   const navigate = useNavigate();
   const token = localStorage.getItem('authToken') || '';
   const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
-  /*** State ***/
+  // --- State ---
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState('');
 
-  // Profile
   const [profileName, setProfileName] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [profileLanguages, setProfileLanguages] = useState<string>('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profileSpecialty, setProfileSpecialty] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>();
@@ -100,29 +121,40 @@ export default function DocDashboardPage() {
   const [profileLocation, setProfileLocation] = useState('');
   const [profileConsultationFee, setProfileConsultationFee] = useState(0);
 
-  // Appointments & notifications
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Appointment detail & cancel
   const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<AppointmentDetail | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Payout
-  const [bankAccountName, setBankAccountName] = useState('');
-  const [bankAccountNumber, setBankAccountNumber] = useState('');
-  const [bankIFSC, setBankIFSC] = useState('');
-  const [payoutLoading, setPayoutLoading] = useState(false);
-  const [payoutStatusMsg, setPayoutStatusMsg] = useState<string | null>(null);
+  // NEW: slot cancellation state
+  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(null);
+  const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState(false);
+  const [cancellingSlot, setCancellingSlot] = useState(false);
+
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [prescriptionData, setPrescriptionData] = useState({
+    medicineName: '',
+    timesPerDay: 1,
+    intervalDays: 1,
+    durationDays: 1,
+    beginDate: '',
+    endDate: '',
+  });
+  const [issuingPrescription, setIssuingPrescription] = useState(false);
+  const [prescriptionError, setPrescriptionError] = useState('');
+
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
 
   const fetchedProfileRef = useRef(false);
 
-  /*** Handlers ***/
+  // --- Handlers ---
   const handleLogout = () => setIsLogoutModalOpen(true);
   const confirmLogout = async () => {
     await logout();
@@ -132,10 +164,12 @@ export default function DocDashboardPage() {
   const handleSaveProfile = async (
     name: string,
     email: string,
+    bio: string,
     specialty: string,
     file: File | null,
     experience: string,
     location: string,
+    languages: string,
     fee: number
   ) => {
     setProfileError('');
@@ -143,7 +177,9 @@ export default function DocDashboardPage() {
       const updated = await updateDoctorProfile({
         name,
         email,
+        bio,
         specialty,
+        languages,
         profileImageFile: file,
         experience,
         location,
@@ -151,6 +187,8 @@ export default function DocDashboardPage() {
       });
       setProfileName(updated.name);
       setProfileEmail(updated.email);
+      setProfileBio(updated.bio);
+      setProfileLanguages(updated.languages);
       setProfileSpecialty(updated.specialty || '');
       setProfileExperience(updated.experience || '');
       setProfileConsultationFee(updated.consultationFee ?? 0);
@@ -167,14 +205,16 @@ export default function DocDashboardPage() {
     }
   };
 
-  /*** Data Fetching ***/
+  // --- Fetch profile, appts, notifications ---
   useEffect(() => {
     if (user?.role === 'doctor' && !fetchedProfileRef.current) {
       fetchedProfileRef.current = true;
       fetchDoctorProfile()
-        .then((prof) => {
+        .then(prof => {
           setProfileName(prof.name);
           setProfileEmail(prof.email);
+          setProfileBio(prof.bio);
+          setProfileLanguages(prof.languages);
           setProfileSpecialty(prof.specialty || '');
           setProfileImageUrl(prof.profileImageUrl);
           setProfileExperience(prof.experience || '');
@@ -184,9 +224,9 @@ export default function DocDashboardPage() {
             setProfileLocationData(loc);
             setProfileLocation(loc.address);
           }
-          setExistingPayoutAccountId((prof as any).razorpayAccountId || null);
+          setExistingPayoutAccountId((prof as any).razorpayFundAccountId || null);
         })
-        .catch((err) => {
+        .catch(err => {
           console.error(err);
           setProfileError(err.message || 'Failed to load profile');
         })
@@ -201,14 +241,12 @@ export default function DocDashboardPage() {
       .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
-        // assume API returns a `createdAt` timestamp
-        const sorted = res.data
-          .filter(a => a.status !== 'cancelled')
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      .then(res => {
+        const filtered = res.data.filter(a => a.status !== 'cancelled');
+        const sorted = filtered.sort((a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime());
         setAppointments(sorted);
         setUpcomingCount(
-          sorted.filter((a) => a.status === 'upcoming' && new Date(a.date) > new Date()).length
+          sorted.filter(a => a.status === 'upcoming' && new Date(a.date) > new Date()).length
         );
       })
       .catch(console.error);
@@ -217,84 +255,88 @@ export default function DocDashboardPage() {
       .get<NotificationItem[]>(buildUrl('/notifications'), {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
+      .then(res => {
         setNotifications(res.data);
-        setUnreadCount(res.data.filter((n) => !n.read).length);
+        setUnreadCount(res.data.filter(n => !n.read).length);
       })
       .catch(console.error);
   }, [token]);
 
-  /*** Chart Data ***/
+  // --- Chart data ---
   const weeklyData = useMemo(() => {
-    const now = new Date();
+    const today = new Date();
     return Array.from({ length: 7 }).map((_, i) => {
-      const day = subDays(now, 6 - i);
-      return {
-        date: format(day, 'MMM d'),
-        count: appointments.filter(
-          (a) =>
-            format(new Date(a.date), 'yyyy-MM-dd') ===
-            format(day, 'yyyy-MM-dd')
-        ).length,
-      };
+      const day = new Date(today);
+      day.setDate(today.getDate() - (6 - i));
+      const label = format(day, 'MMM d');
+      const count = appointments.filter(a => {
+        const booked = getBookedDate(a);
+        return (
+          isValid(booked) &&
+          format(booked, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
+        );
+      }).length;
+      return { date: label, count };
     });
   }, [appointments]);
 
   const monthlyData = useMemo(() => {
-    const now = new Date();
+    const today = new Date();
     return Array.from({ length: 12 }).map((_, i) => {
-      const m = subMonths(now, 11 - i);
-      return {
-        month: format(m, 'MMM yyyy'),
-        count: appointments.filter(
-          (a) =>
-            format(new Date(a.date), 'yyyy-MM') ===
-            format(m, 'yyyy-MM')
-        ).length,
-      };
+      const m = subMonths(today, 11 - i);
+      const label = format(m, 'MMM yyyy');
+      const count = appointments.filter(a => {
+        const booked = getBookedDate(a);
+        return (
+          isValid(booked) &&
+          format(booked, 'yyyy-MM') === format(m, 'yyyy-MM')
+        );
+      }).length;
+      return { month: label, count };
     });
   }, [appointments]);
 
   const yearlyData = useMemo(() => {
-    const now = new Date();
+    const today = new Date();
     return Array.from({ length: 5 }).map((_, i) => {
-      const y = subYears(now, 4 - i);
-      return {
-        year: format(y, 'yyyy'),
-        count: appointments.filter(
-          (a) =>
-            format(new Date(a.date), 'yyyy') ===
-            format(y, 'yyyy')
-        ).length,
-      };
+      const y = subYears(today, 4 - i);
+      const label = format(y, 'yyyy');
+      const count = appointments.filter(a => {
+        const booked = getBookedDate(a);
+        return (
+          isValid(booked) &&
+          format(booked, 'yyyy') === format(y, 'yyyy')
+        );
+      }).length;
+      return { year: label, count };
     });
   }, [appointments]);
 
-  /*** Slot grouping & FCFS ordering ***/
+  // --- Slot grouping ---
   const slotGroups = useMemo(() => {
     const groups: Record<string, DoctorAppointment[]> = {};
     if (user?.availabilitySlots) {
-      user.availabilitySlots.forEach((slotIso) => {
+      user.availabilitySlots.forEach(slotIso => {
         const label = format(new Date(slotIso), 'PPP p');
         groups[label] = [];
       });
     }
-    appointments.forEach((a) => {
+    appointments.forEach(a => {
       const label = format(new Date(a.date), 'PPP p');
       if (groups[label]) groups[label].push(a);
       else {
-        groups.Other = groups.Other || [];
-        groups.Other.push(a);
+        groups['Other'] = groups['Other'] ?? [];
+        groups['Other'].push(a);
       }
     });
-    // Already in FCFS order by createdAt from fetch hook
     return groups;
   }, [appointments, user]);
 
-  /*** Appointment detail fetch ***/
+  // --- Appointment detail, single cancel ---
   const fetchAppointmentDetails = async (id: string) => {
     setDetailsLoading(true);
     setShowCancelConfirm(false);
+    setPrescriptionError('');
     try {
       const res = await axios.get<any>(buildUrl(`/appointments/${id}`), {
         headers: { Authorization: `Bearer ${token}` },
@@ -305,20 +347,20 @@ export default function DocDashboardPage() {
         datetime: d.datetime,
         status: d.status,
         patient: {
+          id: d.patient._id,
           name: d.patient.name,
           email: d.patient.email,
           phone: d.patient.phone,
           message: d.patient.message,
         },
       });
-    } catch (err) {
-      console.error('Failed to fetch details', err);
+    } catch {
+      toast.error('Failed to load details');
     } finally {
       setDetailsLoading(false);
     }
   };
 
-  /*** Cancel appointment ***/
   const handleCancelAppointment = async () => {
     if (!selectedAppointmentDetail) return;
     setCancelling(true);
@@ -328,35 +370,120 @@ export default function DocDashboardPage() {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setAppointments((prev) =>
-        prev.filter((a) => a.id !== selectedAppointmentDetail.id)
-      );
+      setAppointments(prev => prev.filter(a => a.id !== selectedAppointmentDetail.id));
       setSelectedAppointmentDetail(null);
       setShowCancelConfirm(false);
-    } catch (err) {
-      console.error('Cancel failed', err);
+      toast.success('Appointment cancelled');
+    } catch {
+      toast.error('Cancel failed');
     } finally {
       setCancelling(false);
     }
   };
 
-  const markNotificationRead = async (id: string) => {
+  // --- Slot Cancel handlers ---
+  const openSlotCancel = (slotLabel: string) => {
+    setSelectedSlotLabel(slotLabel);
+    setShowSlotCancelConfirm(true);
+  };
+  const closeSlotCancel = () => {
+    setShowSlotCancelConfirm(false);
+    setSelectedSlotLabel(null);
+  };
+  const handleCancelSlot = async () => {
+    if (!selectedSlotLabel) return;
+    setCancellingSlot(true);
     try {
-      await axios.put(
-        buildUrl(`/notifications/${id}/read`),
-        {},
+      await axios.post(
+        buildUrl('/appointments/slot/cancel'),
+        { slotLabel: selectedSlotLabel },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNotifications((n) =>
-        n.map((x) => (x._id === id ? { ...x, read: true } : x))
+      setAppointments(prev =>
+        prev.filter(a => format(new Date(a.date), 'PPP p') !== selectedSlotLabel)
       );
-      setUnreadCount((c) => Math.max(c - 1, 0));
-    } catch (err) {
-      console.error(err);
+      closeSlotCancel();
+      toast.success(`All appointments for "${selectedSlotLabel}" cancelled and refunded`);
+    } catch {
+      toast.error('Failed to cancel slot appointments');
+    } finally {
+      setCancellingSlot(false);
     }
   };
 
-  // Early return AFTER hooks
+  // --- Prescription ---
+  const openPrescriptionForm = () => setShowPrescriptionForm(true);
+  const closePrescriptionForm = () => {
+    setShowPrescriptionForm(false);
+    setPrescriptionError('');
+    setPrescriptionData({
+      medicineName: '',
+      timesPerDay: 1,
+      intervalDays: 1,
+      durationDays: 1,
+      beginDate: '',
+      endDate: '',
+    });
+  };
+
+  const handlePrescriptionChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPrescriptionData(prev => ({
+      ...prev,
+      [name]: name.includes('Date') ? value : Number(value) || value,
+    }));
+  };
+
+  const submitPrescription = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedAppointmentDetail) return;
+    setIssuingPrescription(true);
+    try {
+      await axios.post(
+        buildUrl(`/appointments/${selectedAppointmentDetail.id}/prescription`),
+        { prescriptionItems: [prescriptionData] },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Prescription issued!');
+      closePrescriptionForm();
+      setSelectedAppointmentDetail(null);
+    } catch {
+      setPrescriptionError('Failed to issue prescription');
+    } finally {
+      setIssuingPrescription(false);
+    }
+  };
+
+  // --- Payout ---
+  const handleSetupPayout = async (data: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifsc: string;
+    upiId?: string;
+  }) => {
+    setPayoutLoading(true);
+    try {
+      const res = await setupPayout(data);
+      setExistingPayoutAccountId((res as any).fundAccountId);
+      toast.success('Payout account configured');
+    } catch {
+      toast.error('Payout setup failed');
+    } finally {
+      setPayoutLoading(false);
+      setShowPayoutModal(false);
+    }
+  };
+
+  const handleExecutePayout = async (appt: DoctorAppointment) => {
+    try {
+      const paise = Math.round(appt.amount * 100 * 0.9);
+      await executePayout(user!.id, paise, appt.id);
+      toast.success('Payout sent');
+    } catch {
+      toast.error('Payout failed');
+    }
+  };
+
   if (loadingProfile) {
     return (
       <div className="flex items-center justify-center min-h-screen text-white bg-gray-900">
@@ -365,7 +492,6 @@ export default function DocDashboardPage() {
     );
   }
 
-  /*** Render ***/
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
       <ThreeBackground activeTab={activeTab} />
@@ -417,11 +543,13 @@ export default function DocDashboardPage() {
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.8 }}
-                className="w-full max-w-lg p-8 bg-gray-800 rounded-2xl"
+                className="w-full max-w-lg p-8 bg-gray-800 rounded-2xl max-h-[90vh] overflow-y-auto"
               >
                 <EditProfileForm
                   currentName={profileName}
                   currentEmail={profileEmail}
+                  currentBio={profileBio}
+                  currentlanguages={profileLanguages}
                   currentSpecialty={profileSpecialty}
                   currentProfileImageUrl={profileImageUrl}
                   currentExperience={profileExperience}
@@ -438,8 +566,8 @@ export default function DocDashboardPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-8 mb-16 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
-            title="Upcoming Appointments"
-            value={upcomingCount}
+            title="Bookings This Week"
+            value={weeklyData.reduce((sum, d) => sum + d.count, 0)}
             icon={Calendar}
             gradient="from-blue-500 to-cyan-500"
             delay={0.1}
@@ -447,15 +575,15 @@ export default function DocDashboardPage() {
           />
           <StatsCard
             title="Total Patients"
-            value={new Set(appointments.map((a) => a.patientName)).size}
+            value={new Set(appointments.map(a => a.patientName)).size}
             icon={Users}
             gradient="from-green-500 to-emerald-500"
             delay={0.2}
             glowColor="green"
           />
           <StatsCard
-            title="Monthly Earnings"
-            value={`₹${(appointments.length * profileConsultationFee).toLocaleString()}`}
+            title="Bookings This Month"
+            value={monthlyData.reduce((sum, d) => sum + d.count, 0)}
             icon={DollarSign}
             gradient="from-yellow-500 to-orange-500"
             delay={0.3}
@@ -471,7 +599,7 @@ export default function DocDashboardPage() {
           />
         </div>
 
-        {/* Tabs Content */}
+        {/* Tabbed Content */}
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div
@@ -485,16 +613,16 @@ export default function DocDashboardPage() {
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                 <AnimatedChart
                   data={weeklyData}
-                  title="Weekly Appointments"
+                  title="Weekly Bookings"
                   dataKey="count"
                   xAxisKey="date"
                   color="cyan"
                   delay={0.1}
-                  type="area"
+                  type="line"
                 />
                 <AnimatedChart
                   data={monthlyData}
-                  title="Monthly Trends"
+                  title="Monthly Bookings"
                   dataKey="count"
                   xAxisKey="month"
                   color="purple"
@@ -504,7 +632,7 @@ export default function DocDashboardPage() {
               </div>
               <AnimatedChart
                 data={yearlyData}
-                title="Yearly Trends"
+                title="Yearly Bookings"
                 dataKey="count"
                 xAxisKey="year"
                 color="pink"
@@ -568,12 +696,21 @@ export default function DocDashboardPage() {
               <div className="flex justify-center mb-6">
                 <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
               </div>
+
               {Object.entries(slotGroups).map(([slot, appts]) => (
                 <div key={slot} className="mb-8">
-                  <h3 className="mb-2 text-xl font-semibold text-white">{slot}</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="mb-2 text-xl font-semibold text-white">{slot}</h3>
+                    <button
+                      onClick={() => openSlotCancel(slot)}
+                      className="px-3 py-1 text-sm text-red-500 bg-red-100 rounded hover:bg-red-200"
+                    >
+                      Cancel All
+                    </button>
+                  </div>
                   <div className="grid grid-cols-5 gap-4 justify-items-center">
                     {appts.length > 0
-                      ? appts.map((a) => (
+                      ? appts.map(a => (
                           <div
                             key={a.id}
                             className="flex flex-col items-center cursor-pointer"
@@ -585,9 +722,9 @@ export default function DocDashboardPage() {
                             </span>
                           </div>
                         ))
-                      : Array.from({ length: user?.maxPatients || 5 }).map((_, i) => (
+                      : Array.from({ length: user?.maxPatients || 5 }).map((_, idx) => (
                           <img
-                            key={i}
+                            key={idx}
                             src={seatImg}
                             alt="Empty Seat"
                             className="w-12 h-12 opacity-30"
@@ -637,7 +774,19 @@ export default function DocDashboardPage() {
                     <span>{n.message}</span>
                     {!n.read && (
                       <button
-                        onClick={() => markNotificationRead(n._id)}
+                        onClick={() => {
+                          axios
+                            .put(buildUrl(`/notifications/${n._id}/read`), {}, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            })
+                            .then(() => {
+                              setNotifications(prev =>
+                                prev.map(x => x._id === n._id ? { ...x, read: true } : x)
+                              );
+                              setUnreadCount(c => Math.max(c - 1, 0));
+                            })
+                            .catch(console.error);
+                        }}
                         className="ml-4 text-blue-400 hover:underline"
                       >
                         Mark read
@@ -668,6 +817,8 @@ export default function DocDashboardPage() {
                   <p><strong>Experience:</strong> {profileExperience} years</p>
                   <p><strong>Location:</strong> {profileLocation}</p>
                   <p><strong>Consultation Fee:</strong> ₹{profileConsultationFee.toLocaleString()}</p>
+                  <p><strong>Bio:</strong> {profileBio}</p>
+                  <p><strong>Languages:</strong> {profileLanguages}</p>
                 </div>
               </div>
             </motion.div>
@@ -686,72 +837,51 @@ export default function DocDashboardPage() {
               {existingPayoutAccountId ? (
                 <p className="text-white">Account ID: {existingPayoutAccountId}</p>
               ) : (
-                <form onSubmit={async (e: FormEvent) => {
-                    e.preventDefault();
-                    setPayoutLoading(true);
-                    setPayoutStatusMsg(null);
-                    try {
-                      const { data } = await axios.post(
-                        buildUrl('/medical/doctor/payout-account'),
-                        {
-                          accountHolderName: bankAccountName.trim(),
-                          accountNumber: bankAccountNumber.trim(),
-                          ifsc: bankIFSC.trim(),
-                        },
-                        { headers: { Authorization: `Bearer ${token}` } }
-                      );
-                      setExistingPayoutAccountId(data.fundAccountId || data.razorpayAccountId);
-                      setPayoutStatusMsg('Payout account added successfully.');
-                      setBankAccountName(''); setBankAccountNumber(''); setBankIFSC('');
-                    } catch (err: any) {
-                      console.error(err);
-                      setPayoutStatusMsg(err.message || 'Failed to add payout account');
-                    } finally {
-                      setPayoutLoading(false);
-                    }
-                  }}
-                  className="space-y-4"
+                <button
+                  onClick={() => setShowPayoutModal(true)}
+                  className="px-6 py-2 text-white bg-green-500 rounded-xl hover:bg-green-600"
                 >
-                  <input
-                    type="text"
-                    placeholder="Account Holder Name"
-                    value={bankAccountName}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setBankAccountName(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Account Number"
-                    value={bankAccountNumber}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setBankAccountNumber(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
-                  />
-                  <input
-                    type="text"
-                    placeholder="IFSC Code"
-                    value={bankIFSC}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setBankIFSC(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
-                  />
-                  <button
-                    type="submit"
-                    disabled={payoutLoading}
-                    className="px-6 py-2 text-white bg-indigo-600 rounded-xl disabled:opacity-50"
-                  >
-                    {payoutLoading ? 'Adding...' : 'Add Account'}
-                  </button>
-                  {payoutStatusMsg && <p className="text-white">{payoutStatusMsg}</p>}
-                </form>
+                  Setup Payout Account
+                </button>
               )}
+              <h3 className="mt-8 text-xl font-semibold text-white">Execute Payouts</h3>
+              <ul className="space-y-4">
+                {appointments
+                  .filter(a => a.status === 'completed')
+                  .map(a => (
+                    <li
+                      key={a.id}
+                      className="flex justify-between p-4 bg-gray-800 rounded-xl"
+                    >
+                      <span>{a.patientName} — ₹{a.amount}</span>
+                      {existingPayoutAccountId && (
+                        <button
+                          onClick={() => handleExecutePayout(a)}
+                          className="px-4 py-1 text-white bg-indigo-500 rounded-lg hover:bg-indigo-600"
+                        >
+                          Pay Out
+                        </button>
+                      )}
+                    </li>
+                  ))}
+              </ul>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Appointment Details & Cancel Modal */}
+      {/* Payout Setup Modal */}
+      <AnimatePresence>
+        {showPayoutModal && (
+          <PayoutSetupForm
+            onClose={() => setShowPayoutModal(false)}
+            onSubmit={handleSetupPayout}
+            loading={payoutLoading}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Appointment Details / Cancel / Prescription Modal */}
       <AnimatePresence>
         {selectedAppointmentDetail && (
           <motion.div
@@ -761,7 +891,7 @@ export default function DocDashboardPage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-md p-6 bg-gray-800 rounded-xl"
+              className="w-full max-w-md p-6 bg-gray-800 rounded-xl max-h-[90vh] overflow-y-auto"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.8 }}
@@ -792,6 +922,85 @@ export default function DocDashboardPage() {
                     </button>
                   </div>
                 </>
+              ) : showPrescriptionForm ? (
+                <form onSubmit={submitPrescription} className="space-y-4">
+                  <h3 className="text-xl font-bold text-white">Issue Prescription</h3>
+                  <div className="space-y-2">
+                    <input
+                      name="medicineName"
+                      placeholder="Medicine Name"
+                      value={prescriptionData.medicineName}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="timesPerDay"
+                      type="number"
+                      min={1}
+                      placeholder="Times per Day"
+                      value={prescriptionData.timesPerDay}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="intervalDays"
+                      type="number"
+                      min={1}
+                      placeholder="Interval of Days"
+                      value={prescriptionData.intervalDays}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="durationDays"
+                      type="number"
+                      min={1}
+                      placeholder="Duration (Days)"
+                      value={prescriptionData.durationDays}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="beginDate"
+                      type="date"
+                      value={prescriptionData.beginDate}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="endDate"
+                      type="date"
+                      value={prescriptionData.endDate}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    {prescriptionError && (
+                      <p className="text-red-400">{prescriptionError}</p>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={closePrescriptionForm}
+                      className="flex-1 py-2 text-white bg-gray-600 rounded-xl hover:bg-gray-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={issuingPrescription}
+                      className="flex-1 py-2 text-white bg-green-600 rounded-xl disabled:opacity-50"
+                    >
+                      {issuingPrescription ? 'Issuing...' : 'Issue Prescription'}
+                    </button>
+                  </div>
+                </form>
               ) : (
                 <>
                   <h3 className="mb-2 text-xl font-bold text-white">
@@ -800,10 +1009,7 @@ export default function DocDashboardPage() {
                   <p className="mb-1 text-gray-300">
                     <strong>Slot:</strong>{' '}
                     {isValid(new Date(selectedAppointmentDetail.datetime))
-                      ? format(
-                          new Date(selectedAppointmentDetail.datetime),
-                          'PPP p'
-                        )
+                      ? format(new Date(selectedAppointmentDetail.datetime), 'PPP p')
                       : 'Invalid Date'}
                   </p>
                   <p className="mb-1 text-gray-300">
@@ -818,20 +1024,26 @@ export default function DocDashboardPage() {
                   <p className="mb-4 text-gray-300">
                     <strong>Message:</strong> {selectedAppointmentDetail.patient.message || '—'}
                   </p>
-                  <div className="flex space-x-2">
+                  <div className="flex mb-4 space-x-2">
+                    <button
+                      onClick={openPrescriptionForm}
+                      className="flex items-center justify-center flex-1 px-4 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-500"
+                    >
+                      <FileText className="w-4 h-4 mr-2" /> Issue Prescription
+                    </button>
                     <button
                       onClick={() => setShowCancelConfirm(true)}
                       className="flex-1 px-4 py-2 text-white bg-red-600 rounded-xl hover:bg-red-500"
                     >
                       Cancel Appointment
                     </button>
-                    <button
-                      onClick={() => setSelectedAppointmentDetail(null)}
-                      className="flex-1 px-4 py-2 text-white bg-indigo-600 rounded-xl hover:bg-indigo-500"
-                    >
-                      Close
-                    </button>
                   </div>
+                  <button
+                    onClick={() => setSelectedAppointmentDetail(null)}
+                    className="w-full py-2 text-white bg-indigo-600 rounded-xl hover:bg-indigo-500"
+                  >
+                    Close
+                  </button>
                 </>
               )}
             </motion.div>
@@ -873,6 +1085,46 @@ export default function DocDashboardPage() {
                 >
                   Logout
                 </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showSlotCancelConfirm && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-md p-6 bg-gray-800 rounded-2xl max-h-[90vh] overflow-y-auto"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+            >
+              <h3 className="mb-4 text-xl font-bold text-white">
+                Cancel All Appointments for "{selectedSlotLabel}"
+              </h3>
+              <p className="mb-6 text-gray-300">
+                This will cancel all appointments in this time slot, refund patients,
+                and send them notifications.
+              </p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={closeSlotCancel}
+                  className="flex-1 py-2 text-white bg-gray-600 rounded-xl hover:bg-gray-500"
+                >
+                  No, Go Back
+                </button>
+                <button
+                  onClick={handleCancelSlot}
+                  disabled={cancellingSlot}
+                  className="flex-1 py-2 text-white bg-red-600 rounded-xl hover:bg-red-500 disabled:opacity-50"
+                >
+                  {cancellingSlot ? 'Cancelling...' : 'Yes, Cancel All'}
+                </button>
               </div>
             </motion.div>
           </motion.div>

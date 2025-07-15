@@ -7,6 +7,8 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/700.css';
+
+
 import { ToastProvider } from './contexts/ToastContext.tsx';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -26,7 +26,7 @@ export const Footer: React.FC = () => {
     { label: 'Our Services', href: '/services' },
     { label: 'Find Doctors', href: '/doctors' },
     { label: 'Book Appointment', href: '/appointments' },
-    { label: 'Health Blog', href: '/blog' },
+   
   ];
 
   const supportLinks = [
@@ -38,10 +38,10 @@ export const Footer: React.FC = () => {
   ];
 
   return (
-    <footer className="relative text-white overflow-hidden">
+    <footer className="relative overflow-hidden text-white">
       {/* Animated background elements */}
       <motion.div
-        className="absolute -top-20 -left-20 w-80 h-80 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-3xl"
+        className="absolute rounded-full -top-20 -left-20 w-80 h-80 bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-3xl"
         animate={{
           scale: [1, 1.2, 1],
           opacity: [0.3, 0.1, 0.3],
@@ -53,7 +53,7 @@ export const Footer: React.FC = () => {
         }}
       />
       <motion.div
-        className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-3xl"
+        className="absolute rounded-full -bottom-20 -right-20 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-3xl"
         animate={{
           scale: [1, 1.1, 1],
           opacity: [0.3, 0.1, 0.3],
@@ -66,8 +66,8 @@ export const Footer: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      <div className="relative z-10 px-6 py-16 mx-auto max-w-7xl">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
           {/* Company Info */}
           <motion.div
             className="space-y-6"
@@ -83,11 +83,11 @@ export const Footer: React.FC = () => {
               >
                 <HeartPulse size={32} className="text-blue-400" />
               </motion.div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold text-transparent bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text">
                 MedicoX
               </span>
             </div>
-            <p className="text-gray-300 leading-relaxed">
+            <p className="leading-relaxed text-gray-300">
               Revolutionizing healthcare access with cutting-edge technology and compassionate care. Your health, our priority.
             </p>
             <div className="flex space-x-4">
@@ -97,7 +97,7 @@ export const Footer: React.FC = () => {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-gray-300 hover:text-white hover:bg-blue-500/20 transition-all duration-300"
+                  className="flex items-center justify-center w-10 h-10 text-gray-300 transition-all duration-300 rounded-full bg-white/10 backdrop-blur-sm hover:text-white hover:bg-blue-500/20"
                   whileHover={{ scale: 1.2, rotate: 10 }}
                   whileTap={{ scale: 0.9 }}
                   initial={{ opacity: 0, y: 20 }}
@@ -131,10 +131,10 @@ export const Footer: React.FC = () => {
                 >
                   <motion.a
                     href={link.href}
-                    className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center group"
+                    className="flex items-center text-gray-300 transition-colors duration-300 hover:text-blue-400 group"
                     whileHover={{ x: 5 }}
                   >
-                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <span className="w-2 h-2 mr-3 transition-opacity duration-300 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100" />
                     {link.label}
                   </motion.a>
                 </motion.li>
@@ -162,10 +162,10 @@ export const Footer: React.FC = () => {
                 >
                   <motion.a
                     href={link.href}
-                    className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center group"
+                    className="flex items-center text-gray-300 transition-colors duration-300 hover:text-blue-400 group"
                     whileHover={{ x: 5 }}
                   >
-                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <span className="w-2 h-2 mr-3 transition-opacity duration-300 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100" />
                     {link.label}
                   </motion.a>
                 </motion.li>
@@ -188,8 +188,8 @@ export const Footer: React.FC = () => {
                 whileHover={{ x: 5 }}
                 transition={{ duration: 0.3 }}
               >
-                <MapPin size={20} className="text-blue-400 mt-1 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">
+                <MapPin size={20} className="flex-shrink-0 mt-1 text-blue-400" />
+                <span className="text-sm text-gray-300">
                   123 Healthcare Avenue, Medical District, New York, NY 10001
                 </span>
               </motion.div>
@@ -198,16 +198,16 @@ export const Footer: React.FC = () => {
                 whileHover={{ x: 5 }}
                 transition={{ duration: 0.3 }}
               >
-                <Phone size={20} className="text-blue-400 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">+1 (555) 987-6543</span>
+                <Phone size={20} className="flex-shrink-0 text-blue-400" />
+                <span className="text-sm text-gray-300">+1 (555) 987-6543</span>
               </motion.div>
               <motion.div
                 className="flex items-center space-x-3"
                 whileHover={{ x: 5 }}
                 transition={{ duration: 0.3 }}
               >
-                <Mail size={20} className="text-blue-400 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">contact@medicox.com</span>
+                <Mail size={20} className="flex-shrink-0 text-blue-400" />
+                <span className="text-sm text-gray-300">contact@medicox.com</span>
               </motion.div>
             </div>
           </motion.div>
@@ -215,21 +215,21 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Bar */}
         <motion.div
-          className="border-t border-gray-700 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center"
+          className="flex flex-col items-center justify-between pt-8 mt-12 border-t border-gray-700 md:flex-row"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.8 }}
           viewport={{ once: true }}
         >
-          <p className="text-gray-400 text-sm">
+          <p className="text-sm text-gray-400">
             © {currentYear} MedicoX. All rights reserved.
           </p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
+          <div className="flex mt-4 space-x-6 md:mt-0">
             {['Privacy', 'Terms', 'Cookies'].map((item, idx) => (
               <motion.a
                 key={item}
                 href={`/${item.toLowerCase()}`}
-                className="text-gray-400 hover:text-blue-400 text-sm transition-colors duration-300"
+                className="text-sm text-gray-400 transition-colors duration-300 hover:text-blue-400"
                 whileHover={{ y: -2 }}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
