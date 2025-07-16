@@ -9,7 +9,7 @@ import Notification from '../models/Notification';
 import razorpayInstance from '../utils/razorpayClient';
 import { authenticateJWT } from './auth';
 import { generatePrescriptionPdf } from '../utils/generatePrescriptionPdf';
-import { sendPrescriptionEmail } from '../utils/email';
+import { sendPrescriptionEmail, sendNotificationEmail } from '../utils/email';
 
 const router = express.Router();
 
@@ -23,8 +23,7 @@ interface PrescriptionInput {
 }
 
 /**
- * POST /api/appointments/confirm-after-payment
- * Verify Razorpay signature and mark appointment as scheduled/paid.
+ * Confirm payment & schedule appointment
  */
 router.post(
   '/confirm-after-payment',
@@ -34,7 +33,9 @@ router.post(
       const user = (req as any).user;
       const role = (req as any).role;
       if (role !== 'patient') {
-        return res.status(403).json({ message: 'Only patients can confirm appointment' });
+        return res
+          .status(403)
+          .json({ message: 'Only patients can confirm appointment' });
       }
 
       const {
@@ -48,8 +49,12 @@ router.post(
         razorpay_order_id: string;
         razorpay_signature: string;
       };
-
-      if (!appointmentId || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      if (
+        !appointmentId ||
+        !razorpay_payment_id ||
+        !razorpay_order_id ||
+        !razorpay_signature
+      ) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
 
@@ -57,7 +62,6 @@ router.post(
         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
         .update(`${razorpay_order_id}|${razorpay_payment_id}`)
         .digest('hex');
-
       if (expectedSignature !== razorpay_signature) {
         return res.status(400).json({ message: 'Invalid signature' });
       }
@@ -66,8 +70,10 @@ router.post(
       if (!appt) {
         return res.status(404).json({ message: 'Appointment not found' });
       }
-      if (appt.patient.toString() !== user._id.toString()) {
-        return res.status(403).json({ message: 'Not authorized for this appointment' });
+      if (appt.patient.toString() !== (user as any)._id.toString()) {
+        return res
+          .status(403)
+          .json({ message: 'Not authorized for this appointment' });
       }
 
       appt.status = 'scheduled';
@@ -96,21 +102,24 @@ router.post(
       return res.json({ appointmentId: appt._id });
     } catch (err: any) {
       console.error('Error in confirm-after-payment:', err);
-      return res.status(500).json({ message: 'Failed to confirm appointment' });
+      return res
+        .status(500)
+        .json({ message: 'Failed to confirm appointment' });
     }
   }
 );
 
 /**
- * GET /api/appointments
- * Fetch appointments for the authenticated patient.
+ * Patient’s appointments
  */
 router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const role = (req as any).role;
     if (role !== 'patient') {
-      return res.status(403).json({ message: 'Only patients can view their appointments' });
+      return res
+        .status(403)
+        .json({ message: 'Only patients can view their appointments' });
     }
 
     const appts = await Appointment.find({ patient: user._id })
@@ -132,20 +141,23 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
     return res.json(result);
   } catch (err) {
     console.error('Error fetching patient appointments:', err);
-    return res.status(500).json({ message: 'Failed to fetch appointments' });
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch appointments' });
   }
 });
 
 /**
- * GET /api/appointments/doctor
- * Fetch non-cancelled appointments for the authenticated doctor.
+ * Doctor’s appointments
  */
 router.get('/doctor', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const role = (req as any).role;
     if (role !== 'doctor') {
-      return res.status(403).json({ message: 'Only doctors can view their appointments' });
+      return res
+        .status(403)
+        .json({ message: 'Only doctors can view their appointments' });
     }
 
     const appts = await Appointment.find({
@@ -165,26 +177,30 @@ router.get('/doctor', authenticateJWT, async (req: Request, res: Response) => {
     return res.json(result);
   } catch (err) {
     console.error('Error fetching doctor appointments:', err);
-    return res.status(500).json({ message: 'Failed to fetch appointments' });
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch appointments' });
   }
 });
 
 /**
- * GET /api/appointments/:id
- * Fetch appointment details by ID for doctors.
+ * Single appointment detail
  */
 router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const role = (req as any).role;
     if (role !== 'doctor') {
-      return res.status(403).json({ message: 'Only doctors can access this route' });
+      return res
+        .status(403)
+        .json({ message: 'Only doctors can access this route' });
     }
 
     const appointment = await Appointment.findById(id)
       .populate('patient', 'name email phone message')
       .lean();
-    if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+    if (!appointment)
+      return res.status(404).json({ message: 'Appointment not found' });
 
     const p = appointment.patient as any;
     return res.json({
@@ -201,13 +217,138 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Error fetching appointment by ID:', err);
-    return res.status(500).json({ message: 'Failed to fetch appointment details' });
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch appointment details' });
   }
 });
+router.post(
+  '/cancel-slot',
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const role = (req as any).role;
+      const { slotLabel } = req.body as { slotLabel: string };
 
+      if (role !== 'doctor') {
+        return res
+          .status(403)
+          .json({ message: 'Only doctors can cancel slots' });
+      }
+      if (!slotLabel || typeof slotLabel !== 'string') {
+        return res
+          .status(400)
+          .json({ message: 'slotLabel is required and must be a string' });
+      }
+
+      const slotDate = new Date(slotLabel);
+      if (isNaN(slotDate.getTime())) {
+        return res
+          .status(400)
+          .json({ message: 'Invalid slotLabel format. Must be ISO 8601 string.' });
+      }
+
+      const start = new Date(slotDate);
+      const end = new Date(slotDate);
+      end.setMinutes(end.getMinutes() + 59);
+
+      const appts = await Appointment.find({
+        doctor: user._id,
+        datetime: { $gte: start, $lte: end },
+        status: { $ne: 'cancelled' },
+      }).populate('patient', 'email');
+
+      let cancelledCount = 0;
+      let refundedCount = 0;
+      const errors: string[] = [];
+
+      for (const appt of appts) {
+        try {
+          appt.status = 'cancelled';
+          if (appt.razorpayPaymentId) appt.paymentStatus = 'refunded';
+          await appt.save();
+          cancelledCount++;
+
+          if (appt.razorpayPaymentId) {
+            try {
+              await razorpayInstance.payments.refund(appt.razorpayPaymentId, {
+                amount: Math.round((appt.amount || 0) * 100),
+              });
+              refundedCount++;
+            } catch (refundErr) {
+              console.error(
+                `❌ Refund failed for appointment ${appt._id}:`,
+                refundErr
+              );
+              errors.push(
+                `Refund failed for ${appt._id}: ${refundErr.message}`
+              );
+            }
+          }
+
+          const slotStr = slotDate.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          });
+          const notifMsg = appt.razorpayPaymentId
+            ? `Your appointment on ${slotStr} has been cancelled and refunded.`
+            : `Your appointment on ${slotStr} has been cancelled.`;
+
+          await Notification.create({
+            userId: appt.patient,
+            type: 'appointment_cancelled',
+            message: notifMsg,
+            read: false,
+            createdAt: new Date(),
+          });
+
+          const email = (appt.patient as any)?.email;
+          if (email) {
+            try {
+              await sendNotificationEmail(
+                email,
+                'Appointment Cancelled',
+                notifMsg
+              );
+            } catch (emailErr) {
+              console.error(
+                `❌ Email failed for ${appt._id}:`,
+                emailErr
+              );
+              errors.push(
+                `Email failed for ${appt._id}: ${emailErr.message}`
+              );
+            }
+          } else {
+            errors.push(`No email found for patient ${appt.patient}`);
+          }
+        } catch (err: any) {
+          console.error(
+            `❌ Error processing appointment ${appt._id}:`,
+            err
+          );
+          errors.push(`${appt._id}: ${err.message}`);
+        }
+      }
+
+      return res.status(200).json({
+        message: `Cancelled ${cancelledCount} appointments, ${refundedCount} refunded.`,
+        cancelledCount,
+        refundedCount,
+        errors,
+      });
+    } catch (err: any) {
+      console.error('❌ Error in /cancel-slot route:', err);
+      return res
+        .status(500)
+        .json({ message: 'Internal server error while cancelling slot' });
+    }
+  }
+);
 /**
- * POST /api/appointments/:id/cancel
- * Cancel an appointment, refund if paid, and notify patient.
+ * Cancel a single appointment
  */
 router.post('/:id/cancel', authenticateJWT, async (req: Request, res: Response) => {
   try {
@@ -216,13 +357,17 @@ router.post('/:id/cancel', authenticateJWT, async (req: Request, res: Response) 
     const role = (req as any).role;
 
     if (role !== 'doctor') {
-      return res.status(403).json({ message: 'Only doctors can cancel appointments' });
+      return res
+        .status(403)
+        .json({ message: 'Only doctors can cancel appointments' });
     }
 
     const appt = await Appointment.findById(id);
     if (!appt) return res.status(404).json({ message: 'Appointment not found' });
     if (appt.doctor.toString() !== user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to cancel this appointment' });
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to cancel this appointment' });
     }
 
     if (appt.status !== 'cancelled') {
@@ -262,7 +407,6 @@ router.post('/:id/cancel', authenticateJWT, async (req: Request, res: Response) 
       return res.json({ message: 'Appointment cancelled', refundId });
     }
 
-    // already cancelled
     const slot = appt.datetime.toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata',
       dateStyle: 'medium',
@@ -278,71 +422,75 @@ router.post('/:id/cancel', authenticateJWT, async (req: Request, res: Response) 
     return res.json({ message: 'Appointment was already cancelled' });
   } catch (err: any) {
     console.error('Error cancelling appointment:', err);
-    return res.status(500).json({ message: 'Failed to cancel appointment' });
+    return res
+      .status(500)
+      .json({ message: 'Failed to cancel appointment' });
   }
 });
 
 /**
- * POST /api/appointments/:id/prescription
- * Generate prescription PDF, email it, save to disk, and notify patient.
+ * Issue a prescription
  */
 router.post('/:id/prescription', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const user = (req as any).user;
     const role = (req as any).role;
-
     if (role !== 'doctor') {
-      return res.status(403).json({ message: 'Only doctors can issue prescriptions' });
+      return res
+        .status(403)
+        .json({ message: 'Only doctors can issue prescriptions' });
     }
 
     const appt = await Appointment.findById(id).populate('patient', 'name email');
     if (!appt) return res.status(404).json({ message: 'Appointment not found' });
     if (appt.doctor.toString() !== user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized for this appointment' });
+      return res
+        .status(403)
+        .json({ message: 'Not authorized for this appointment' });
     }
 
     const prescriptionItems: PrescriptionInput[] = req.body.prescriptionItems;
-    console.log('📦 Incoming prescriptionItems:', prescriptionItems);
     if (!Array.isArray(prescriptionItems) || prescriptionItems.length === 0) {
-      return res.status(400).json({ message: 'prescriptionItems must be a non‑empty array' });
+      return res
+        .status(400)
+        .json({ message: 'prescriptionItems must be a non‑empty array' });
     }
 
-    // Generate PDF
     const pdfBuffer = await generatePrescriptionPdf({
       clinicName: 'MedicoX Clinic',
-      clinicLogoPath: path.join(__dirname, '../../public/assets/medicox-logo.png'),
+      clinicLogoPath: path.join(
+        __dirname,
+        '../../public/assets/medicox-logo.png'
+      ),
       doctorName: user.name,
       doctorSpecialty: user.specialty || '',
       patientName: (appt.patient as any).name,
       appointmentDate: appt.datetime.toISOString().split('T')[0],
       issueDate: new Date(),
-      prescriptionItems
+      prescriptionItems,
     });
     if (!Buffer.isBuffer(pdfBuffer)) {
       throw new Error('Failed to generate valid PDF buffer');
     }
 
-    // Save PDF
     const dir = path.join(__dirname, '../../public/prescriptions');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const filename = `prescription_${id}_${Date.now()}.pdf`;
     const filePath = path.join(dir, filename);
     fs.writeFileSync(filePath, pdfBuffer);
     const fileUrl = `/prescriptions/${filename}`;
-    console.log(`💾 PDF saved at ${filePath}`);
 
-    // Email prescription
     try {
-      console.log(`📧 Sending prescription to ${(appt.patient as any).email}`);
-      await sendPrescriptionEmail((appt.patient as any).email, user.name, pdfBuffer);
-      console.log('✅ Prescription email sent');
+      await sendPrescriptionEmail(
+        (appt.patient as any).email,
+        user.name,
+        pdfBuffer
+      );
     } catch (emailErr) {
-      console.error('❌ Error sending prescription email:', emailErr);
-      // continue, still notify in-app
+      console.error('Error sending prescription email:', emailErr);
     }
 
-    // In-app notification
     await Notification.create({
       userId: appt.patient,
       type: 'prescription',
@@ -354,126 +502,16 @@ router.post('/:id/prescription', authenticateJWT, async (req: Request, res: Resp
 
     return res.json({ message: 'Prescription issued', fileUrl });
   } catch (err: any) {
-    console.error('❌ Error issuing prescription:', err);
-    return res.status(500).json({ message: 'Failed to issue prescription' });
+    console.error('Error issuing prescription:', err);
+    return res
+      .status(500)
+      .json({ message: 'Failed to issue prescription' });
   }
 });
-// File: backend/src/routes/appointment.ts (part)
 
-router.post(
-  '/cancel-slot',
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const user = (req as any).user;
-      const role = (req as any).role;
-
-      // Validate input
-      const { slotLabel } = req.body as { slotLabel: string };
-
-      if (role !== 'doctor') {
-        return res.status(403).json({ message: 'Only doctors can cancel slots' });
-      }
-
-      if (!slotLabel || typeof slotLabel !== 'string') {
-        return res.status(400).json({ message: 'slotLabel is required and must be a string' });
-      }
-
-      // Convert slotLabel to Date object (must be in ISO format)
-      const slotDate = new Date(slotLabel);
-      if (isNaN(slotDate.getTime())) {
-        return res.status(400).json({ message: 'Invalid slotLabel format. Must be ISO 8601 string.' });
-      }
-
-      // Ensure exact match by using UTC time for comparison
-      const start = new Date(slotDate);
-      const end = new Date(slotDate);
-      end.setMinutes(end.getMinutes() + 59); // allow 1-hour slot range if needed
-
-      // Find all non-cancelled appointments for this doctor at this slot
-      const appts = await Appointment.find({
-        doctor: user._id,
-        datetime: { $gte: start, $lte: end },
-        status: { $ne: 'cancelled' },
-      }).populate('patient', 'email');
-
-      let cancelledCount = 0;
-      let refundedCount = 0;
-      const errors: string[] = [];
-
-      for (const appt of appts) {
-        try {
-          // Cancel appointment
-          appt.status = 'cancelled';
-          if (appt.razorpayPaymentId) {
-            appt.paymentStatus = 'refunded';
-          }
-          await appt.save();
-          cancelledCount++;
-
-          // Attempt refund
-          if (appt.razorpayPaymentId) {
-            try {
-              await razorpayInstance.payments.refund(appt.razorpayPaymentId, {
-                amount: Math.round((appt.amount || 0) * 100),
-              });
-              refundedCount++;
-            } catch (refundErr) {
-              console.error(`❌ Refund failed for appointment ${appt._id}:`, refundErr);
-              errors.push(`Refund failed for ${appt._id}: ${refundErr.message}`);
-            }
-          }
-
-          // Construct user-friendly slot string
-          const slotStr = slotDate.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          });
-
-          const notifMsg = appt.razorpayPaymentId
-            ? `Your appointment on ${slotStr} has been cancelled and refunded.`
-            : `Your appointment on ${slotStr} has been cancelled.`;
-
-          // In-app notification
-          await Notification.create({
-            userId: appt.patient,
-            type: 'appointment_cancelled',
-            message: notifMsg,
-            read: false,
-            createdAt: new Date(),
-          });
-
-          // Email notification (fallback-safe)
-          const email = (appt.patient as any)?.email;
-          if (email) {
-            try {
-              await sendNotificationEmail(email, 'Appointment Cancelled', notifMsg);
-            } catch (emailErr) {
-              console.error(`❌ Email failed for ${appt._id}:`, emailErr);
-              errors.push(`Email failed for ${appt._id}: ${emailErr.message}`);
-            }
-          } else {
-            errors.push(`No email found for patient ${appt.patient}`);
-          }
-        } catch (err: any) {
-          console.error(`❌ Error processing appointment ${appt._id}:`, err);
-          errors.push(`${appt._id}: ${err.message}`);
-        }
-      }
-
-      return res.status(200).json({
-        message: `Cancelled ${cancelledCount} appointments, ${refundedCount} refunded.`,
-        cancelledCount,
-        refundedCount,
-        errors,
-      });
-    } catch (err: any) {
-      console.error('❌ Error in /cancel-slot route:', err);
-      return res.status(500).json({ message: 'Internal server error while cancelling slot' });
-    }
-  }
-);
+/**
+ * Cancel an entire slot’s appointments
+ */
 
 
 export default router;

@@ -13,7 +13,6 @@ export interface IAppointment extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
-  // ...other fields
 }
 
 const AppointmentSchema = new Schema<IAppointment>({
@@ -37,4 +36,7 @@ const AppointmentSchema = new Schema<IAppointment>({
   },
 });
 
-export default mongoose.model<IAppointment>('Appointment', AppointmentSchema);
+export default mongoose.model<IAppointment>(
+  'Appointment',
+  AppointmentSchema
+);

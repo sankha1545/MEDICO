@@ -1,4 +1,4 @@
-// File: src/pages/doctor/docdashboardpage.tsx
+// File: frontend/src/pages/docdashboardpage.tsx
 
 import React, {
   useState,
@@ -9,12 +9,7 @@ import React, {
   FormEvent,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  format,
-  isValid,
-  subMonths,
-  subYears,
-} from 'date-fns';
+import { format, isValid, subMonths, subYears } from 'date-fns';
 import {
   Calendar,
   Users,
@@ -33,11 +28,12 @@ import FloatingNavbar from '../../components/animations/doctor/FloatingNavbar';
 import StatsCard from '../../components/animations/doctor/StatsCard';
 import AnimatedChart from '../../components/animations/doctor/AnimatedChart';
 import ProfileAvatar3D from '../../components/animations/doctor/ProfileAvatar3D';
-import EditProfileForm, { LocationType } from '../../components/common/editprofile/editprofileformsdoc';
+import EditProfileForm, {
+  LocationType,
+} from '../../components/common/editprofile/editprofileformsdoc';
 import { PayoutSetupForm } from '../../components/PayoutSetupForm';
 import seatImg from '../../assets/chair.avif';
 import doctorSeatImg from '../../assets/doctorseat.png';
-
 import 'react-toastify/dist/ReactToastify.css';
 
 interface DoctorAppointment {
@@ -102,7 +98,6 @@ export default function DocDashboardPage() {
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
-  // --- State ---
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
@@ -117,26 +112,33 @@ export default function DocDashboardPage() {
   const [profileSpecialty, setProfileSpecialty] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>();
   const [profileExperience, setProfileExperience] = useState('');
-  const [profileLocationData, setProfileLocationData] = useState<LocationType | null>(null);
+  const [profileLocationData, setProfileLocationData] =
+    useState<LocationType | null>(null);
   const [profileLocation, setProfileLocation] = useState('');
   const [profileConsultationFee, setProfileConsultationFee] = useState(0);
 
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<AppointmentDetail | null>(null);
+  const [selectedAppointmentDetail, setSelectedAppointmentDetail] =
+    useState<AppointmentDetail | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // NEW: slot cancellation state
-  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(null);
-  const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState(false);
+  // Bulk slot cancellation state
+  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(
+    null
+  );
+  const [showSlotCancelConfirm, setShowSlotCancelConfirm] =
+    useState(false);
   const [cancellingSlot, setCancellingSlot] = useState(false);
 
-  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [showPrescriptionForm, setShowPrescriptionForm] =
+    useState(false);
   const [prescriptionData, setPrescriptionData] = useState({
     medicineName: '',
     timesPerDay: 1,
@@ -149,12 +151,12 @@ export default function DocDashboardPage() {
   const [prescriptionError, setPrescriptionError] = useState('');
 
   const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(null);
+  const [existingPayoutAccountId, setExistingPayoutAccountId] =
+    useState<string | null>(null);
   const [payoutLoading, setPayoutLoading] = useState(false);
 
   const fetchedProfileRef = useRef(false);
 
-  // --- Handlers ---
   const handleLogout = () => setIsLogoutModalOpen(true);
   const confirmLogout = async () => {
     await logout();
@@ -197,7 +199,9 @@ export default function DocDashboardPage() {
         setProfileLocationData(loc);
         setProfileLocation(loc.address);
       }
-      setProfileImageUrl(file ? URL.createObjectURL(file) : updated.profileImageUrl);
+      setProfileImageUrl(
+        file ? URL.createObjectURL(file) : updated.profileImageUrl
+      );
       setShowEditProfile(false);
     } catch (err: any) {
       console.error(err);
@@ -205,12 +209,11 @@ export default function DocDashboardPage() {
     }
   };
 
-  // --- Fetch profile, appts, notifications ---
   useEffect(() => {
     if (user?.role === 'doctor' && !fetchedProfileRef.current) {
       fetchedProfileRef.current = true;
       fetchDoctorProfile()
-        .then(prof => {
+        .then((prof) => {
           setProfileName(prof.name);
           setProfileEmail(prof.email);
           setProfileBio(prof.bio);
@@ -224,9 +227,11 @@ export default function DocDashboardPage() {
             setProfileLocationData(loc);
             setProfileLocation(loc.address);
           }
-          setExistingPayoutAccountId((prof as any).razorpayFundAccountId || null);
+          setExistingPayoutAccountId(
+            (prof as any).razorpayFundAccountId || null
+          );
         })
-        .catch(err => {
+        .catch((err) => {
           console.error(err);
           setProfileError(err.message || 'Failed to load profile');
         })
@@ -236,17 +241,23 @@ export default function DocDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-
     axios
       .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then(res => {
-        const filtered = res.data.filter(a => a.status !== 'cancelled');
-        const sorted = filtered.sort((a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime());
+      .then((res) => {
+        const filtered = res.data.filter(
+          (a) => a.status !== 'cancelled'
+        );
+        const sorted = filtered.sort(
+          (a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime()
+        );
         setAppointments(sorted);
         setUpcomingCount(
-          sorted.filter(a => a.status === 'upcoming' && new Date(a.date) > new Date()).length
+          sorted.filter(
+            (a) =>
+              a.status === 'upcoming' && new Date(a.date) > new Date()
+          ).length
         );
       })
       .catch(console.error);
@@ -255,21 +266,20 @@ export default function DocDashboardPage() {
       .get<NotificationItem[]>(buildUrl('/notifications'), {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then(res => {
+      .then((res) => {
         setNotifications(res.data);
-        setUnreadCount(res.data.filter(n => !n.read).length);
+        setUnreadCount(res.data.filter((n) => !n.read).length);
       })
       .catch(console.error);
   }, [token]);
 
-  // --- Chart data ---
   const weeklyData = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 7 }).map((_, i) => {
       const day = new Date(today);
       day.setDate(today.getDate() - (6 - i));
       const label = format(day, 'MMM d');
-      const count = appointments.filter(a => {
+      const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
         return (
           isValid(booked) &&
@@ -285,7 +295,7 @@ export default function DocDashboardPage() {
     return Array.from({ length: 12 }).map((_, i) => {
       const m = subMonths(today, 11 - i);
       const label = format(m, 'MMM yyyy');
-      const count = appointments.filter(a => {
+      const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
         return (
           isValid(booked) &&
@@ -301,7 +311,7 @@ export default function DocDashboardPage() {
     return Array.from({ length: 5 }).map((_, i) => {
       const y = subYears(today, 4 - i);
       const label = format(y, 'yyyy');
-      const count = appointments.filter(a => {
+      const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
         return (
           isValid(booked) &&
@@ -312,35 +322,40 @@ export default function DocDashboardPage() {
     });
   }, [appointments]);
 
-  // --- Slot grouping ---
+  // Group appointments by slot label for both Appointments and Patients tabs
   const slotGroups = useMemo(() => {
-    const groups: Record<string, DoctorAppointment[]> = {};
-    if (user?.availabilitySlots) {
-      user.availabilitySlots.forEach(slotIso => {
-        const label = format(new Date(slotIso), 'PPP p');
-        groups[label] = [];
-      });
-    }
-    appointments.forEach(a => {
-      const label = format(new Date(a.date), 'PPP p');
-      if (groups[label]) groups[label].push(a);
-      else {
-        groups['Other'] = groups['Other'] ?? [];
-        groups['Other'].push(a);
-      }
-    });
-    return groups;
-  }, [appointments, user]);
+  // Start with each declared availability slot (ISO strings) as an empty array
+  const groups: Record<string, DoctorAppointment[]> = {};
+  user?.availabilitySlots?.forEach((slotIso) => {
+    groups[slotIso] = [];
+  });
 
-  // --- Appointment detail, single cancel ---
+  // Bucket each appointment into the matching ISO slot
+  appointments.forEach((appt) => {
+    // appt.date is already an ISO string
+    const slotIso = appt.date;
+    if (groups[slotIso]) {
+      groups[slotIso].push(appt);
+    } else {
+      groups['Other'] = groups['Other'] ?? [];
+      groups['Other'].push(appt);
+    }
+  });
+
+  return groups;
+}, [appointments, user]);
+
+
+  // Cancel a single appointment
   const fetchAppointmentDetails = async (id: string) => {
     setDetailsLoading(true);
     setShowCancelConfirm(false);
     setPrescriptionError('');
     try {
-      const res = await axios.get<any>(buildUrl(`/appointments/${id}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get<any>(
+        buildUrl(`/appointments/${id}`),
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const d = res.data;
       setSelectedAppointmentDetail({
         id: d._id,
@@ -366,11 +381,17 @@ export default function DocDashboardPage() {
     setCancelling(true);
     try {
       await axios.post(
-        buildUrl(`/appointments/${selectedAppointmentDetail.id}/cancel`),
+        buildUrl(
+          `/appointments/${selectedAppointmentDetail.id}/cancel`
+        ),
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setAppointments(prev => prev.filter(a => a.id !== selectedAppointmentDetail.id));
+      setAppointments((prev) =>
+        prev.filter(
+          (a) => a.id !== selectedAppointmentDetail.id
+        )
+      );
       setSelectedAppointmentDetail(null);
       setShowCancelConfirm(false);
       toast.success('Appointment cancelled');
@@ -381,7 +402,7 @@ export default function DocDashboardPage() {
     }
   };
 
-  // --- Slot Cancel handlers ---
+  // Bulk slot cancellation
   const openSlotCancel = (slotLabel: string) => {
     setSelectedSlotLabel(slotLabel);
     setShowSlotCancelConfirm(true);
@@ -390,25 +411,38 @@ export default function DocDashboardPage() {
     setShowSlotCancelConfirm(false);
     setSelectedSlotLabel(null);
   };
-  const handleCancelSlot = async () => {
-    if (!selectedSlotLabel) return;
-    setCancellingSlot(true);
-    try {
-      await axios.post(
-        buildUrl('/appointments/slot/cancel'),
-        { slotLabel: selectedSlotLabel },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAppointments(prev =>
-        prev.filter(a => format(new Date(a.date), 'PPP p') !== selectedSlotLabel)
-      );
-      closeSlotCancel();
-      toast.success(`All appointments for "${selectedSlotLabel}" cancelled and refunded`);
-    } catch {
-      toast.error('Failed to cancel slot appointments');
-    } finally {
-      setCancellingSlot(false);
-    }
+ const handleCancelSlot = async () => {
+  if (!selectedSlotLabel) return;
+  setCancellingSlot(true);
+  try {
+    const res = await axios.post(
+      buildUrl('/appointments/cancel-slot'),
+      { slotLabel: selectedSlotLabel },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Remove cancelled appointments matching the ISO slot
+    setAppointments((prev) =>
+      prev.filter((appt) => appt.date !== selectedSlotLabel)
+    );
+
+    toast.success(
+      `Cancelled ${res.data.cancelledCount} appointments, refunded ${res.data.refundedCount}.`
+    );
+    closeSlotCancel();
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to cancel slot');
+  } finally {
+    setCancellingSlot(false);
+  }
+};
+
+
+  // Helper to disable Cancel All if within 24 hours
+  const isWithin24Hours = (slotLabel: string) => {
+    const slotDate = new Date(slotLabel);
+    return slotDate.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   };
 
   // --- Prescription ---
@@ -684,57 +718,67 @@ export default function DocDashboardPage() {
           )}
 
           {activeTab === 'patients' && (
-            <motion.div
-              key="patients"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-8"
-            >
-              <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
-              <div className="flex justify-center mb-6">
-                <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
-              </div>
+  <motion.div
+    key="patients"
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -30 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-8"
+  >
+    <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
+    <div className="flex justify-center mb-6">
+      <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
+    </div>
 
-              {Object.entries(slotGroups).map(([slot, appts]) => (
-                <div key={slot} className="mb-8">
-                  <div className="flex items-center justify-between">
-                    <h3 className="mb-2 text-xl font-semibold text-white">{slot}</h3>
-                    <button
-                      onClick={() => openSlotCancel(slot)}
-                      className="px-3 py-1 text-sm text-red-500 bg-red-100 rounded hover:bg-red-200"
-                    >
-                      Cancel All
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4 justify-items-center">
-                    {appts.length > 0
-                      ? appts.map(a => (
-                          <div
-                            key={a.id}
-                            className="flex flex-col items-center cursor-pointer"
-                            onClick={() => fetchAppointmentDetails(a.id)}
-                          >
-                            <img src={seatImg} alt="Seat" className="w-12 h-12" />
-                            <span className="w-16 mt-1 text-sm text-center text-white truncate">
-                              {a.patientName}
-                            </span>
-                          </div>
-                        ))
-                      : Array.from({ length: user?.maxPatients || 5 }).map((_, idx) => (
-                          <img
-                            key={idx}
-                            src={seatImg}
-                            alt="Empty Seat"
-                            className="w-12 h-12 opacity-30"
-                          />
-                        ))}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
-          )}
+ {Object.entries(slotGroups)
+  .filter(([, appts]) => appts.length > 0) // don't show empty slots
+  .map(([slotIso, appts]) => {
+    const parsedDate = new Date(slotIso);
+    const isValidDate = !isNaN(parsedDate.getTime());
+    const label = isValidDate ? format(parsedDate, 'PPP p') : slotIso;
+    const disabled = !isValidDate || isWithin24Hours(slotIso);
+
+    return (
+      <div key={slotIso} className="mb-8">
+        <div className="flex items-center justify-between">
+          <h3 className="mb-2 text-xl font-semibold text-white">{label}</h3>
+          <button
+            onClick={() => isValidDate && openSlotCancel(slotIso)}
+            disabled={disabled}
+            className={`
+              px-3 py-1 text-sm rounded
+              ${disabled
+                ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                : 'bg-red-100 text-red-500 hover:bg-red-200'}
+            `}
+          >
+            Cancel All
+          </button>
+        </div>
+
+        <div className="grid grid-cols-5 gap-4 mt-2 justify-items-center">
+          {appts.map((a) => (
+            <div
+              key={a.id}
+              className="flex flex-col items-center cursor-pointer"
+              onClick={() => fetchAppointmentDetails(a.id)}
+            >
+              <img src={seatImg} alt="Seat" className="w-12 h-12" />
+              <span className="w-16 mt-1 text-sm text-center text-white truncate">
+                {a.patientName}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })}
+
+
+  </motion.div>
+)}
+
 
           {activeTab === 'earnings' && (
             <motion.div
@@ -1130,7 +1174,43 @@ export default function DocDashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
+<AnimatePresence>
+        {showSlotCancelConfirm && selectedSlotLabel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="w-full max-w-sm p-6 bg-white rounded-lg"
+            >
+              <h2 className="mb-4 text-xl font-semibold">
+                Cancel all appointments for:
+              </h2>
+              <p className="mb-6 font-medium">{selectedSlotLabel}</p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={closeSlotCancel}
+                  className="px-4 py-2 bg-gray-300 rounded"
+                >
+                  No
+                </button>
+                <button
+                  onClick={handleCancelSlot}
+                  disabled={cancellingSlot}
+                  className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cancellingSlot ? 'Cancelling...' : 'Yes, Cancel All'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {profileError && (
         <div className="max-w-3xl p-3 mx-auto mt-4 text-white bg-red-600 rounded">
           {profileError}
