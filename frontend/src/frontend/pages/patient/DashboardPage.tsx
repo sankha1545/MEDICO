@@ -153,21 +153,32 @@ const DashboardPage1: React.FC = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
+
+
+  const api = axios.create({
+  baseURL: '/api',              // Vite will proxy /api → http://localhost:4000/api
+  headers: { 'Content-Type': 'application/json' },
+});
+api.interceptors.request.use(cfg => {
+  const t = localStorage.getItem('authToken');
+  if (t && cfg.headers) cfg.headers.Authorization = `Bearer ${t}`;
+  return cfg;
+});
+
   // Fetch medical info
-  useEffect(() => {
-    const fetchMedical = async () => {
-      if (!token) return;
-      try {
-        const resp = await axios.get(buildUrl('/medical'), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (resp.data.medicalInfo) setMedicalInfo(resp.data.medicalInfo);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchMedical();
-  }, [token]);
+    useEffect(() => {
+  if (!token) return;
+  (async () => {
+    try {
+      const res = await api.get<MedicalInfo>('/medicalinfo/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMedicalInfo(res.data);
+    } catch {
+      setMedicalInfo({ user: user?.id || '', bloodType: '', allergies: '', currentMedications: '', medicalConditions: '' });
+    }
+  })();
+}, [token]);
 
   // Sync avatar
   useEffect(() => {
@@ -230,16 +241,14 @@ const DashboardPage1: React.FC = () => {
   };
 
   // Medical save
-  const handleMedicalSave = async (updated: MedicalInfo) => {
+ const handleMedicalSave = async (updated: MedicalInfo) => {
     if (!token) {
       alert('Not authenticated');
       return;
     }
     try {
-      const resp = await axios.put(buildUrl('/medical'), updated, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      });
-      if (resp.data.medicalInfo) setMedicalInfo(resp.data.medicalInfo);
+      const res = await api.put<MedicalInfo>('/medicalinfo/me', updated);
+      setMedicalInfo(res.data);
       setShowUpdateMedical(false);
     } catch (err: any) {
       alert('Error: ' + (err.response?.data?.message || err.message));

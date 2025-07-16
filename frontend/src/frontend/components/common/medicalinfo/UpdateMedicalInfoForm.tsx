@@ -6,7 +6,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { Button } from '../Button';
 import { Droplet, AlertTriangle, Pill, Heart } from 'lucide-react';
 
-// Shape of the medical‑info payload
+// Shape of the medical-info payload
 export interface MedicalInfo {
   bloodType: string;
   allergies: string;
@@ -69,22 +69,17 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
     e.preventDefault();
     setError(null);
     setIsSaving(true);
-
     try {
       const updated = await updateMedicalInfo(formState);
-      onSave(updated);
+      onSave(updated);      // updated is the MedicalInfo doc!
       onClose();
     } catch (err: any) {
-      console.error('Update medical info error:', err);
-      if (err.response?.status === 403) {
-        setError('You are not authorized to update this information.');
-      } else {
-        setError(err.response?.data?.message || err.message || 'Unable to save.');
-      }
+      setError(err.message || 'Unable to save.');
     } finally {
       setIsSaving(false);
     }
   };
+
 
   return (
     <AnimatePresence>
@@ -139,7 +134,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 name="bloodType"
                 value={formState.bloodType}
                 onChange={handleChange('bloodType')}
-                className="w-full px-3 py-2 mt-1 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 required
               >
                 <option value="" disabled>
@@ -164,7 +159,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 name="allergies"
                 value={formState.allergies}
                 onChange={handleChange('allergies')}
-                className="w-full px-3 py-2 mt-1 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Peanuts"
                 required
               />
@@ -181,7 +176,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 name="currentMedications"
                 value={formState.currentMedications}
                 onChange={handleChange('currentMedications')}
-                className="w-full px-3 py-2 mt-1 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Metformin"
               />
             </motion.div>
@@ -197,7 +192,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 name="medicalConditions"
                 value={formState.medicalConditions}
                 onChange={handleChange('medicalConditions')}
-                className="w-full px-3 py-2 mt-1 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Hypertension"
               />
             </motion.div>

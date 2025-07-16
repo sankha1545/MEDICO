@@ -20,6 +20,7 @@ import notificationsRoutes from './routes/notifications';
 import webhookHandler from './routes/Webhook';
 import payoutRouter from './routes/payout';
 import { startNotificationScheduler } from './utils/notificationsScheduler';
+import medicalinfoRouter from './routes/medicalinfo';
 
 dotenv.config();
 const app = express();
@@ -93,7 +94,7 @@ app.use(express.urlencoded({ extended: true }));
 // --- 7. Passport initialization ---
 app.use(passport.initialize());
 app.use(passport.session());
-
+app.use('/api/medicalinfo', medicalinfoRouter);
 // --- 8. Static file serving for uploads ---
 app.use(
   '/uploads',

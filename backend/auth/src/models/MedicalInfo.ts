@@ -1,3 +1,5 @@
+// File: backend/src/models/MedicalInfo.ts
+
 import mongoose, { Document, Schema } from 'mongoose';
 import { IPatient } from './Patient';
 
@@ -17,17 +19,14 @@ const MedicalInfoSchema = new Schema<IMedicalInfo>(
       type: Schema.Types.ObjectId,
       ref: 'Patient',
       required: true,
-      unique: true, // one record per user
+      unique: true,
     },
     bloodType: { type: String, default: '' },
     allergies: { type: String, default: '' },
     currentMedications: { type: String, default: '' },
     medicalConditions: { type: String, default: '' },
   },
-  {
-    timestamps: true,
-    collection: 'medicalinfos',
-  }
+  { timestamps: true, collection: 'medicalinfos' }
 );
 
 export default mongoose.model<IMedicalInfo>('MedicalInfo', MedicalInfoSchema);

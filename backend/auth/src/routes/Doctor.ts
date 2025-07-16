@@ -1,7 +1,7 @@
 // File: backend/src/routes/doctor.ts
 
 import express from 'express';
-import razorpay from '../utils/razorpay';
+import razorpay from '../utils/razorpayClient';
 import Doctor from '../models/Doctor';
 import rateLimit from 'express-rate-limit';
 import { authenticateJWT } from './auth'; // uses your auth.ts
