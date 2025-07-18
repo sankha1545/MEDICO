@@ -29,15 +29,16 @@ interface Doctor {
   location: string;
   availableSlotsCount: number;
   nextAvailable: string | null;
+   profileImageUrl: string;
   consultationFee: number;
-  imageUrl: string;
+  
 }
 
 interface DoctorDetail extends Doctor {
   bio?: string;
   qualifications?: string[];
   languages?: string[];
-  profileImageUrl?: string;
+
   availabilitySlots: string[]; // full array for booking
 }
 
@@ -81,6 +82,7 @@ const DoctorsPage1: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('All Specialties');
   const [showFilters, setShowFilters] = useState(false);
+const [slots, setSlots] = useState<Slot[]>([]);
 
   const [viewingDoctorId, setViewingDoctorId] = useState<string | null>(null);
   const [selectedDoctorProfile, setSelectedDoctorProfile] =
@@ -101,6 +103,7 @@ const DoctorsPage1: React.FC = () => {
     }
   };
 
+  
   // Fetch doctors on mount
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -131,7 +134,7 @@ const DoctorsPage1: React.FC = () => {
               typeof d.availableSlotsCount === 'number' ? d.availableSlotsCount : 0,
             nextAvailable: d.nextAvailable || null,
             consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
-            imageUrl: buildUrl(`/medical/doctor/${id}/profile-image`),
+             profileImageUrl: d.profileImageUrl || buildUrl(`/medical/doctor/${id}/profile-image`),
           };
         });
         setDoctors(mapped);
@@ -203,8 +206,8 @@ const DoctorsPage1: React.FC = () => {
                 })()
               : null,
           consultationFee: typeof d.consultationFee === 'number' ? d.consultationFee : 0,
-          imageUrl: buildUrl(`/medical/doctor/${id2}/profile-image`),
-          profileImageUrl: buildUrl(`/medical/doctor/${id2}/profile-image`),
+         
+          profileImageUrl: d.profileImageUrl || buildUrl(`/medical/doctor/${id2}/profile-image`),
           bio: d.bio || '',
           qualifications: Array.isArray(d.qualifications)
             ? d.qualifications
@@ -240,8 +243,8 @@ const DoctorsPage1: React.FC = () => {
       {/* Background animations */}
       <BackgroundAnimation />
 
-      <main className="relative z-10 min-h-screen text-gray-100 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+      <main className="relative z-10 min-h-screen overflow-y-auto text-gray-100">
+        <div className="px-6 py-10 mx-auto max-w-7xl sm:px-8 lg:px-10">
           {/* Animated Header */}
           <motion.div
             variants={fadeInUp}
@@ -250,7 +253,7 @@ const DoctorsPage1: React.FC = () => {
             className="mb-8 text-center"
           >
             <motion.h1
-              className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2"
+              className="mb-2 text-4xl font-bold text-transparent md:text-5xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text"
               animate={{
                 backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
               }}
@@ -259,7 +262,7 @@ const DoctorsPage1: React.FC = () => {
               Find the Right Doctor
             </motion.h1>
             <motion.p
-              className="text-gray-300 text-lg"
+              className="text-lg text-gray-300"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -273,14 +276,14 @@ const DoctorsPage1: React.FC = () => {
             variants={fadeInUp}
             initial="hidden"
             animate="visible"
-            className="bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50 p-6 mb-10"
+            className="p-6 mb-10 bg-gray-800 border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
           >
-            <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex flex-col items-center gap-4 md:flex-row">
               {/* Search Input */}
               <div className="relative flex-1 w-full">
                 <motion.div whileHover={{ scale: 1.02 }} className="relative">
                   <Search
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2"
                     size={20}
                   />
                   <Input
@@ -288,14 +291,14 @@ const DoctorsPage1: React.FC = () => {
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && onSearch()}
-                    className="pl-10 bg-gray-700 text-gray-100 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                    className="pl-10 text-gray-100 bg-gray-700 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
                     fullWidth
                   />
                   <motion.button
                     onClick={onSearch}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    className="absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                    className="absolute text-gray-400 transform -translate-y-1/2 top-1/2 right-3 hover:text-gray-200"
                   >
                     <Search size={20} />
                   </motion.button>
@@ -307,7 +310,7 @@ const DoctorsPage1: React.FC = () => {
                 whileHover={{ scale: 1.02 }}
                 value={selectedSpecialty}
                 onChange={e => setSelectedSpecialty(e.target.value)}
-                className="appearance-none px-4 py-2 bg-gray-700 text-gray-100 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                className="px-4 py-2 text-sm text-gray-100 bg-gray-700 border border-gray-600 rounded-lg shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 {specialties.map(s => (
                   <option key={s} value={s}>
@@ -322,7 +325,7 @@ const DoctorsPage1: React.FC = () => {
                   variant="outline"
                   onClick={() => setShowFilters(f => !f)}
                   icon={<Filter size={18} className="text-gray-300" />}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className="text-gray-300 border-gray-600 hover:bg-gray-700"
                 >
                   Filters
                 </Button>
@@ -337,7 +340,7 @@ const DoctorsPage1: React.FC = () => {
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="mt-6 pt-4 border-t border-gray-700"
+                  className="pt-4 mt-6 border-t border-gray-700"
                 >
                   {/* TODO: Add advanced filters */}
                 </motion.div>
@@ -348,7 +351,7 @@ const DoctorsPage1: React.FC = () => {
           {/* Results Count */}
           <motion.div variants={fadeInUp} className="mb-4 text-gray-300">
             Showing{' '}
-            <span className="text-blue-400 font-semibold">{filteredDoctors.length}</span>{' '}
+            <span className="font-semibold text-blue-400">{filteredDoctors.length}</span>{' '}
             doctor{filteredDoctors.length !== 1 ? 's' : ''}{' '}
             {selectedSpecialty !== 'All Specialties' && (
               <>in <span className="text-purple-400">{selectedSpecialty}</span></>
@@ -371,15 +374,15 @@ const DoctorsPage1: React.FC = () => {
                   initial="hidden"
                   animate="visible"
                   whileHover="hover"
-                  className="bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50 overflow-hidden"
+                  className="overflow-hidden bg-gray-800 border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
                 >
                   <div className="md:flex">
                     {/* Left: Image */}
-                    <div className="md:w-1/4 lg:w-1/5 relative">
+                    <div className="relative md:w-1/4 lg:w-1/5">
                       <motion.img
-                        src={doctor.imageUrl}
+                         src={doctor.profileImageUrl}
                         alt={doctor.name}
-                        className="w-full h-56 md:h-full object-cover"
+                        className="object-cover w-full h-56 md:h-full"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5 }}
@@ -387,12 +390,12 @@ const DoctorsPage1: React.FC = () => {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
                     {/* Right: Details */}
-                    <div className="p-6 flex-1 flex flex-col">
+                    <div className="flex flex-col flex-1 p-6">
                       {/* Header */}
-                      <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-start justify-between mb-4">
                         <div>
                           <motion.h2
-                            className="text-2xl md:text-3xl font-semibold text-white"
+                            className="text-2xl font-semibold text-white md:text-3xl"
                             whileHover={{ scale: 1.02 }}
                           >
                             Dr. {doctor.name}
@@ -432,7 +435,7 @@ const DoctorsPage1: React.FC = () => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.6 }}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-700 text-green-200"
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium text-green-200 bg-green-700 rounded-full"
                           >
                             <Clock size={14} className="mr-1" />
                             {`Next: ${new Date(doctor.nextAvailable).toLocaleString()}`}
@@ -441,10 +444,10 @@ const DoctorsPage1: React.FC = () => {
                       </div>
 
                       {/* Stats Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 flex-1">
+                      <div className="grid flex-1 grid-cols-1 gap-4 mt-4 md:grid-cols-3">
                         <div>
-                          <p className="text-sm text-gray-400">Experience</p>
-                          <p className="text-gray-100">{doctor.experience}</p>
+                          <p className="text-sm text-gray-400">Experience </p>
+                          <p className="text-gray-100">{doctor.experience} years</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Hospital</p>
@@ -453,28 +456,28 @@ const DoctorsPage1: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-400">Location</p>
                           <div className="flex items-center">
-                            <MapPin size={14} className="text-gray-500 mr-1" />
+                            <MapPin size={14} className="mr-1 text-gray-500" />
                             <p className="text-gray-100">{doctor.location}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Fee & Slots */}
-                      <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="flex flex-col gap-4 mt-4 md:flex-row md:items-center md:justify-between">
                         <div>
                           <p className="text-sm text-gray-400">Consultation Fee</p>
-                          <p className="text-gray-100 font-medium">₹ {doctor.consultationFee}</p>
+                          <p className="font-medium text-gray-100">₹ {doctor.consultationFee}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Slots Available</p>
-                          <p className="text-gray-100 font-medium">{doctor.availableSlotsCount}</p>
+                          <p className="font-medium text-gray-100">{doctor.availableSlotsCount}</p>
                         </div>
                       </div>
 
                       {/* Actions */}
-                      <div className="mt-6 flex flex-wrap justify-between gap-4">
+                      <div className="flex flex-wrap justify-between gap-4 mt-6">
                         <div className="flex items-center">
-                          <Calendar size={18} className="text-indigo-400 mr-2" />
+                          <Calendar size={18} className="mr-2 text-indigo-400" />
                           <span className="text-gray-400">
                             {doctor.availableSlotsCount} slot{doctor.availableSlotsCount !== 1 ? 's' : ''} available
                           </span>
@@ -483,7 +486,7 @@ const DoctorsPage1: React.FC = () => {
                           <Button
                             variant="outline"
                             onClick={() => handleViewProfileClick(doctor.id)}
-                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                            className="text-gray-300 border-gray-600 hover:bg-gray-700"
                           >
                             View Profile
                           </Button>
@@ -507,13 +510,13 @@ const DoctorsPage1: React.FC = () => {
           ) : (
             <motion.div
               variants={fadeInUp}
-              className="text-center py-16 bg-gray-800 bg-opacity-60 backdrop-blur-xl rounded-3xl border border-gray-700/50"
+              className="py-16 text-center bg-gray-800 border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
             >
-              <Search size={32} className="mx-auto text-gray-600 mb-4" />
-              <h3 className="text-2xl font-medium text-gray-100 mb-2">
+              <Search size={32} className="mx-auto mb-4 text-gray-600" />
+              <h3 className="mb-2 text-2xl font-medium text-gray-100">
                 No doctors found
               </h3>
-              <p className="text-gray-400 mb-6">
+              <p className="mb-6 text-gray-400">
                 We couldn’t find any doctors. Try different keywords or filters.
               </p>
               <Button
@@ -524,7 +527,7 @@ const DoctorsPage1: React.FC = () => {
                   setSelectedSpecialty('All Specialties');
                   setShowFilters(false);
                 }}
-                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                className="text-gray-300 border-gray-600 hover:bg-gray-700"
               >
                 Clear Filters
               </Button>
@@ -545,7 +548,7 @@ const DoctorsPage1: React.FC = () => {
           <AnimatePresence>
             {viewingDoctorId && (
               <div
-                className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
                 onClick={closeViewProfileModal}
               >
                 <motion.div
@@ -553,12 +556,12 @@ const DoctorsPage1: React.FC = () => {
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-gray-800 rounded-2xl shadow-lg w-full max-w-lg p-6 relative border border-gray-700"
+                  className="relative w-full max-w-lg p-6 bg-gray-800 border border-gray-700 shadow-lg rounded-2xl"
                   onClick={e => e.stopPropagation()}
                 >
                   <button
                     onClick={closeViewProfileModal}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+                    className="absolute text-gray-400 top-4 right-4 hover:text-gray-200"
                   >
                     <X size={20} />
                   </button>
@@ -571,30 +574,30 @@ const DoctorsPage1: React.FC = () => {
                         <img
                           src={selectedDoctorProfile.profileImageUrl}
                           alt={selectedDoctorProfile.name}
-                          className="w-24 h-24 rounded-full mx-auto object-cover"
+                          className="object-cover w-24 h-24 mx-auto rounded-full"
                         />
                       )}
-                      <h2 className="text-xl md:text-2xl font-semibold text-white text-center">
+                      <h2 className="text-xl font-semibold text-center text-white md:text-2xl">
                         Dr. {selectedDoctorProfile.name}
                       </h2>
-                      <p className="text-gray-400 text-center">
+                      <p className="text-center text-gray-400">
                         {selectedDoctorProfile.specialty}
                       </p>
                       {/* Experience */}
                       <div>
-                        <h3 className="text-white font-medium">Experience</h3>
-                        <p className="text-gray-300">{selectedDoctorProfile.experience}</p>
+                        <h3 className="font-medium text-white">Experience</h3>
+                        <p className="text-gray-300">{selectedDoctorProfile.experience}years</p>
                       </div>
                       {/* Fee */}
                       <div>
-                        <h3 className="text-white font-medium">Consultation Fee</h3>
+                        <h3 className="font-medium text-white">Consultation Fee</h3>
                         <p className="text-gray-300">₹ {selectedDoctorProfile.consultationFee}</p>
                       </div>
                       {/* Slots */}
                       <div>
-                        <h3 className="text-white font-medium">Available Slots</h3>
+                        <h3 className="font-medium text-white">Available Slots</h3>
                         {selectedDoctorProfile.availabilitySlots.length > 0 ? (
-                          <ul className="list-disc list-inside text-gray-300">
+                          <ul className="text-gray-300 list-disc list-inside">
                             {selectedDoctorProfile.availabilitySlots.map((s, i) => {
                               let disp = s;
                               try {
@@ -613,8 +616,8 @@ const DoctorsPage1: React.FC = () => {
                       {/* Qualifications */}
                       {selectedDoctorProfile.qualifications && selectedDoctorProfile.qualifications.length > 0 && (
                         <div>
-                          <h3 className="text-white font-medium">Qualifications</h3>
-                          <ul className="list-disc list-inside text-gray-300">
+                          <h3 className="font-medium text-white">Qualifications</h3>
+                          <ul className="text-gray-300 list-disc list-inside">
                             {selectedDoctorProfile.qualifications.map((q, i) => (
                               <li key={i}>{q}</li>
                             ))}
@@ -624,7 +627,7 @@ const DoctorsPage1: React.FC = () => {
                       {/* Languages */}
                       {selectedDoctorProfile.languages && selectedDoctorProfile.languages.length > 0 && (
                         <div>
-                          <h3 className="text-white font-medium">Languages</h3>
+                          <h3 className="font-medium text-white">Languages</h3>
                           <p className="text-gray-300">
                             {selectedDoctorProfile.languages.join(', ')}
                           </p>
@@ -643,7 +646,7 @@ const DoctorsPage1: React.FC = () => {
       </main>
 
       {/* Floating Chatbot */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed z-50 bottom-6 right-6">
         <Chatbot />
       </div>
     </div>

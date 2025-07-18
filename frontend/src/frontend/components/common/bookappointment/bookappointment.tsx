@@ -181,7 +181,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
 
   return (
     <motion.div
-      className="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black bg-opacity-30 z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-lg bg-opacity-30"
       variants={overlayVariants}
       initial="hidden"
       animate="visible"
@@ -195,21 +195,21 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
         exit="exit"
       >
         <button
-          className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+          className="absolute text-gray-600 top-4 right-4 hover:text-gray-800"
           onClick={onClose}
           disabled={submitting}
         >
           <X size={24} />
         </button>
 
-        <h2 className="text-3xl font-extrabold text-center mb-4">
+        <h2 className="mb-4 text-3xl font-extrabold text-center">
           Schedule Your Visit
         </h2>
 
         {loadingSlots ? (
           <p className="text-center text-gray-600">Loading slots...</p>
         ) : slotsError ? (
-          <p className="text-red-500 text-center">{slotsError}</p>
+          <p className="text-center text-red-500">{slotsError}</p>
         ) : slots.length === 0 ? (
           <p className="text-center text-gray-600">No slots available.</p>
         ) : null}
@@ -217,7 +217,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
         <form onSubmit={handleConfirm} className="space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">
+            <label className="block mb-1 text-sm text-gray-700">
               Your Name<span className="text-red-500">*</span>
             </label>
             <input
@@ -225,7 +225,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
               style={{ color: '#000' }}
               required
               disabled={submitting}
@@ -234,7 +234,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
 
           {/* Email */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">
+            <label className="block mb-1 text-sm text-gray-700">
               Email<span className="text-red-500">*</span>
             </label>
             <input
@@ -242,7 +242,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
               style={{ color: '#000' }}
               required
               disabled={submitting}
@@ -251,7 +251,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
 
           {/* Phone */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">
+            <label className="block mb-1 text-sm text-gray-700">
               Phone
             </label>
             <input
@@ -259,7 +259,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
               style={{ color: '#000' }}
               disabled={submitting}
             />
@@ -268,14 +268,14 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
           {/* Slot selector */}
           {slots.length > 0 && (
             <div>
-              <label className="block text-sm text-gray-700 mb-1">
+              <label className="block mb-1 text-sm text-gray-700">
                 Select Slot<span className="text-red-500">*</span>
               </label>
               <select
                 name="selectedSlot"
                 value={formData.selectedSlot}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
                 style={{ color: '#000' }}
                 required
                 disabled={submitting}
@@ -291,7 +291,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
 
           {/* Message */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">
+            <label className="block mb-1 text-sm text-gray-700">
               Additional Message
             </label>
             <textarea
@@ -300,7 +300,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               value={formData.message}
               onChange={handleChange}
               placeholder="Optional message"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none resize-none"
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg resize-none focus:outline-none"
               style={{ color: '#000' }}
               disabled={submitting}
             />
@@ -319,7 +319,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
           <button
             type="submit"
             disabled={submitting || slots.length === 0}
-            className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-full shadow-lg hover:shadow-inner transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 font-bold text-white transition-all rounded-full shadow-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Scheduling...' : 'Confirm & Pay'}
           </button>

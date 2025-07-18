@@ -1,33 +1,102 @@
-// File: backend/src/routes/profile.ts
-import { Router, Request, Response } from 'express';
+// File: backend/src/routes/patient.ts
+
+import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import User from '../models/Patient';
+import { authenticateJWT } from './auth';
+import Patient from '../models/Patient';
 
-const router = Router();
+const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/profileImages');
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+// Constants
+const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'Only image files are allowed'));
+    }
+    cb(null, true);
   },
 });
 
-const upload = multer({ storage });
-
-router.put('/upload-profile-image', upload.single('profileImage'), async (req: Request, res: Response) => {
+// -----------------------------------------------------------------------------
+// GET /api/patients/me
+// Fetch authenticated patient's profile, excluding sensitive fields
+// -----------------------------------------------------------------------------
+router.get('/patients/me', authenticateJWT, async (req, res) => {
   try {
-    const userId = req.body.userId;
-    const imagePath = `/uploads/profileImages/${req.file.filename}`;
-    const user = await User.findByIdAndUpdate(userId, { profileImage: imagePath }, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.status(200).json({ message: 'Image uploaded', imagePath });
-  } catch (error) {
-    console.error('Upload Error:', error);
-    res.status(500).json({ message: 'Failed to upload image' });
+    const patient = await Patient.findById(req.user._id).select('-passwordHash -__v');
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    const result = patient.toJSON();
+    result.profileImageUrl = `/api/patients/${patient._id}/avatar`;
+
+    res.json(result);
+  } catch (err) {
+    console.error('GET /patients/me error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// PUT /api/patients/me/avatar
+// Upload or replace profile image (max 2MB), stored in MongoDB as buffer
+// -----------------------------------------------------------------------------
+router.put(
+  '/patients/me/avatar',
+  authenticateJWT,
+  upload.single('profileImage'),
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+      const patient = await Patient.findById(req.user._id);
+      if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+      patient.profileImage = {
+        data: req.file.buffer,
+        contentType: req.file.mimetype,
+      };
+
+      await patient.save();
+
+      res.json({
+        message: 'Avatar uploaded successfully',
+        profileImageUrl: `/api/patients/${patient._id}/avatar`,
+      });
+    } catch (err: any) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'File too large. Max 2MB allowed.' });
+        }
+        return res.status(400).json({ message: err.message });
+      }
+
+      console.error('PUT /patients/me/avatar error:', err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
+// -----------------------------------------------------------------------------
+// GET /api/patients/:id/avatar
+// Stream profile image buffer stored in MongoDB
+// -----------------------------------------------------------------------------
+router.get('/patients/:id/avatar', async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id).select('profileImage');
+    if (!patient || !patient.profileImage || !patient.profileImage.data) {
+      return res.status(404).json({ message: 'Avatar not found' });
+    }
+
+    res.set('Content-Type', patient.profileImage.contentType || 'image/png');
+    res.send(patient.profileImage.data);
+  } catch (err) {
+    console.error('GET /patients/:id/avatar error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

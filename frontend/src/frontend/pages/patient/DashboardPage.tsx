@@ -12,10 +12,9 @@ import {
   CheckCircle,
   AlertTriangle,
   User as UserIcon,
-  Settings as SettingsIcon,
   TrendingUp,
   Heart,
-  Shield,
+  
   Award,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -140,11 +139,8 @@ const DashboardPage1: React.FC = () => {
     medicalConditions: '',
   });
 
-  // Avatar upload
-  const [uploading, setUploading] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState(user?.profileImageUrl || '');
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
 
   // Data
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
@@ -180,10 +176,8 @@ api.interceptors.request.use(cfg => {
   })();
 }, [token]);
 
-  // Sync avatar
-  useEffect(() => {
-    if (user?.profileImageUrl) setAvatarPreview(user.profileImageUrl);
-  }, [user?.profileImageUrl]);
+  
+
 
   // Fetch appointments
   useEffect(() => {
@@ -262,31 +256,10 @@ api.interceptors.request.use(cfg => {
   const upcomingCount = upcomingAppointments.length;
   const completedCount = completedAppointments.length;
 
-  // Avatar handlers
-  const handleAvatarClick = () => fileInputRef.current?.click();
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    const preview = URL.createObjectURL(file);
-    setAvatarPreview(preview);
-    try {
-      const form = new FormData();
-      form.append('profileImage', file);
-      await axios.put(buildUrl('/users/me/avatar'), form, {
-        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
-      });
-      await updateProfile({});
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Upload failed');
-      if (user?.profileImageUrl) setAvatarPreview(user.profileImageUrl);
-    } finally {
-      setUploading(false);
-      URL.revokeObjectURL(preview);
-    }
-  };
+ 
+ 
+
+
 
   // Mark notification read
   const markAsRead = async (id: string) => {
@@ -303,8 +276,7 @@ api.interceptors.request.use(cfg => {
     }
   };
 
-  // Render
-  const avatarSrc = avatarPreview || '';
+
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -412,7 +384,7 @@ api.interceptors.request.use(cfg => {
               <div className="border-b border-white/10">
                 <div className="flex p-6 space-x-4 overflow-x-auto">
                   <Tab label="Overview" isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Activity size={20} />} />
-                  <Tab label="Appointments" isActive={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon={<Calendar size={20} />} count={upcomingCount} />
+                 
                   <Tab label="Notifications" isActive={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={<Bell size={20} />} count={unreadCount} />
                   <Tab label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={<UserIcon size={20} />} />
                 </div>
@@ -447,9 +419,7 @@ api.interceptors.request.use(cfg => {
                       <motion.div variants={fadeInUp}>
                         <div className="flex items-center justify-between mb-6">
                           <h2 className="text-2xl font-semibold text-white">Upcoming Appointments</h2>
-                          <Link to="/appointments">
-                            <Button variant="outline" size="sm" className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10">View All</Button>
-                          </Link>
+                          
                         </div>
                         <div className="space-y-4">
                           {loadingAppointments ? (
@@ -515,9 +485,7 @@ api.interceptors.request.use(cfg => {
                       <motion.div variants={fadeInUp}>
                         <div className="flex items-center justify-between mb-6">
                           <h2 className="text-2xl font-semibold text-white">Recent Activity</h2>
-                          <Link to="/notifications">
-                            <Button variant="outline" size="sm" className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10">View All</Button>
-                          </Link>
+                          
                         </div>
                         <div className="space-y-3">
                           {loadingNotifications ? (
@@ -722,7 +690,7 @@ api.interceptors.request.use(cfg => {
                             setActiveTab('notifications');
                           }}
                         >
-                          Refresh
+                          View All
                         </Button>
                       </div>
                       <div className="space-y-3">
@@ -814,71 +782,7 @@ api.interceptors.request.use(cfg => {
                       exit="exit"
                       className="text-white"
                     >
-                      <motion.div variants={fadeInUp} className="flex items-center mb-6">
-                        <div className="relative">
-                          {avatarSrc ? (
-                            <motion.img
-                              src={avatarSrc}
-                              alt="Profile"
-                              onClick={handleAvatarClick}
-                              className={`w-24 h-24 rounded-full object-cover border-2 border-gray-700 cursor-pointer ${
-                                uploading ? 'opacity-50' : 'opacity-100'
-                              }`}
-                              whileHover={{ scale: 1.05 }}
-                            />
-                          ) : (
-                            <motion.div
-                              onClick={handleAvatarClick}
-                              className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center cursor-pointer ${
-                                uploading ? 'opacity-50' : 'opacity-100'
-                              }`}
-                              whileHover={{ scale: 1.05 }}
-                            >
-                              <UserIcon size={48} className="text-gray-400" />
-                            </motion.div>
-                          )}
-
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileChange}
-                          />
-                          {uploading && (
-                            <div className="absolute top-0 left-0 flex items-center justify-center w-24 h-24 bg-black bg-opacity-50 rounded-full">
-                              <svg
-                                className="w-6 h-6 text-white animate-spin"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8v8H4z"
-                                />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-6">
-                          <motion.h2 variants={fadeInUp} className="text-3xl font-semibold text-white">
-                            {user?.name}
-                          </motion.h2>
-                          <motion.p variants={fadeInUp} className="text-gray-400">
-                            {user?.email}
-                          </motion.p>
-                        </div>
-                      </motion.div>
+                      
                       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                         {/* Personal Info */}
                         <motion.div
@@ -935,7 +839,7 @@ api.interceptors.request.use(cfg => {
                           variants={fadeInUp}
                           whileHover={cardHover}
                           className="p-6 border bg-white/5 backdrop-blur-xl rounded-2xl border-white/10"
-                        >
+                          >
                           <h3 className="mb-4 text-xl font-medium text-white">Medical Information</h3>
                           <div className="space-y-4">
                             <div>
@@ -964,11 +868,11 @@ api.interceptors.request.use(cfg => {
                             </Button>
                             {showUpdateMedical && (
                               <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] overflow-auto bg-black bg-opacity-60 flex items-start justify-center pt-20"
-          >
+                              initial={{ opacity: 0 }}
+                             animate={{ opacity: 1 }}
+                             exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[100] overflow-auto bg-black bg-opacity-60 flex items-start justify-center pt-20"
+                              >
                               <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-auto shadow-lg">
                                 <UpdateMedicalInfoForm
                                   medicalInfo={medicalInfo}
@@ -981,7 +885,8 @@ api.interceptors.request.use(cfg => {
                           </div>
                         </motion.div>
                       </div>
-                   
+                   <br/>
+                   <br/>
                     </motion.div>
                   )}
                 </AnimatePresence>

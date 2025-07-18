@@ -13,6 +13,7 @@ export interface IAppointment extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  isSlotActive: boolean;
 }
 
 const AppointmentSchema = new Schema<IAppointment>({
@@ -34,7 +35,14 @@ const AppointmentSchema = new Schema<IAppointment>({
     enum: ['pending', 'paid', 'failed', 'refunded'],
     default: 'pending',
   },
+  isSlotActive: {
+  type: Boolean,
+  default: true, // new appointments are active
+},
+
 });
+// In models/Appointment.ts
+
 
 export default mongoose.model<IAppointment>(
   'Appointment',

@@ -3,6 +3,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+// Interface for Patient document
 export interface IPatient extends Document {
   name: string;
   email: string;
@@ -21,7 +22,6 @@ export interface IPatient extends Document {
   deleteAttempts: number;
   deleteLockedUntil?: Date | null;
 
-  // Notification settings:
   notificationSettings: {
     emailAppointments: boolean;
     emailDoctorMessages: boolean;
@@ -36,6 +36,8 @@ export interface IPatient extends Document {
   updatedAt: Date;
 
   comparePassword(password: string): Promise<boolean>;
+
+  profileImageUrl?: string; // virtual
 }
 
 const PatientSchema = new Schema<IPatient>(
@@ -44,7 +46,7 @@ const PatientSchema = new Schema<IPatient>(
     email: {
       type: String,
       required: true,
-      unique: true, // ensures MongoDB enforces uniqueness, triggers 11000 on duplicates
+      unique: true,
       trim: true,
       lowercase: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
@@ -56,16 +58,13 @@ const PatientSchema = new Schema<IPatient>(
     isVerified: { type: Boolean, default: false },
     phone: { type: String, default: '' },
     dob: { type: Date },
-
     profileImage: {
       data: Buffer,
       contentType: String,
     },
-
     isActive: { type: Boolean, default: true },
     deleteAttempts: { type: Number, default: 0 },
     deleteLockedUntil: { type: Date, default: null },
-
     notificationSettings: {
       emailAppointments: { type: Boolean, default: true },
       emailDoctorMessages: { type: Boolean, default: true },
@@ -79,14 +78,24 @@ const PatientSchema = new Schema<IPatient>(
   {
     collection: 'patients',
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Indexes to enforce uniqueness at the database level
+// Unique indexes
 PatientSchema.index({ email: 1 }, { unique: true });
 PatientSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
-// Remove sensitive fields from JSON output
+// Virtual for serving avatar URL
+PatientSchema.virtual('profileImageUrl').get(function (this: IPatient) {
+  if (this.profileImage && this._id) {
+    return `/api/patients/${this._id}/avatar`;
+  }
+  return undefined;
+});
+
+// Strip sensitive/binary on JSON
 PatientSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
@@ -96,9 +105,10 @@ PatientSchema.set('toJSON', {
     }
     return ret;
   },
+  virtuals: true,
 });
 
-// Pre-save: hash password if modified and provider is 'local'
+// Hash password if modified
 PatientSchema.pre<IPatient>('save', async function (next) {
   if (this.isModified('passwordHash') && this.passwordHash) {
     try {
@@ -111,7 +121,7 @@ PatientSchema.pre<IPatient>('save', async function (next) {
   next();
 });
 
-// Instance method to compare a candidate password against the stored hash
+// Compare password helper
 PatientSchema.methods.comparePassword = function (password: string) {
   if (!this.passwordHash) return Promise.resolve(false);
   return bcrypt.compare(password, this.passwordHash);

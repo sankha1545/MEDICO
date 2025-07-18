@@ -22,6 +22,7 @@ interface PrescriptionInput {
   endDate: string;
 }
 
+
 /**
  * Confirm payment & schedule appointment
  */
@@ -512,6 +513,29 @@ router.post('/:id/prescription', authenticateJWT, async (req: Request, res: Resp
 /**
  * Cancel an entire slot’s appointments
  */
+// Route: Clean expired slots (set isSlotActive: false for past ones)
+// Route: Clean expired slots (set isSlotActive: false for past ones)
+router.put('/clean-slots/:doctorId', authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const doctorId = req.params.doctorId;
+    const now = new Date();
+
+    const result = await Appointment.updateMany(
+      {
+        doctorId,
+        date: { $lt: now },
+        isSlotActive: true,
+      },
+      { $set: { isSlotActive: false } }
+    );
+
+    res.status(200).json({ message: `${result.modifiedCount} expired slots cleaned.` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Failed to clean expired slots', error });
+  }
+});
+
 
 
 export default router;

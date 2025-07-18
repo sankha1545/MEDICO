@@ -102,7 +102,11 @@ const DoctorSchema = new Schema<IDoctor>(
     locationObj: { type: LocationSchema, required: false },
 
     slotDateTime: { type: Date },
-    availabilitySlots: { type: [Date], default: [] },
+availabilitySlots: Array<{
+  datetime: Date;
+  quantity: number;
+}>  ,
+
 
     maxPatients: { type: Number, default: 1, min: 1 },
 

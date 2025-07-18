@@ -28,9 +28,7 @@ import FloatingNavbar from '../../components/animations/doctor/FloatingNavbar';
 import StatsCard from '../../components/animations/doctor/StatsCard';
 import AnimatedChart from '../../components/animations/doctor/AnimatedChart';
 import ProfileAvatar3D from '../../components/animations/doctor/ProfileAvatar3D';
-import EditProfileForm, {
-  LocationType,
-} from '../../components/common/editprofile/editprofileformsdoc';
+import EditProfileForm, { LocationType } from '../../components/common/editprofile/editprofileformsdoc';
 import { PayoutSetupForm } from '../../components/PayoutSetupForm';
 import seatImg from '../../assets/chair.avif';
 import doctorSeatImg from '../../assets/doctorseat.png';
@@ -98,13 +96,14 @@ export default function DocDashboardPage() {
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
+  // UI State
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState('');
 
+  // Profile Fields
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
   const [profileLanguages, setProfileLanguages] = useState<string>('');
@@ -112,33 +111,30 @@ export default function DocDashboardPage() {
   const [profileSpecialty, setProfileSpecialty] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>();
   const [profileExperience, setProfileExperience] = useState('');
-  const [profileLocationData, setProfileLocationData] =
-    useState<LocationType | null>(null);
+  const [profileLocationData, setProfileLocationData] = useState<LocationType | null>(null);
   const [profileLocation, setProfileLocation] = useState('');
   const [profileConsultationFee, setProfileConsultationFee] = useState(0);
 
+  // Appointments & Notifications
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(null);
+const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const [selectedAppointmentDetail, setSelectedAppointmentDetail] =
-    useState<AppointmentDetail | null>(null);
+// Controls visibility of the “Cancel All” confirmation modal
+const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState<boolean>(false);
+
+// Tracks whether the slot‑cancellation API call is in progress
+const [cancellingSlot, setCancellingSlot] = useState<boolean>(false);
+  // Appointment Detail / Cancel / Prescription
+  const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<AppointmentDetail | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Bulk slot cancellation state
-  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(
-    null
-  );
-  const [showSlotCancelConfirm, setShowSlotCancelConfirm] =
-    useState(false);
-  const [cancellingSlot, setCancellingSlot] = useState(false);
-
-  const [showPrescriptionForm, setShowPrescriptionForm] =
-    useState(false);
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [prescriptionData, setPrescriptionData] = useState({
     medicineName: '',
     timesPerDay: 1,
@@ -150,19 +146,42 @@ export default function DocDashboardPage() {
   const [issuingPrescription, setIssuingPrescription] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState('');
 
+  // Payout Setup & Execute
   const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [existingPayoutAccountId, setExistingPayoutAccountId] =
-    useState<string | null>(null);
+  const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(null);
   const [payoutLoading, setPayoutLoading] = useState(false);
 
   const fetchedProfileRef = useRef(false);
 
+  // —— Clean Slots Feature ——  
+  // Tracks which ISO slots have been hidden
+ const [hiddenSlots, setHiddenSlots] = useState<string[]>(() => {
+  try {
+    const stored = localStorage.getItem('hiddenSlots');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+});
+
+// Whenever hiddenSlots changes (e.g. via handleHideExpiredSlots), persist it:
+useEffect(() => {
+  try {
+    localStorage.setItem('hiddenSlots', JSON.stringify(hiddenSlots));
+  } catch {
+    // ignore write errors
+  }
+}, [hiddenSlots]);
+
+
+  // Logout handlers
   const handleLogout = () => setIsLogoutModalOpen(true);
   const confirmLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  // Save profile
   const handleSaveProfile = async (
     name: string,
     email: string,
@@ -199,9 +218,7 @@ export default function DocDashboardPage() {
         setProfileLocationData(loc);
         setProfileLocation(loc.address);
       }
-      setProfileImageUrl(
-        file ? URL.createObjectURL(file) : updated.profileImageUrl
-      );
+      setProfileImageUrl(file ? URL.createObjectURL(file) : updated.profileImageUrl);
       setShowEditProfile(false);
     } catch (err: any) {
       console.error(err);
@@ -209,6 +226,7 @@ export default function DocDashboardPage() {
     }
   };
 
+  // Fetch profile once
   useEffect(() => {
     if (user?.role === 'doctor' && !fetchedProfileRef.current) {
       fetchedProfileRef.current = true;
@@ -227,9 +245,7 @@ export default function DocDashboardPage() {
             setProfileLocationData(loc);
             setProfileLocation(loc.address);
           }
-          setExistingPayoutAccountId(
-            (prof as any).razorpayFundAccountId || null
-          );
+          setExistingPayoutAccountId((prof as any).razorpayFundAccountId || null);
         })
         .catch((err) => {
           console.error(err);
@@ -239,25 +255,22 @@ export default function DocDashboardPage() {
     }
   }, [user, fetchDoctorProfile]);
 
+  // Fetch appointments & notifications
   useEffect(() => {
     if (!token) return;
+
     axios
       .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        const filtered = res.data.filter(
-          (a) => a.status !== 'cancelled'
-        );
+        const filtered = res.data.filter((a) => a.status !== 'cancelled');
         const sorted = filtered.sort(
           (a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime()
         );
         setAppointments(sorted);
         setUpcomingCount(
-          sorted.filter(
-            (a) =>
-              a.status === 'upcoming' && new Date(a.date) > new Date()
-          ).length
+          sorted.filter((a) => a.status === 'upcoming' && new Date(a.date) > new Date()).length
         );
       })
       .catch(console.error);
@@ -273,6 +286,7 @@ export default function DocDashboardPage() {
       .catch(console.error);
   }, [token]);
 
+  // Stats data
   const weeklyData = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 7 }).map((_, i) => {
@@ -281,10 +295,7 @@ export default function DocDashboardPage() {
       const label = format(day, 'MMM d');
       const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
-        return (
-          isValid(booked) &&
-          format(booked, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
-        );
+        return isValid(booked) && format(booked, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
       }).length;
       return { date: label, count };
     });
@@ -297,10 +308,7 @@ export default function DocDashboardPage() {
       const label = format(m, 'MMM yyyy');
       const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
-        return (
-          isValid(booked) &&
-          format(booked, 'yyyy-MM') === format(m, 'yyyy-MM')
-        );
+        return isValid(booked) && format(booked, 'yyyy-MM') === format(m, 'yyyy-MM');
       }).length;
       return { month: label, count };
     });
@@ -313,37 +321,73 @@ export default function DocDashboardPage() {
       const label = format(y, 'yyyy');
       const count = appointments.filter((a) => {
         const booked = getBookedDate(a);
-        return (
-          isValid(booked) &&
-          format(booked, 'yyyy') === format(y, 'yyyy')
-        );
+        return isValid(booked) && format(booked, 'yyyy') === format(y, 'yyyy');
       }).length;
       return { year: label, count };
     });
   }, [appointments]);
+  
 
-  // Group appointments by slot label for both Appointments and Patients tabs
-  const slotGroups = useMemo(() => {
-  // Start with each declared availability slot (ISO strings) as an empty array
-  const groups: Record<string, DoctorAppointment[]> = {};
-  user?.availabilitySlots?.forEach((slotIso) => {
-    groups[slotIso] = [];
+  // Group into slots
+  const slotGroups = useMemo<Record<string, DoctorAppointment[]>>(() => {
+    const groups: Record<string, DoctorAppointment[]> = {};
+    user?.availabilitySlots?.forEach((iso) => {
+      groups[iso] = [];
+    });
+    appointments.forEach((appt) => {
+      const iso = appt.date;
+      if (groups[iso]) groups[iso].push(appt);
+      else {
+        groups['Other'] = groups['Other'] ?? [];
+        groups['Other'].push(appt);
+      }
+    });
+    return groups;
+  }, [appointments, user]);
+
+  // Filter out hidden slots
+  const displayedSlotGroups = useMemo(() => {
+    return Object.entries(slotGroups).reduce((acc, [iso, appts]) => {
+      if (!hiddenSlots.includes(iso) && appts.length > 0) {
+        acc[iso] = appts;
+      }
+      return acc;
+    }, {} as Record<string, DoctorAppointment[]>);
+  }, [slotGroups, hiddenSlots]);
+
+  // Detect any expired slot left
+  const hasExpiredSlot = useMemo(() => {
+    return Object.keys(displayedSlotGroups).some((iso) => {
+      const t = new Date(iso).getTime();
+      return !isNaN(t) && t < Date.now();
+    });
+  }, [displayedSlotGroups]);
+
+  // Hide expired slots locally
+ const handleHideExpiredSlots = () => {
+  // find all expired slot keys
+  const expired = Object.keys(displayedSlotGroups).filter((iso) => {
+    const t = new Date(iso).getTime();
+    return !isNaN(t) && t < Date.now();
   });
 
-  // Bucket each appointment into the matching ISO slot
-  appointments.forEach((appt) => {
-    // appt.date is already an ISO string
-    const slotIso = appt.date;
-    if (groups[slotIso]) {
-      groups[slotIso].push(appt);
-    } else {
-      groups['Other'] = groups['Other'] ?? [];
-      groups['Other'].push(appt);
-    }
+  if (expired.length === 0) {
+    toast.info('No expired slots to hide.');
+    return;
+  }
+
+  // update state (and trigger the effect to write to localStorage)
+  setHiddenSlots((prev) => {
+    // dedupe just in case
+    const updated = Array.from(new Set([...prev, ...expired]));
+    return updated;
   });
 
-  return groups;
-}, [appointments, user]);
+  toast.success(`Hidden ${expired.length} expired slot${expired.length > 1 ? 's' : ''}.`);
+};
+
+
+
 
 
   // Cancel a single appointment
@@ -517,6 +561,50 @@ export default function DocDashboardPage() {
       toast.error('Payout failed');
     }
   };
+const fetchAppointments = async () => {
+  try {
+    const res = await axios.get(`http://localhost:4000/api/appointments/doctor/${user._id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Filter for only active future slots
+    const activeAppointments = res.data.filter(
+      (appt) => appt.isSlotActive && new Date(appt.date) >= new Date()
+    );
+
+    setAppointments(activeAppointments);
+  } catch (err) {
+    console.error('Failed to fetch appointments', err);
+  }
+};
+
+
+
+const handleCleanSlots = async () => {
+  try {
+    await axios.put(
+      `http://localhost:4000/api/appointments/clean-slots/${user._id}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    toast.success('Expired appointment slots cleaned!');
+    fetchAppointments(); // Refresh the active ones
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to clean slots');
+  }
+};
+
+
+  // Determine if there are past appointments to clean
+  const hasPastSlots = useMemo(
+    () => appointments.some(a => new Date(a.date).getTime() < Date.now()),
+    [appointments]
+  );
 
   if (loadingProfile) {
     return (
@@ -545,7 +633,7 @@ export default function DocDashboardPage() {
           transition={{ duration: 0.8 }}
           className="flex flex-col items-center mb-16 space-y-4"
         >
-          <ProfileAvatar3D imageUrl={profileImageUrl} name={profileName} size={150} />
+          <ProfileAvatar3D  name={profileName} size={150} />
           <motion.h1
             className="text-6xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text"
             initial={{ opacity: 0, scale: 0.5 }}
@@ -717,7 +805,7 @@ export default function DocDashboardPage() {
             </motion.div>
           )}
 
-          {activeTab === 'patients' && (
+{activeTab === 'patients' && (
   <motion.div
     key="patients"
     initial={{ opacity: 0, y: 30 }}
@@ -727,57 +815,80 @@ export default function DocDashboardPage() {
     className="space-y-8"
   >
     <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
+
     <div className="flex justify-center mb-6">
       <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
     </div>
 
- {Object.entries(slotGroups)
-  .filter(([, appts]) => appts.length > 0) // don't show empty slots
-  .map(([slotIso, appts]) => {
-    const parsedDate = new Date(slotIso);
-    const isValidDate = !isNaN(parsedDate.getTime());
-    const label = isValidDate ? format(parsedDate, 'PPP p') : slotIso;
-    const disabled = !isValidDate || isWithin24Hours(slotIso);
-
-    return (
-      <div key={slotIso} className="mb-8">
-        <div className="flex items-center justify-between">
-          <h3 className="mb-2 text-xl font-semibold text-white">{label}</h3>
+    {/* Clean Slots Button */}
+    <AnimatePresence>
+      {hasExpiredSlot && (
+        <motion.div
+          initial={{ x: 100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 100, opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex justify-end"
+        >
           <button
-            onClick={() => isValidDate && openSlotCancel(slotIso)}
-            disabled={disabled}
-            className={`
-              px-3 py-1 text-sm rounded
-              ${disabled
-                ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                : 'bg-red-100 text-red-500 hover:bg-red-200'}
-            `}
+            onClick={handleHideExpiredSlots}
+            className="px-4 py-2 mb-4 text-white bg-red-500 rounded-xl hover:bg-red-600"
           >
-            Cancel All
+            Clean Slots
           </button>
-        </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
-        <div className="grid grid-cols-5 gap-4 mt-2 justify-items-center">
-          {appts.map((a) => (
-            <div
-              key={a.id}
-              className="flex flex-col items-center cursor-pointer"
-              onClick={() => fetchAppointmentDetails(a.id)}
+    {/* Render Appointments */}
+    {Object.entries(displayedSlotGroups).map(([slotIso, appts]) => {
+      const parsedDate = new Date(slotIso);
+      const isValidDate = !isNaN(parsedDate.getTime());
+      const label = isValidDate ? format(parsedDate, 'PPP p') : slotIso;
+      const disabled = !isValidDate || isWithin24Hours(slotIso);
+
+      return (
+        <div key={slotIso} className="mb-8">
+          <div className="flex items-center justify-between">
+            <h3 className="mb-2 text-xl font-semibold text-white">{label}</h3>
+            <button
+              onClick={() => isValidDate && openSlotCancel(slotIso)}
+              disabled={disabled}
+              className={`
+                px-3 py-1 text-sm rounded
+                ${disabled
+                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                  : 'bg-red-100 text-red-500 hover:bg-red-200'}
+              `}
             >
-              <img src={seatImg} alt="Seat" className="w-12 h-12" />
-              <span className="w-16 mt-1 text-sm text-center text-white truncate">
-                {a.patientName}
-              </span>
-            </div>
-          ))}
+              Cancel All
+            </button>
+          </div>
+
+          <div className="grid grid-cols-5 gap-4 mt-2 justify-items-center">
+            {appts.map((a, index) => (
+              <div
+                key={a.id}
+                className="flex flex-col items-center cursor-pointer"
+                onClick={() => fetchAppointmentDetails(a.id)}
+              >
+                <img src={seatImg} alt={`Seat ${index + 1}`} className="w-12 h-12" />
+                <span className="mt-1 text-xs text-white">Seat {index + 1}</span>
+                <span className="w-16 mt-1 text-sm text-center text-white truncate">
+                  {a.patientName}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    );
-  })}
-
-
+      );
+    })}
   </motion.div>
 )}
+
+
+
+
 
 
           {activeTab === 'earnings' && (

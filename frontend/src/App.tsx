@@ -101,7 +101,8 @@ const App: React.FC = () => {
           <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
 
           {/* OAuth Success */}
-          <Route path="/oauth-success" element={<OAuthSuccessPage />} />
+          <Route 
+          path="/oauth-success" element={<OAuthSuccessPage />} />
 
           {/* More public patient pages */}
           <Route

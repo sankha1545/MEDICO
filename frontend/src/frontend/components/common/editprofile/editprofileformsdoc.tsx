@@ -8,7 +8,7 @@ import React, {
   FormEvent,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X as CloseIcon, Trash2, Pencil, AlertTriangle } from 'lucide-react';
+import { X as CloseIcon, Pencil, AlertTriangle } from 'lucide-react';
 import { Button } from '../../../components/common/Button';
 import {
   MapContainer,
@@ -49,6 +49,7 @@ const SPECIALTIES = [
 
 const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
 
+// point at your backend (or use Vite proxy /api → http://localhost:4000)
 const api = axios.create({ baseURL: '/api/medical' });
 
 const getAuthHeader = () => {
@@ -85,7 +86,6 @@ export default function EditDocProfile({
   onSave,
 }: {
   onCancel: () => void;
-  /** Optional callback to tell parent “I’ve saved—please reload your view” */
   onSave?: () => void;
 }) {
   // form fields
@@ -110,11 +110,8 @@ export default function EditDocProfile({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState(false);
-  const [confirmModalIndex, setConfirmModalIndex] = useState<number | null>(
-    null
-  );
 
-  // Pull initial data (and later after save)
+  // Load profile from backend
   const loadProfile = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -127,14 +124,14 @@ export default function EditDocProfile({
       setDob(d.dob || '');
       setPreviewUrl(d.profileImageUrl);
       setAvailability(
-   d.availabilitySlots?.length
-     ? d.availabilitySlots.map((s: string) => {
-         const dt = new Date(s);
-         const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
-        return local.toISOString().slice(0, 16);
-       })
-     : ['']
- );
+        d.availabilitySlots?.length
+          ? d.availabilitySlots.map((s: string) => {
+              const dt = new Date(s);
+              const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+              return local.toISOString().slice(0, 16);
+            })
+          : ['']
+      );
       setLocation(d.locationObj || null);
       setExperience(d.experience || '');
       setFee(d.consultationFee ?? 0);
@@ -165,35 +162,27 @@ export default function EditDocProfile({
     []
   );
 
-  const handleMapSelect = useCallback(async (pos: { lat: number; lng: number }) => {
-    setGeocoding(true);
-    const addr = await fetchAddress(pos.lat, pos.lng);
-    setLocation({ lat: pos.lat, lng: pos.lng, address: addr });
-    setGeocoding(false);
-  }, []);
+  const handleMapSelect = useCallback(
+    async (pos: { lat: number; lng: number }) => {
+      setGeocoding(true);
+      const addr = await fetchAddress(pos.lat, pos.lng);
+      setLocation({ lat: pos.lat, lng: pos.lng, address: addr });
+      setGeocoding(false);
+    },
+    []
+  );
 
   const updateSlot = (i: number, v: string) =>
     setAvailability((slots) =>
       slots.map((s, idx) => (idx === i ? v : s))
     );
+
   const addSlot = () =>
     availability.length < 5 && setAvailability([...availability, '']);
-  const confirmRemoveSlot = (i: number) => setConfirmModalIndex(i);
 
-  const actuallyRemoveSlot = async (i: number) => {
-    try {
-      setConfirmModalIndex(null);
-      await api.post(
-        '/doctor/cancel-slot',
-        { slot: availability[i] },
-        { headers: getAuthHeader() }
-      );
-      setAvailability((slots) => slots.filter((_, idx) => idx !== i));
-    } catch (err) {
-      console.error(err);
-      setError('Failed to cancel slot & refund');
-    }
-  };
+  // NEW: Remove slot locally without any API call or confirm modal
+  const removeSlot = (i: number) =>
+    setAvailability((slots) => slots.filter((_, idx) => idx !== i));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -221,10 +210,9 @@ export default function EditDocProfile({
         },
       });
 
-      // immediately re-load to reflect updated data
+      // reload so removed slots stay removed
       await loadProfile();
 
-      // notify parent if it wants to refresh its view
       onSave && onSave();
     } catch (err) {
       console.error(err);
@@ -237,8 +225,9 @@ export default function EditDocProfile({
   const inputClass =
     'w-full p-4 bg-gray-900/70 text-white rounded-2xl border focus:outline-none';
 
-  if (loading)
+  if (loading) {
     return <div className="p-8 text-center text-white">Loading…</div>;
+  }
 
   return (
     <AnimatePresence>
@@ -372,9 +361,9 @@ export default function EditDocProfile({
                   {availability.length > 1 && (
                     <Button
                       variant="danger"
-                      onClick={() => confirmRemoveSlot(i)}
+                      onClick={() => removeSlot(i)}
                     >
-                      <Trash2 size={16} /> Remove
+                      Remove
                     </Button>
                   )}
                 </div>
@@ -452,48 +441,6 @@ export default function EditDocProfile({
             </div>
           </form>
         </motion.div>
-
-        {/* Confirm‐delete modal */}
-        <AnimatePresence>
-          {confirmModalIndex !== null && (
-            <motion.div
-              className="fixed inset-0 flex items-center justify-center bg-black/60"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <motion.div
-                className="max-w-md p-6 text-center text-white bg-gray-800 rounded-2xl"
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.8 }}
-              >
-                <AlertTriangle
-                  size={40}
-                  className="mx-auto mb-3 text-yellow-400"
-                />
-                <p className="mb-1 font-semibold">Are you sure?</p>
-                <p className="mb-4 text-sm">
-                  Deleting a slot cancels appointments & refunds patients.
-                </p>
-                <div className="flex justify-center gap-3">
-                  <Button
-                    variant="danger"
-                    onClick={() => actuallyRemoveSlot(confirmModalIndex)}
-                  >
-                    Yes, delete
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setConfirmModalIndex(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
     </AnimatePresence>
   );
