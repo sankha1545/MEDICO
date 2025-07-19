@@ -201,9 +201,7 @@ const EnhancedAbout: React.FC = () => {
 >
   Start Your Journey
 </motion.button>
-            <motion.button className="px-8 py-4 text-lg font-bold text-white transition-colors border border-white/30 rounded-xl hover:bg-white/10" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              Learn More
-            </motion.button>
+            
           </div>
         </motion.div>
       </div>

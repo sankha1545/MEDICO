@@ -180,6 +180,7 @@ const ServicesPage: React.FC = () => {
     const v = videoRef.current!;
     v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + dt));
   };
+   const [isLearnMoreOpen, setLearnMoreOpen] = useState(false);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -350,10 +351,40 @@ const ServicesPage: React.FC = () => {
                   <Button variant="gradient" size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600">
                     Glimpse<ArrowRight size={20} className="ml-2" onClick={openModal}/>
                   </Button>
-                  <Button variant="outline" size="lg" className="text-white border-white/20 hover:bg-white/10">
-                    Learn More
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="text-white bg-gradient-to-r from-blue-500 to-purple-600 border-white/20 "
+                    onClick={() => setLearnMoreOpen(o => !o)}
+                  >
+                    {isLearnMoreOpen ? 'Hide Details' : 'Learn More'}
                   </Button>
                 </motion.div>
+                <AnimatePresence>
+                  {isLearnMoreOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="mt-6 space-y-4 text-left text-gray-300"
+                    >
+                      <p>
+                        At MedicoX, we go beyond just appointments:
+                      </p>
+                      <ul className="list-disc list-inside">
+                        <li>24/7 Telehealth Consultations</li>
+                        <li>Secure, Cloud-Based Health Records</li>
+                        <li>Personalized Care Plans & Follow-ups</li>
+                        <li>Health Analytics & Progress Tracking</li>
+                        <li>Integrated Pharmacy & Lab Services</li>
+                      </ul>
+                      <p>
+                        Discover a seamless, end‑to‑end healthcare experience tailored for you.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </motion.div>

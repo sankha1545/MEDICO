@@ -7,10 +7,14 @@ import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+interface SlotInfo {
+  slot: string;        // ISO string of the appointment datetime
+  remaining: number;   // number of seats left in this slot
+}
+
 interface BookAppointmentProps {
   doctorId: string;
   onClose: () => void;
-  // onSuccess is no longer used here for appointmentId, since creation happens after payment
   onSuccess?: (appointmentId: string) => void;
 }
 
@@ -44,19 +48,19 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
     message: '',
     selectedSlot: '',
   });
-  const [slots, setSlots] = useState<string[]>([]);
+  const [rawSlots, setRawSlots] = useState<SlotInfo[]>([]);
+  const [slots, setSlots] = useState<SlotInfo[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [consultationFee, setConsultationFee] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Build API base
   const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
-  // Pre-fill user info if available
+  // Pre-fill user info if logged in
   useEffect(() => {
     if (isAuthenticated && user) {
       setFormData((prev) => ({
@@ -68,54 +72,71 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
     }
   }, [isAuthenticated, user]);
 
-  // Fetch doctor slots & fee
+  // Fetch raw slots, filter available slots, and fetch fee
   useEffect(() => {
     let mounted = true;
-    setLoadingSlots(true);
-    setSlotsError(null);
 
-    const token = localStorage.getItem('authToken');
-    axios
-      .get(buildUrl(`/medical/doctors/${doctorId}`), {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      })
-      .then(({ data }) => {
+    const loadData = async () => {
+      setLoadingSlots(true);
+      setSlotsError(null);
+      setRawSlots([]);
+      setSlots([]);
+
+      const token = localStorage.getItem('authToken');
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+      try {
+        const { data: slotData } = await axios.get<SlotInfo[]>(
+          buildUrl(`/appointments/slots/${doctorId}`),
+          { headers }
+        );
+        console.log('Fetched raw slots:', slotData);
         if (!mounted) return;
-        const now = new Date();
-        // availabilitySlots assumed array of ISO strings
-        const upcoming = Array.isArray(data.availabilitySlots)
-          ? data.availabilitySlots
-              .map((s: string) => new Date(s))
-              .filter((dt: Date) => dt > now)
-              .sort((a, b) => a.getTime() - b.getTime())
-              .map((dt) => dt.toISOString())
-          : [];
-        setSlots(upcoming);
-        if (upcoming.length) {
-          setFormData((prev) => ({ ...prev, selectedSlot: upcoming[0] }));
-        }
-        const fee = typeof data.consultationFee === 'number' ? data.consultationFee : null;
-        setConsultationFee(fee);
-      })
-      .catch((e) => {
-        console.error('Error fetching doctor details:', e);
-        if (mounted) {
-          setSlotsError('Failed to load available slots or fee.');
-          setSlots([]);
-          setConsultationFee(null);
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoadingSlots(false);
-      });
 
+        setRawSlots(slotData);
+
+        const available = slotData.filter((s) => s.remaining > 0);
+        console.log('Filtered available slots:', available);
+        setSlots(available);
+
+        setFormData((prev) => ({
+          ...prev,
+          selectedSlot: available[0]?.slot || '',
+        }));
+      } catch (err) {
+        console.error('Error fetching slots:', err);
+        if (mounted) setSlotsError('Failed to load slots.');
+      } finally {
+        if (mounted) setLoadingSlots(false);
+      }
+
+      try {
+        const { data: docData } = await axios.get(
+          buildUrl(`/medical/doctors/${doctorId}`),
+          { headers }
+        );
+        if (!mounted) return;
+        setConsultationFee(
+          typeof docData.consultationFee === 'number'
+            ? docData.consultationFee
+            : null
+        );
+      } catch (err) {
+        console.error('Error fetching fee:', err);
+        if (mounted) setConsultationFee(null);
+      }
+    };
+
+    loadData();
     return () => {
       mounted = false;
     };
   }, [doctorId]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -125,55 +146,33 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
     e.preventDefault();
     setError(null);
 
-    // Validate slot selection
     if (!formData.selectedSlot) {
-      setError('Please select an available slot.');
+      setError('No slots available.');
       return;
     }
-    if (new Date(formData.selectedSlot) <= new Date()) {
-      setError('Selected slot is no longer valid.');
-      return;
-    }
+
     if (!formData.name.trim() || !formData.email.trim()) {
       setError('Name and email are required.');
       return;
     }
-    if (consultationFee == null) {
-      setError('Consultation fee not available.');
-      return;
-    }
     if (!isAuthenticated) {
-      setError('Authentication required. Please log in.');
+      setError('Please log in.');
       return;
     }
 
     setSubmitting(true);
     try {
-      // Instead of posting appointment now, navigate to payment page
-      // Optionally fetch doctorName to pass along:
-      let doctorName = '';
-      try {
-        const token = localStorage.getItem('authToken');
-        const resDoc = await axios.get(buildUrl(`/medical/doctors/${doctorId}`), {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        doctorName = resDoc.data.name || '';
-      } catch {
-        // ignore, PaymentPage will fetch again if needed
-      }
-
       navigate('/payment', {
         state: {
           doctorId,
           datetime: formData.selectedSlot,
-          doctorName,
-          message: formData.message || '',
+          message: formData.message,
         },
       });
       onClose();
     } catch (navErr) {
       console.error('Navigation error:', navErr);
-      setError('Failed to proceed to payment.');
+      setError('Failed to proceed.');
     } finally {
       setSubmitting(false);
     }
@@ -181,7 +180,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-lg bg-opacity-30"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-lg"
       variants={overlayVariants}
       initial="hidden"
       animate="visible"
@@ -195,9 +194,9 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
         exit="exit"
       >
         <button
-          className="absolute text-gray-600 top-4 right-4 hover:text-gray-800"
           onClick={onClose}
           disabled={submitting}
+          className="absolute text-gray-600 top-4 right-4 hover:text-gray-800"
         >
           <X size={24} />
         </button>
@@ -205,6 +204,11 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
         <h2 className="mb-4 text-3xl font-extrabold text-center text-black">
           Schedule Your Visit
         </h2>
+
+        {/* Debug info */}
+        <p className="mb-2 text-sm text-gray-500">
+          Slots Available: {slots.length}.
+        </p>
 
         {loadingSlots ? (
           <p className="text-center text-gray-600">Loading slots...</p>
@@ -225,10 +229,8 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
-              style={{ color: '#000' }}
-              required
               disabled={submitting}
+              className="w-full px-4 py-2 text-black border rounded-lg focus:outline-none"
             />
           </div>
 
@@ -242,26 +244,21 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
-              style={{ color: '#000' }}
-              required
               disabled={submitting}
+              className="w-full px-4 py-2 text-black border rounded-lg focus:outline-none"
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block mb-1 text-sm text-gray-700">
-              Phone
-            </label>
+            <label className="block mb-1 text-sm text-gray-700">Phone</label>
             <input
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
-              style={{ color: '#000' }}
               disabled={submitting}
+              className="w-full px-4 py-2 text-black border rounded-lg focus:outline-none"
             />
           </div>
 
@@ -275,14 +272,12 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
                 name="selectedSlot"
                 value={formData.selectedSlot}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none"
-                style={{ color: '#000' }}
-                required
                 disabled={submitting}
+                className="w-full px-4 py-2 text-black border rounded-lg focus:outline-none"
               >
-                {slots.map((s) => (
-                  <option key={s} value={s}>
-                    {new Date(s).toLocaleString()}
+                {slots.map(({ slot }) => (
+                  <option key={slot} value={slot}>
+                    {new Date(slot).toLocaleString()}
                   </option>
                 ))}
               </select>
@@ -299,18 +294,15 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
               rows={3}
               value={formData.message}
               onChange={handleChange}
-              placeholder="Optional message"
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg resize-none focus:outline-none"
-              style={{ color: '#000' }}
               disabled={submitting}
+              className="w-full px-4 py-2 text-black border rounded-lg focus:outline-none"
             />
           </div>
 
-          {/* Fee display */}
+          {/* Fee */}
           {consultationFee != null && (
             <p className="text-gray-700">
-              Consultation Fee:{' '}
-              <span className="font-medium">₹{consultationFee}</span>
+              Consultation Fee: <span className="font-medium">₹{consultationFee}</span>
             </p>
           )}
 
@@ -319,7 +311,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
           <button
             type="submit"
             disabled={submitting || slots.length === 0}
-            className="w-full py-3 font-bold text-white transition-all rounded-full shadow-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 font-bold text-white rounded-full bg-gradient-to-r from-purple-500 to-pink-500 disabled:opacity-50"
           >
             {submitting ? 'Scheduling...' : 'Confirm & Pay'}
           </button>

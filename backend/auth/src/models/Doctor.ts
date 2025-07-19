@@ -36,8 +36,18 @@ export interface IDoctor extends Document {
   locationObj?: ILocation;    // geodata
 
   slotDateTime?: Date;
-  availabilitySlots: Date[];
-  maxPatients: number;
+availabilitySlots: [
+  {
+    datetime: { type: Date, required: true },
+    quantity: { type: Number, required: true }
+  }
+],
+
+maxPatients: {
+  type: Number,
+  default: 1,
+},
+
 
   bio: string;
   qualifications: string[];
