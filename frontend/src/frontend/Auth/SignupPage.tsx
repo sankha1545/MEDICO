@@ -129,7 +129,7 @@ const SignUpPage: React.FC = () => {
     window.google.accounts.id.renderButton(googleBtnRef.current, {
       theme: 'outline',
       size: 'large',
-      width: 250,
+      width: 500,
       text: 'signup_with',
     });
   }, [gsiLoaded, step]);

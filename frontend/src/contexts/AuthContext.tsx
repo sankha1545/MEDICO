@@ -467,10 +467,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const verifyPasswordResetOtp = async (email: string, otp: string) => {
     await api.post('/auth/verify-reset-otp', { email, otp });
   };
-  const resetPassword = async (email: string, otp: string, newPassword: string) => {
-    await api.post('/auth/reset-password', { email, otp, newPassword });
-    navigate('/login');
-  };
+const resetPassword = async (
+  email: string,
+  otp: string,
+  newPassword: string
+) => {
+  // this log will now show exactly what you're sending
+  console.log('Reset password payload:', {
+    email,
+    otp,
+    password: newPassword,
+  });
+
+  await api.post('/auth/reset-password', {
+    email,
+    otp,
+    password: newPassword,   // ← renamed here
+  });
+
+  navigate('/login');
+};
+
+
   const deleteAccount = async (password: string) => {
     await api.delete('/auth/user', { data: { password } });
     logout();

@@ -27,10 +27,6 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 interface JwtPayload {
   id: string;
   role: 'patient' | 'doctor';
-  email?: string;
-  fullName?: string;
-  googleId?: string;
-  source?: string;
   iat: number;
   exp: number;
 }
@@ -51,9 +47,9 @@ export const authenticateJWT = (
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer '))
     return res.status(401).json({ message: 'Unauthorized' });
-  }
+
   const token = authHeader.slice(7);
   let payload: JwtPayload;
   try {
@@ -61,16 +57,16 @@ export const authenticateJWT = (
   } catch {
     return res.status(401).json({ message: 'Invalid token' });
   }
-  if (!payload.id || !payload.role) {
+  if (!payload.id || !payload.role)
     return res.status(401).json({ message: 'Invalid token payload' });
-  }
+
   const Model = payload.role === 'doctor' ? Doctor : Patient;
   Model.findById(payload.id)
     .then((user) => {
       if (!user) return res.status(401).json({ message: 'User not found' });
-      if (!(user as any).isActive) {
+      if (!(user as any).isActive)
         return res.status(403).json({ message: 'Account deactivated' });
-      }
+
       (req as any).user = user;
       (req as any).role = payload.role;
       next();
@@ -102,11 +98,11 @@ router.post('/send-email-otp', async (req, res) => {
   try {
     const exists =
       (await Patient.findOne({ email })) || (await Doctor.findOne({ email }));
-    if (exists) {
+    if (exists)
       return res
         .status(409)
         .json({ message: 'An account already exists with this email.' });
-    }
+
     await generateAndSendOtp(email, 'signup');
     res.sendStatus(200);
   } catch (err) {
@@ -120,6 +116,7 @@ router.post('/verify-email-otp', async (req, res) => {
   const { email, otp: code } = req.body;
   if (!email || !code)
     return res.status(400).json({ message: 'Email and OTP required' });
+
   try {
     const record = await Otp.findOne({ email, code, purpose: 'signup' });
     if (!record || record.expiresAt < new Date()) {
@@ -142,77 +139,77 @@ router.post('/signup', async (req, res) => {
     password: string;
     role: 'patient' | 'doctor';
   };
-  if (!name || !email || !password || !role) {
+  if (!name || !email || !password || !role)
     return res.status(400).json({ message: 'All fields required' });
-  }
+
   try {
     if (
       (await Patient.findOne({ email })) ||
       (await Doctor.findOne({ email }))
-    ) {
+    )
       return res
         .status(409)
         .json({ message: 'An account already exists with this email.' });
-    }
-    if (role === 'doctor') {
-      await new Doctor({
-        name,
-        email,
-        passwordHash: password,
-        role,
-        provider: 'local',
-        isVerified: true,
-        isActive: true,
-      }).save();
-    } else {
-      await new Patient({
-        name,
-        email,
-        passwordHash: password,
-        role,
-        provider: 'local',
-        isVerified: true,
-        isActive: true,
-      }).save();
-    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    console.log('🔐 [SIGNUP] Creating user:', { email, role });
+
+    const Model = role === 'doctor' ? Doctor : Patient;
+    const newUser = new Model({
+      name,
+      email,
+      passwordHash,
+      role,
+      provider: 'local',
+      isVerified: true,
+      isActive: true,
+    });
+
+    console.log('📝 [SIGNUP] About to save:', { email, passwordHash });
+    await newUser.save();
+    console.log('✅ [SIGNUP] User created:', email);
+
     res.sendStatus(201);
   } catch (err: any) {
     console.error('Signup error:', err);
-    if (err.code === 11000) {
-      res
+    if (err.code === 11000)
+      return res
         .status(409)
         .json({ message: 'An account already exists with this email.' });
-    } else {
-      res.status(500).json({ message: 'Signup failed' });
-    }
+
+    res.status(500).json({ message: 'Signup failed.' });
   }
 });
 
-// 4. Login (email/password)
+// 4. Login (email/password) — fixed bcrypt.compare issue
 router.post('/login', async (req, res) => {
+  console.log('🔍 [LOGIN] request body:', req.body);
+  const { email, password } = req.body as {
+    email: string;
+    password: string;
+  };
+  if (!email || !password)
+    return res.status(400).json({ message: 'Email and password required' });
+
   try {
-    const { email, password } = req.body as {
-      email: string;
-      password: string;
-    };
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password required' });
-    }
     let user = await Patient.findOne({ email });
     let role: 'patient' | 'doctor' = 'patient';
     if (!user) {
       user = await Doctor.findOne({ email });
       role = 'doctor';
     }
-    if (!user || !(user as any).isActive) {
+    if (!user || !(user as any).isActive)
+      return res.status(401).json({ message: 'Invalid credentials' });
+
+    // Workaround: hash the candidate with stored salt, compare strings
+    console.log('📋 [LOGIN] stored hash:', user.passwordHash);
+    const candidateHash = bcrypt.hashSync(password, user.passwordHash);
+    console.log('🔒 [LOGIN] candidate hash:', candidateHash);
+
+    if (candidateHash !== user.passwordHash) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    const isMatch = await (user as IPatient | IDoctor).comparePassword(
-      password
-    );
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
+
     const token = signJwt({ id: user._id.toString(), role });
     res.json({ token, user: user.toJSON() });
   } catch (err) {
@@ -253,12 +250,11 @@ router.put(
     } catch (err: any) {
       console.error('Update profile error:', err);
       if (err.code === 11000) {
-        res
+        return res
           .status(409)
           .json({ message: 'An account already exists with this email.' });
-      } else {
-        res.status(500).json({ message: 'Update failed' });
       }
+      res.status(500).json({ message: 'Update failed' });
     }
   }
 );
@@ -269,9 +265,7 @@ router.post('/send-reset-otp', async (req, res) => {
   if (!email) return res.status(400).json({ message: 'Email required' });
   const exists =
     (await Patient.exists({ email })) || (await Doctor.exists({ email }));
-  if (!exists) {
-    return res.status(404).json({ message: 'Account not found' });
-  }
+  if (!exists) return res.status(404).json({ message: 'Account not found' });
   try {
     await generateAndSendOtp(email, 'reset');
     res.sendStatus(200);
@@ -284,16 +278,15 @@ router.post('/send-reset-otp', async (req, res) => {
 // 8. Verify reset OTP
 router.post('/verify-reset-otp', async (req, res) => {
   const { email, otp: code } = req.body;
-  if (!email || !code) {
+  if (!email || !code)
     return res.status(400).json({ message: 'Email and OTP required' });
-  }
+
   try {
     const record = await Otp.findOne({ email, code, purpose: 'reset' });
     if (!record || record.expiresAt < new Date()) {
       if (record) await record.deleteOne();
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
-    await record.deleteOne();
     res.sendStatus(200);
   } catch (err) {
     console.error('Verify reset OTP error:', err);
@@ -303,35 +296,47 @@ router.post('/verify-reset-otp', async (req, res) => {
 
 // 9. Reset password
 router.post('/reset-password', async (req, res) => {
-  const { email, otp: code, newPassword } = req.body;
-  if (!email || !code || !newPassword) {
+  console.log('🔍 [RESET] request body:', req.body);
+  const { email, otp: code, password, newPassword } = req.body as {
+    email?: string;
+    otp?: string;
+    password?: string;
+    newPassword?: string;
+  };
+  const pwd = password ?? newPassword;
+  if (!email || !code || !pwd)
     return res
       .status(400)
-      .json({ message: 'Email, OTP, and newPassword required' });
-  }
+      .json({ message: 'Email, OTP, and password are required.' });
+
   try {
+    console.log('⏺️ [RESET] called with:', { email, code, pwd });
     const record = await Otp.findOne({ email, code, purpose: 'reset' });
     if (!record || record.expiresAt < new Date()) {
       if (record) await record.deleteOne();
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+      return res.status(400).json({ message: 'Invalid or expired OTP.' });
     }
-    let user = (await Patient.findOne({ email })) as any;
-    let role: 'patient' | 'doctor' = 'patient';
-    if (!user) {
-      user = (await Doctor.findOne({ email })) as any;
-      role = 'doctor';
-    }
+
+    let user = (await Patient.findOne({ email })) || (await Doctor.findOne({ email }));
     if (!user) {
       await record.deleteOne();
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found.' });
     }
-    user.passwordHash = newPassword;
+
+    user.passwordHash = await bcrypt.hash(pwd, 10);
     await user.save();
+    console.log('🔐 [RESET] saved hash:', user.passwordHash);
+    const fresh = await (user instanceof Patient
+      ? Patient.findById(user._id)
+      : Doctor.findById(user._id));
+    console.log('🔐 [RESET] fresh from DB:', fresh?.passwordHash);
+
     await record.deleteOne();
+    console.log('✅ [RESET] Password updated for:', email);
     res.sendStatus(200);
   } catch (err) {
     console.error('Reset password error:', err);
-    res.status(500).json({ message: 'Password reset failed' });
+    res.status(500).json({ message: 'Password reset failed.' });
   }
 });
 
@@ -352,27 +357,19 @@ router.put('/user/deactivate', authenticateJWT, async (req, res) => {
 router.delete('/user', authenticateJWT, async (req, res) => {
   const user = (req as any).user as IPatient | IDoctor;
   const role = (req as any).role as 'patient' | 'doctor';
-  const { password } = req.body as { password?: string };
-
-  if (!password) {
+  const { password: delPwd } = req.body as { password?: string };
+  if (!delPwd)
     return res.status(400).json({ message: 'Password required for deletion' });
-  }
-
   try {
-    const isMatch = await (user as any).comparePassword(password);
-    if (!isMatch) {
+    const isMatch = bcrypt.hashSync(delPwd, user.passwordHash) === user.passwordHash;
+    if (!isMatch)
       return res.status(400).json({ message: 'Incorrect password.' });
-    }
 
     if (role === 'patient') {
-      await MedicalInfo.deleteMany({ user: user._id });
-      await Appointment.deleteMany({ patient: user._id });
       await Patient.deleteOne({ _id: user._id });
     } else {
-      await Appointment.deleteMany({ doctor: user._id });
       await Doctor.deleteOne({ _id: user._id });
     }
-
     res.json({ message: 'Account has been deleted successfully.' });
   } catch (err) {
     console.error('Delete account error:', err);
@@ -454,7 +451,7 @@ router.post('/google/complete-signup', async (req, res) => {
         isActive: true,
       }).save();
     } else {
-      await newDoctor({
+      await new Doctor({
         name: fullName,
         email,
         passwordHash: '',

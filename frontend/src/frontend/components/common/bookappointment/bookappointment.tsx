@@ -202,7 +202,7 @@ const BookAppointment: React.FC<BookAppointmentProps> = ({
           <X size={24} />
         </button>
 
-        <h2 className="mb-4 text-3xl font-extrabold text-center">
+        <h2 className="mb-4 text-3xl font-extrabold text-center text-black">
           Schedule Your Visit
         </h2>
 

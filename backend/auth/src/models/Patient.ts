@@ -3,11 +3,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-// Interface for Patient document
 export interface IPatient extends Document {
   name: string;
   email: string;
   passwordHash?: string;
+  password?: string; // virtual plain password
   googleId?: string;
   role: 'patient';
   provider: 'local' | 'google';
@@ -36,7 +36,6 @@ export interface IPatient extends Document {
   updatedAt: Date;
 
   comparePassword(password: string): Promise<boolean>;
-
   profileImageUrl?: string; // virtual
 }
 
@@ -49,7 +48,7 @@ const PatientSchema = new Schema<IPatient>(
       unique: true,
       trim: true,
       lowercase: true,
-      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please enter a valid email'],
     },
     passwordHash: { type: String },
     googleId: { type: String, unique: true, sparse: true },
@@ -83,11 +82,35 @@ const PatientSchema = new Schema<IPatient>(
   }
 );
 
-// Unique indexes
-PatientSchema.index({ email: 1 }, { unique: true });
-PatientSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+// 🔑 Virtual password field (not saved)
+PatientSchema.virtual('password')
+  .set(function (this: IPatient, password: string) {
+    this._password = password;
+  })
+  .get(function (this: IPatient) {
+    return this._password;
+  });
 
-// Virtual for serving avatar URL
+// 🔒 Pre-save hash logic — only hash `password` (not passwordHash)
+PatientSchema.pre<IPatient>('save', async function (next) {
+  try {
+    if (this.isModified('password') && this.password) {
+      const salt = await bcrypt.genSalt(10);
+      this.passwordHash = await bcrypt.hash(this.password, salt);
+    }
+    next();
+  } catch (err) {
+    next(err as any);
+  }
+});
+
+// 🧠 Add method to compare password input to stored hash
+PatientSchema.methods.comparePassword = function (password: string) {
+  if (!this.passwordHash) return Promise.resolve(false);
+  return bcrypt.compare(password, this.passwordHash);
+};
+
+// 📷 Avatar URL virtual
 PatientSchema.virtual('profileImageUrl').get(function (this: IPatient) {
   if (this.profileImage && this._id) {
     return `/api/patients/${this._id}/avatar`;
@@ -95,36 +118,19 @@ PatientSchema.virtual('profileImageUrl').get(function (this: IPatient) {
   return undefined;
 });
 
-// Strip sensitive/binary on JSON
+// 🧼 Strip sensitive fields
 PatientSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.passwordHash;
     delete ret.__v;
-    if (ret.profileImage) {
-      delete ret.profileImage.data;
-    }
+    if (ret.profileImage) delete ret.profileImage.data;
     return ret;
   },
   virtuals: true,
 });
 
-// Hash password if modified
-PatientSchema.pre<IPatient>('save', async function (next) {
-  if (this.isModified('passwordHash') && this.passwordHash) {
-    try {
-      const salt = await bcrypt.genSalt(10);
-      this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
-    } catch (err) {
-      return next(err as any);
-    }
-  }
-  next();
-});
-
-// Compare password helper
-PatientSchema.methods.comparePassword = function (password: string) {
-  if (!this.passwordHash) return Promise.resolve(false);
-  return bcrypt.compare(password, this.passwordHash);
-};
+// Indexes
+PatientSchema.index({ email: 1 }, { unique: true });
+PatientSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model<IPatient>('Patient', PatientSchema);
