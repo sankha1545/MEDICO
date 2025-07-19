@@ -16,6 +16,7 @@ import {
   Heart,
   
   Award,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
@@ -130,7 +131,9 @@ const DashboardPage1: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'notifications' | 'profile'>('overview');
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showUpdateMedical, setShowUpdateMedical] = useState(false);
-
+ const [showAllNotifications, setShowAllNotifications] = useState(false);
+const [draggedId, setDraggedId] = useState<string | null>(null);
+const [draggedPositions, setDraggedPositions] = useState<Record<string, number>>({});
   // Medical info state
   const [medicalInfo, setMedicalInfo] = useState<MedicalInfo>({
     bloodType: '',
@@ -148,7 +151,10 @@ const DashboardPage1: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-
+ const [isModalOpen, setIsModalOpen] = useState(false);
+const [selectedAppt, setSelectedAppt] = useState<AppointmentItem | null>(null);
+const [modalStatus, setModalStatus] = useState<AppointmentItem['status']>('pending');
+const [completedVisits, setCompletedVisits] = useState<number>(0);
 
 
   const api = axios.create({
@@ -224,6 +230,41 @@ api.interceptors.request.use(cfg => {
     }
   }, [activeTab, token]);
 
+  useEffect(() => {
+  document.body.style.overflow = isModalOpen ? 'hidden' : 'auto';
+  return () => { document.body.style.overflow = 'auto'; };
+}, [isModalOpen]);
+
+// 2️⃣ Handler to send status update & bump completed‐visits
+const handleStatusSubmit = async () => {
+  if (!selectedAppt) return;
+
+  try {
+    // Use api (baseURL '/api') so this becomes PUT /api/appointments/:id/status
+    const res = await api.put<{ appointment: AppointmentItem }>(
+      `/appointments/${selectedAppt._id}/status`,
+      { status: modalStatus }
+    );
+
+    // Update local list
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a._id === selectedAppt._id ? { ...a, status: modalStatus } : a
+      )
+    );
+
+    // Bump completedVisits if appropriate
+    if (modalStatus === 'completed') {
+      setCompletedVisits((c) => c + 1);
+    }
+
+    closeModal();
+  } catch (err) {
+    console.error('Status update failed', err);
+    // You can also show a toast here
+  }
+};
+
   // Profile save
   const handleProfileSave = async (updated: { name?: string; email?: string; phone?: string; dob?: string }) => {
     try {
@@ -233,6 +274,32 @@ api.interceptors.request.use(cfg => {
       alert(err.message);
     }
   };
+const handleDeleteNotification = async (id: string) => {
+  try {
+    await axios.delete(buildUrl(`/notifications/${id}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setNotifications(prev => prev.filter(n => n._id !== id));
+    setDraggedId(null);
+  } catch (err) {
+    console.error('Failed to delete notification', err);
+  }
+};
+function openDetails(appt: AppointmentItem) {
+  setSelectedAppt(appt);
+  setModalStatus(appt.status);
+  setIsModalOpen(true);
+}
+
+function closeModal() {
+  setIsModalOpen(false);
+  setSelectedAppt(null);
+}
+
+function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  setModalStatus(e.target.value as AppointmentItem['status']);
+  // TODO: sync status back to server if needed
+}
 
   // Medical save
  const handleMedicalSave = async (updated: MedicalInfo) => {
@@ -384,7 +451,7 @@ api.interceptors.request.use(cfg => {
               <div className="border-b border-white/10">
                 <div className="flex p-6 space-x-4 overflow-x-auto">
                   <Tab label="Overview" isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Activity size={20} />} />
-                 
+                 <Tab label = "Appointments" isActive={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon ={<Calendar size={20} />} />
                   <Tab label="Notifications" isActive={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} icon={<Bell size={20} />} count={unreadCount} />
                   <Tab label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={<UserIcon size={20} />} />
                 </div>
@@ -470,7 +537,7 @@ api.interceptors.request.use(cfg => {
                                       else navigate(`/appointments/${appt._id}`);
                                     }}
                                   >
-                                    {appt.type === 'video' ? 'Join Call' : 'Details'}
+                                    {appt.type === 'video' ? 'Join Call' : ''}
                                   </Button>
                                 </motion.div>
                               );
@@ -569,208 +636,336 @@ api.interceptors.request.use(cfg => {
 
                   {/* Appointments Tab */}
                   {activeTab === 'appointments' && (
-                    <motion.div
-                      key="appointments"
-                      variants={tabContentVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="text-white"
-                    >
-                      <motion.div variants={fadeInUp} className="py-20 text-center">
-                        <Calendar size={64} className="mx-auto mb-4 text-blue-400" />
-                        <h3 className="mb-2 text-2xl font-semibold">Appointments</h3>
-                        <p className="text-gray-300">Manage your upcoming and past appointments</p>
-                      </motion.div>
-                      {/* List all appointments with filtering */}
-                      <motion.div variants={fadeInUp} className="space-y-6">
-                        {loadingAppointments ? (
-                          <p className="text-gray-300">Loading appointments...</p>
-                        ) : appointments.length > 0 ? (
-                          appointments.map((appt) => {
-                            const dt = new Date(appt.datetime);
-                            const imgUrl = appt.doctor.profileImageUrl || '';
-                            const isUpcoming = dt > now && appt.status === 'scheduled';
-                            const isCompleted = appt.status === 'completed';
-                            const statusLabel = isUpcoming
-                              ? 'Upcoming'
-                              : isCompleted
-                              ? 'Completed'
-                              : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
-                            return (
-                              <motion.div
-                                key={appt._id}
-                                variants={fadeInUp}
-                                whileHover={cardHover}
-                                className="flex items-center p-6 border bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl"
-                              >
-                                {imgUrl ? (
-                                  <motion.img
-                                    src={imgUrl}
-                                    alt={appt.doctor.name}
-                                    className="object-cover w-16 h-16 mr-6 border-2 rounded-full border-blue-400/30"
-                                  />
-                                ) : (
-                                  <motion.div className="flex items-center justify-center w-16 h-16 mr-6 bg-gray-700 rounded-full">
-                                    <UserIcon className="text-gray-400" />
-                                  </motion.div>
-                                )}
-                                <div className="flex-1">
-                                  <h3 className="mb-1 text-lg font-medium text-white">{appt.doctor.name}</h3>
-                                  {appt.doctor.specialty && (
-                                    <p className="mb-2 text-blue-400">{appt.doctor.specialty}</p>
-                                  )}
-                                  <div className="flex items-center mb-1 space-x-4 text-sm text-gray-300">
-                                    <span className="flex items-center">
-                                      <Calendar size={14} className="mr-1" />
-                                      {format(dt, 'MMM d, yyyy')}
-                                    </span>
-                                    <span className="flex items-center">
-                                      <Clock size={14} className="mr-1" />
-                                      {format(dt, 'h:mm a')}
-                                    </span>
-                                    {appt.type && (
-                                      <span
-                                        className={`px-2 py-1 rounded-full text-xs ${
-                                          appt.type === 'video'
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'bg-blue-500/20 text-blue-400'
-                                        }`}
-                                      >
-                                        {appt.type === 'video' ? 'Video Call' : 'In-Person'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="mb-1 text-xs text-gray-400">
-                                    Status: {statusLabel}
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="gradient"
-                                  size="sm"
-                                  onClick={() => {
-                                    if (appt.type === 'video' && isUpcoming) {
-                                      navigate(`/appointments/${appt._id}/join`);
-                                    } else {
-                                      navigate(`/appointments/${appt._id}`);
-                                    }
-                                  }}
-                                >
-                                  {isUpcoming ? (appt.type === 'video' ? 'Join Call' : 'Details') : 'Details'}
-                                </Button>
-                              </motion.div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-gray-300">No appointments found.</p>
-                        )}
-                      </motion.div>
-                    </motion.div>
-                  )}
+  <motion.div
+    key="appointments"
+    variants={tabContentVariants}
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    className="text-white"
+  >
+    {/* Header */}
+    <motion.div variants={fadeInUp} className="py-20 text-center">
+      <Calendar size={64} className="mx-auto mb-4 text-blue-400" />
+      <h3 className="mb-2 text-2xl font-semibold">Appointments</h3>
+      <p className="text-gray-300">Manage your upcoming and past appointments</p>
+    </motion.div>
+
+    {/* List */}
+    <motion.div variants={fadeInUp} className="space-y-6">
+      {loadingAppointments ? (
+        <p className="text-gray-300">Loading appointments...</p>
+      ) : appointments.length > 0 ? (
+        appointments.map((appt) => {
+          const dt = new Date(appt.datetime);
+          const imgUrl = appt.doctor.profileImageUrl || '';
+          const statusLabel = appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
+
+          return (
+            <motion.div
+              key={appt._id}
+              variants={fadeInUp}
+              whileHover={cardHover}
+              className="flex items-center p-6 border bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl"
+            >
+              {/* Avatar */}
+              {imgUrl ? (
+                <motion.img
+                  src={imgUrl}
+                  alt={appt.doctor.name}
+                  className="object-cover w-16 h-16 mr-6 border-2 rounded-full border-blue-400/30"
+                />
+              ) : (
+                <motion.div className="flex items-center justify-center w-16 h-16 mr-6 bg-gray-700 rounded-full">
+                  <UserIcon className="text-gray-400" />
+                </motion.div>
+              )}
+
+              {/* Summary */}
+              <div className="flex-1">
+                <h3 className="mb-1 text-lg font-medium text-white">{appt.doctor.name}</h3>
+                {appt.doctor.specialty && (
+                  <p className="mb-2 text-blue-400">{appt.doctor.specialty}</p>
+                )}
+                <div className="mb-1 text-xs text-gray-400">Status: {statusLabel}</div>
+              </div>
+
+              {/* Actions */}
+              <Button
+                variant="gradient"
+                size="sm"
+                onClick={() => openDetails(appt)}
+              >
+                Details
+              </Button>
+            </motion.div>
+          );
+        })
+      ) : (
+        <p className="text-gray-300">No appointments found.</p>
+      )}
+    </motion.div>
+
+    {/* Centered Details Modal */}
+<AnimatePresence>
+      {isModalOpen && selectedAppt && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="w-full max-w-md p-8 bg-white shadow-2xl bg-opacity-20 backdrop-blur-md rounded-2xl perspective-1000 transform-style-preserve-3d"
+            style={{ transformStyle: 'preserve-3d' }}
+            initial={{ rotateX: 90, scale: 0.5, opacity: 0 }}
+            animate={{ rotateX: 0, scale: 1, opacity: 1 }}
+            exit={{ rotateX: 90, scale: 0.5, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          >
+            <h3 className="mb-6 text-2xl font-extrabold tracking-wide text-center text-white">
+              Appointment Details
+            </h3>
+            <div className="space-y-4 text-white">
+              <div>
+                <span className="font-semibold">Doctor:</span>{' '}
+                {selectedAppt.doctor.name}
+              </div>
+              {selectedAppt.doctor.specialty && (
+                <div>
+                  <span className="font-semibold">Field:</span>{' '}
+                  {selectedAppt.doctor.specialty}
+                </div>
+              )}
+              <div>
+                <span className="font-semibold">Date:</span>{' '}
+                {format(new Date(selectedAppt.datetime), 'PPP')}
+              </div>
+              <div>
+                <span className="font-semibold">Time:</span>{' '}
+                {format(new Date(selectedAppt.datetime), 'h:mm a')}
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Status</label>
+                <select
+                  value={modalStatus}
+                  onChange={handleStatusChange}
+                  className="w-full px-4 py-2 text-white transition border-2 rounded-lg border-white/30 bg-white/10 focus:outline-none focus:border-blue-400"
+                >
+                  <option className="text-black bg-white/90" value="pending">
+                    Pending
+                  </option>
+                  <option className="text-black bg-white/90" value="scheduled">
+                    Upcoming
+                  </option>
+                  <option className="text-black bg-white/90" value="cancelled">
+                    Cancelled
+                  </option>
+                  <option className="text-black bg-white/90" value="completed">
+                    Completed
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={closeModal}
+                className="px-6 py-2 font-semibold text-white transition transform bg-gray-300 bg-opacity-50 rounded-full shadow hover:scale-105"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleStatusSubmit}
+                className="px-6 py-2 font-semibold text-white transition transform bg-blue-500 rounded-full shadow bg-opacity-80 hover:scale-105"
+              >
+                Submit
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </motion.div>
+)}
+
+
 
                   {/* Notifications Tab */}
-                  {activeTab === 'notifications' && (
-                    <motion.div
-                      key="notifications"
-                      variants={tabContentVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="text-white"
-                    >
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-semibold text-white">Notifications</h2>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10"
-                          onClick={() => {
-                            // Refresh notifications
-                            setActiveTab('overview'); // trigger effect
-                            setActiveTab('notifications');
-                          }}
-                        >
-                          View All
-                        </Button>
-                      </div>
-                      <div className="space-y-3">
-                        {loadingNotifications ? (
-                          <p className="text-gray-300">Loading notifications...</p>
-                        ) : notifications.length > 0 ? (
-                          notifications.map((notification) => {
-                            const dateObj = new Date(notification.createdAt);
-                            let iconNode: React.ReactNode = <AlertTriangle size={18} />;
-                            let bgClass = 'bg-purple-500/20 text-purple-400';
-                            if (notification.type === 'appointment_requested') {
-                              iconNode = <Calendar size={18} />;
-                              bgClass = 'bg-blue-500/20 text-blue-400';
-                            } else if (notification.type === 'payment_received' || notification.type === 'reminder') {
-                              iconNode = <Bell size={18} />;
-                              bgClass = 'bg-blue-500/20 text-blue-400';
-                            } else if (notification.type === 'achievement') {
-                              iconNode = <Award size={18} />;
-                              bgClass = 'bg-yellow-500/20 text-yellow-400';
-                            } else if (notification.type === 'payment_success' || notification.type === 'medical') {
-                              iconNode = <FileText size={18} />;
-                              bgClass = 'bg-emerald-500/20 text-emerald-400';
-                            }
-                            return (
-                              <motion.div
-                                key={notification._id}
-                                variants={fadeInUp}
-                                whileHover={{ scale: 1.02, x: 5 }}
-                                className={`flex items-center p-4 rounded-xl transition-all duration-300 ${
-                                  notification.read
-                                    ? 'bg-white/5 border border-white/10'
-                                    : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/30'
-                                }`}
-                              >
-                                <motion.div
-                                  whileHover={{ rotate: 10, scale: 1.1 }}
-                                  className={`p-3 rounded-full mr-4 flex-shrink-0 ${bgClass}`}
-                                >
-                                  {iconNode}
-                                </motion.div>
-                                <div className="flex-1">
-                                  <div className="flex items-start justify-between">
-                                    <h4 className="text-sm font-medium text-white">
-                                      {notification.type === 'appointment_requested'
-                                        ? 'Appointment Requested'
-                                        : notification.type === 'payment_received'
-                                        ? 'Payment Received'
-                                        : notification.type === 'payment_success'
-                                        ? 'Payment Successful'
-                                        : notification.type === 'achievement'
-                                        ? 'Achievement'
-                                        : notification.type === 'reminder'
-                                        ? 'Reminder'
-                                        : 'Notification'}
-                                    </h4>
-                                    <span className="text-xs text-gray-400">
-                                      {format(dateObj, 'MMM d, yyyy')}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-sm text-gray-300">{notification.message}</p>
-                                </div>
-                                {!notification.read && (
-                                  <Button
-                                    variant="outline"
-                                    size="xs"
-                                    className="ml-3 text-black border-white/30 hover:bg-white/10"
-                                    onClick={() => markAsRead(notification._id)}
-                                  >
-                                    Mark read
-                                  </Button>
-                                )}
-                              </motion.div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-gray-300">No notifications.</p>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
+{activeTab === 'notifications' && (
+  <motion.div
+    key="notifications"
+    variants={tabContentVariants}
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    className="text-white"
+  >
+    {/* Header with View All toggle */}
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-semibold text-white">Notifications</h2>
+      {notifications.length > 10 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10"
+          onClick={() => setShowAllNotifications(prev => !prev)}
+        >
+          {showAllNotifications ? 'Show Less' : 'View All'}
+        </Button>
+      )}
+    </div>
+
+    {/* Notification List */}
+    <div className="space-y-3">
+      {loadingNotifications ? (
+        <p className="text-gray-300">Loading notifications...</p>
+      ) : notifications.length > 0 ? (
+        (showAllNotifications ? notifications : notifications.slice(0, 10)).map(notification => {
+          const dateObj = new Date(notification.createdAt);
+          let iconNode: React.ReactNode = <AlertTriangle size={18} />;
+          let bgClass = 'bg-purple-500/20 text-purple-400';
+
+          if (notification.type === 'appointment_requested') {
+            iconNode = <Calendar size={18} />;
+            bgClass = 'bg-blue-500/20 text-blue-400';
+          } else if (notification.type === 'payment_received' || notification.type === 'reminder') {
+            iconNode = <Bell size={18} />;
+            bgClass = 'bg-blue-500/20 text-blue-400';
+          } else if (notification.type === 'achievement') {
+            iconNode = <Award size={18} />;
+            bgClass = 'bg-yellow-500/20 text-yellow-400';
+          } else if (notification.type === 'payment_success' || notification.type === 'medical') {
+            iconNode = <FileText size={18} />;
+            bgClass = 'bg-emerald-500/20 text-emerald-400';
+          }
+
+          // current x pos for this card (default 0)
+          const posX = draggedPositions[notification._id] ?? 0;
+
+          return (
+            <div key={notification._id} className="relative group">
+              {/* Delete + Cancel Buttons */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, rotateY: 45 }}
+                animate={{
+                  opacity: draggedId === notification._id ? 1 : 0,
+                  scale: draggedId === notification._id ? 1 : 0.8,
+                  rotateY: draggedId === notification._id ? 0 : 45
+                }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="absolute z-10 flex items-center space-x-2 -translate-y-1/2 pointer-events-none right-4 top-1/2 sm:pointer-events-auto"
+              >
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="px-4 py-2 text-white bg-red-600 shadow-2xl pointer-events-auto rounded-2xl transform-gpu"
+                  onClick={() => handleDeleteNotification(notification._id)}
+                >
+                  <motion.span
+                    whileHover={{ scale: 1.2, rotateY: 20 }}
+                    whileTap={{ scale: 0.9, rotateY: -10 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  >
+                    Delete
+                  </motion.span>
+                </Button>
+                <motion.button
+                  onClick={() => {
+                    setDraggedId(null);
+                    setDraggedPositions(prev => ({ ...prev, [notification._id]: 0 }));
+                  }}
+                  whileHover={{ scale: 1.2, rotate: 15 }}
+                  whileTap={{ scale: 0.8, rotate: -15 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className="flex items-center justify-center w-8 h-8 rounded-full shadow-lg pointer-events-auto bg-white/10"
+                >
+                  <X size={16} className="text-white" />
+                </motion.button>
+              </motion.div>
+
+              {/* Draggable Notification Card */}
+              <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={(e, info) => {
+                  if (info.offset.x < -80) {
+                    setDraggedId(notification._id);
+                    setDraggedPositions(prev => ({ ...prev, [notification._id]: -80 }));
+                  } else {
+                    setDraggedId(null);
+                    setDraggedPositions(prev => ({ ...prev, [notification._id]: 0 }));
+                  }
+                }}
+                style={{ x: posX }}
+                animate={{ x: posX }}
+                whileTap={{ scale: 0.97 }}
+                variants={fadeInUp}
+                whileHover={{ scale: 1.02, x: 5 }}
+                className={`flex items-center p-4 rounded-xl transition-all duration-300 ${
+                  notification.read
+                    ? 'bg-white/5 border border-white/10'
+                    : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/30'
+                }`}
+              >
+                {/* Icon */}
+                <motion.div
+                  whileHover={{ rotate: 10, scale: 1.1 }}
+                  className={`p-3 rounded-full mr-4 flex-shrink-0 ${bgClass}`}
+                >
+                  {iconNode}
+                </motion.div>
+
+                {/* Message Content */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <h4 className="text-sm font-medium text-white">
+                      {notification.type === 'appointment_requested'
+                        ? 'Appointment Requested'
+                        : notification.type === 'payment_received'
+                        ? 'Payment Received'
+                        : notification.type === 'payment_success'
+                        ? 'Payment Successful'
+                        : notification.type === 'achievement'
+                        ? 'Achievement'
+                        : notification.type === 'reminder'
+                        ? 'Reminder'
+                        : 'Notification'}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {format(dateObj, 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-300">{notification.message}</p>
+                </div>
+
+                {/* Mark as Read */}
+                {!notification.read && (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="ml-3 text-black border-white/30 hover:bg-white/10"
+                    onClick={() => markAsRead(notification._id)}
+                  >
+                    Mark read
+                  </Button>
+                )}
+              </motion.div>
+            </div>
+          );
+        })
+      ) : (
+        <p className="text-gray-300">No notifications.</p>
+      )}
+    </div>
+  </motion.div>
+)}
+
+
+
+
+
 
                   {/* Profile Tab */}
                   {activeTab === 'profile' && (

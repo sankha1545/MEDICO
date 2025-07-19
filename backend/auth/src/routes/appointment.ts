@@ -18,7 +18,42 @@ const router = express.Router();
 /**
  * GET /api/appointments/slots/:doctorId
  * — Return each future availability slot plus how many seats remain. **/
+router.put(
+  '/:id/status',
+  authenticateJWT,
+  async (req, res) => {
+    try {
+      const apptId = req.params.id;
+      const { status } = req.body;
+      const validStatuses = ['pending', 'scheduled', 'completed', 'cancelled'];
 
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status value' });
+      }
+
+      // Find the appointment
+      const appointment = await Appointment.findById(apptId);
+      if (!appointment) {
+        return res.status(404).json({ message: 'Appointment not found' });
+      }
+
+      // Optional: enforce that only the patient or the doctor can update it
+      // if (String(appointment.patient) !== String(req.user._id) &&
+      //     String(appointment.doctor)  !== String(req.user._id)) {
+      //   return res.status(403).json({ message: 'Not authorized' });
+      // }
+
+      // Update and save
+      appointment.status = status;
+      await appointment.save();
+
+      res.json({ success: true, appointment });
+    } catch (err) {
+      console.error('Error updating appointment status:', err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
 
 router.get('/slots/:doctorId', authenticateJWT, async (req: Request, res: Response) => {
   try {

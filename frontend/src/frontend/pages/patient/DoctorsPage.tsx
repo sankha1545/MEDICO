@@ -273,80 +273,84 @@ const [slots, setSlots] = useState<Slot[]>([]);
 
           {/* Search & Filters */}
           <motion.div
-            variants={fadeInUp}
-            initial="hidden"
-            animate="visible"
-            className="p-6 mb-10 bg-gray-800 border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
-          >
-            <div className="flex flex-col items-center gap-4 md:flex-row">
-              {/* Search Input */}
-              <div className="relative flex-1 w-full">
-                <motion.div whileHover={{ scale: 1.02 }} className="relative">
-                  <Search
-                    className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2"
-                    size={20}
-                  />
-                  <Input
-                    placeholder="Search by name or specialty..."
-                    value={searchInput}
-                    onChange={e => setSearchInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && onSearch()}
-                    className="pl-10 text-gray-100 bg-gray-700 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                    fullWidth
-                  />
-                  <motion.button
-                    onClick={onSearch}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="absolute text-gray-400 transform -translate-y-1/2 top-1/2 right-3 hover:text-gray-200"
-                  >
-                    <Search size={20} />
-                  </motion.button>
-                </motion.div>
-              </div>
+  variants={fadeInUp}
+  initial="hidden"
+  animate="visible"
+  className="p-6 mb-10 border shadow-xl bg-white/10 backdrop-blur-2xl border-white/20 rounded-3xl shadow-indigo-500/10"
+>
+  <div className="flex flex-col items-center gap-4 md:flex-row">
+    {/* Search Input */}
+    <div className="relative flex-1 w-full">
+      <motion.div
+        whileHover={{ scale: 1.03, rotateX: 2, rotateY: -2 }}
+        transition={{ type: "spring", stiffness: 200 }}
+        className="relative border shadow-md bg-gradient-to-br to-gray-800/60 backdrop-blur-xl border-white/20 rounded-xl"
+      >
+        <Search
+          className="absolute text-gray-300 transform -translate-y-1/2 left-3 top-1/2"
+          size={20}
+        />
+        <Input
+          placeholder="Search by name or specialty..."
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && onSearch()}
+          className="py-2 pl-10 pr-10 text-black placeholder-gray-400 bg-transparent border-none focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+        />
+        <motion.button
+          onClick={onSearch}
+          whileHover={{ scale: 1.1, rotate: 10 }}
+          whileTap={{ scale: 0.95 }}
+          className="absolute text-gray-300 transform -translate-y-1/2 right-3 top-1/2 hover:text-white"
+        >
+          <Search size={20} />
+        </motion.button>
+      </motion.div>
+    </div>
 
-              {/* Specialty Dropdown */}
-              <motion.select
-                whileHover={{ scale: 1.02 }}
-                value={selectedSpecialty}
-                onChange={e => setSelectedSpecialty(e.target.value)}
-                className="px-4 py-2 text-sm text-gray-100 bg-gray-700 border border-gray-600 rounded-lg shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                {specialties.map(s => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </motion.select>
+    {/* Specialty Dropdown */}
+    <motion.select
+      whileHover={{ scale: 1.05 }}
+      value={selectedSpecialty}
+      onChange={e => setSelectedSpecialty(e.target.value)}
+      className="px-4 py-2 text-white border rounded-lg shadow-md bg-gradient-to-br from-gray-700/40 to-gray-800/60 border-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    >
+      {specialties.map(s => (
+        <option key={s} value={s} className="text-white bg-gray-800">
+          {s}
+        </option>
+      ))}
+    </motion.select>
 
-              {/* Filters Toggle */}
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(f => !f)}
-                  icon={<Filter size={18} className="text-gray-300" />}
-                  className="text-gray-300 border-gray-600 hover:bg-gray-700"
-                >
-                  Filters
-                </Button>
-              </motion.div>
-            </div>
+    {/* Filters Toggle */}
+    <motion.div whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.97 }}>
+      <Button
+        variant="outline"
+        onClick={() => setShowFilters(f => !f)}
+        icon={<Filter size={18} className="text-white" />}
+        className="text-white transition-all duration-200 border bg-gradient-to-br from-gray-700/40 to-gray-800/60 border-white/20 hover:shadow-md hover:shadow-indigo-500/30"
+      >
+        Filters
+      </Button>
+    </motion.div>
+  </div>
 
-            {/* Advanced Filters Panel (placeholder) */}
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="pt-4 mt-6 border-t border-gray-700"
-                >
-                  {/* TODO: Add advanced filters */}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+  {/* Advanced Filters Panel (placeholder) */}
+  <AnimatePresence>
+    {showFilters && (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="pt-4 mt-6 border-t border-white/20"
+      >
+        {/* TODO: Add animated advanced filters here */}
+      </motion.div>
+    )}
+  </AnimatePresence>
+</motion.div>
+
 
           {/* Results Count */}
           <motion.div variants={fadeInUp} className="mb-4 text-gray-300">
@@ -361,11 +365,11 @@ const [slots, setSlots] = useState<Slot[]>([]);
           {/* Doctor List */}
           {filteredDoctors.length > 0 ? (
             <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-              className="space-y-8"
-            >
+    variants={staggerContainer}
+    initial="hidden"
+    animate="visible"
+    className="p-6 space-y-8 bg-white border border-white bg-opacity-20 backdrop-blur-lg rounded-3xl border-opacity-30"
+  >
               {filteredDoctors.map((doctor, idx) => (
                 <motion.div
                   key={doctor.id}
@@ -374,7 +378,7 @@ const [slots, setSlots] = useState<Slot[]>([]);
                   initial="hidden"
                   animate="visible"
                   whileHover="hover"
-                  className="overflow-hidden bg-gray-800 border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
+                  className="overflow-hidden border bg-opacity-60 backdrop-blur-xl rounded-3xl border-gray-700/50"
                 >
                   <div className="md:flex">
                     {/* Left: Image */}
@@ -446,15 +450,15 @@ const [slots, setSlots] = useState<Slot[]>([]);
                       {/* Stats Grid */}
                       <div className="grid flex-1 grid-cols-1 gap-4 mt-4 md:grid-cols-3">
                         <div>
-                          <p className="text-sm text-gray-400">Experience </p>
+                          <p className="text-sm text-black">Experience </p>
                           <p className="text-gray-100">{doctor.experience} years</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">Hospital</p>
+                          <p className="text-sm text-black">Hospital</p>
                           <p className="text-gray-100">{doctor.hospitalAffiliation}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">Location</p>
+                          <p className="text-sm text-black">Location</p>
                           <div className="flex items-center">
                             <MapPin size={14} className="mr-1 text-gray-500" />
                             <p className="text-gray-100">{doctor.location}</p>
@@ -465,12 +469,12 @@ const [slots, setSlots] = useState<Slot[]>([]);
                       {/* Fee & Slots */}
                       <div className="flex flex-col gap-4 mt-4 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <p className="text-sm text-gray-400">Consultation Fee</p>
+                          <p className="text-sm text-black">Consultation Fee</p>
                           <p className="font-medium text-gray-100">₹ {doctor.consultationFee}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">Slots Available</p>
-                          <p className="font-medium text-gray-100">{doctor.availableSlotsCount}</p>
+                          <p className="text-sm text-black">Slots Available</p>
+                          <p className="font-medium text-white">{doctor.availableSlotsCount}</p>
                         </div>
                       </div>
 
@@ -486,7 +490,7 @@ const [slots, setSlots] = useState<Slot[]>([]);
                           <Button
                             variant="outline"
                             onClick={() => handleViewProfileClick(doctor.id)}
-                            className="text-gray-300 border-gray-600 hover:bg-gray-700"
+                            className="text-gray-300 border-gray-600 hover:bg-slate-400"
                           >
                             View Profile
                           </Button>
@@ -546,102 +550,132 @@ const [slots, setSlots] = useState<Slot[]>([]);
 
           {/* Profile Modal */}
           <AnimatePresence>
-            {viewingDoctorId && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
-                onClick={closeViewProfileModal}
-              >
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="relative w-full max-w-lg p-6 bg-gray-800 border border-gray-700 shadow-lg rounded-2xl"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <button
-                    onClick={closeViewProfileModal}
-                    className="absolute text-gray-400 top-4 right-4 hover:text-gray-200"
-                  >
-                    <X size={20} />
-                  </button>
-                  {profileLoading && (
-                    <p className="text-gray-300">Loading...</p>
-                  )}
-                  {!profileLoading && selectedDoctorProfile && (
-                    <div className="space-y-4">
-                      {selectedDoctorProfile.profileImageUrl && (
-                        <img
-                          src={selectedDoctorProfile.profileImageUrl}
-                          alt={selectedDoctorProfile.name}
-                          className="object-cover w-24 h-24 mx-auto rounded-full"
-                        />
-                      )}
-                      <h2 className="text-xl font-semibold text-center text-white md:text-2xl">
-                        Dr. {selectedDoctorProfile.name}
-                      </h2>
-                      <p className="text-center text-gray-400">
-                        {selectedDoctorProfile.specialty}
-                      </p>
-                      {/* Experience */}
-                      <div>
-                        <h3 className="font-medium text-white">Experience</h3>
-                        <p className="text-gray-300">{selectedDoctorProfile.experience}years</p>
-                      </div>
-                      {/* Fee */}
-                      <div>
-                        <h3 className="font-medium text-white">Consultation Fee</h3>
-                        <p className="text-gray-300">₹ {selectedDoctorProfile.consultationFee}</p>
-                      </div>
-                      {/* Slots */}
-                      <div>
-                        <h3 className="font-medium text-white">Available Slots</h3>
-                        {selectedDoctorProfile.availabilitySlots.length > 0 ? (
-                          <ul className="text-gray-300 list-disc list-inside">
-                            {selectedDoctorProfile.availabilitySlots.map((s, i) => {
-                              let disp = s;
-                              try {
-                                const dt = new Date(s);
-                                if (!isNaN(dt.getTime())) {
-                                  disp = dt.toLocaleString();
-                                }
-                              } catch {}
-                              return <li key={i}>{disp}</li>;
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-gray-300">No upcoming slots</p>
-                        )}
-                      </div>
-                      {/* Qualifications */}
-                      {selectedDoctorProfile.qualifications && selectedDoctorProfile.qualifications.length > 0 && (
-                        <div>
-                          <h3 className="font-medium text-white">Qualifications</h3>
-                          <ul className="text-gray-300 list-disc list-inside">
-                            {selectedDoctorProfile.qualifications.map((q, i) => (
-                              <li key={i}>{q}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {/* Languages */}
-                      {selectedDoctorProfile.languages && selectedDoctorProfile.languages.length > 0 && (
-                        <div>
-                          <h3 className="font-medium text-white">Languages</h3>
-                          <p className="text-gray-300">
-                            {selectedDoctorProfile.languages.join(', ')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!profileLoading && !selectedDoctorProfile && (
-                    <p className="text-gray-300">No profile data available.</p>
-                  )}
-                </motion.div>
-              </div>
+  {viewingDoctorId && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[4px]"
+      onClick={closeViewProfileModal}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.6, rotateX: -30 }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          rotateX: 0,
+          transition: {
+            duration: 0.6,
+            ease: [0.16, 1, 0.3, 1],
+            type: 'spring',
+            bounce: 0.4,
+          },
+        }}
+        exit={{
+          opacity: 0,
+          scale: 0.6,
+          rotateX: -30,
+          transition: { duration: 0.3 },
+        }}
+        style={{
+          perspective: 1000,
+        }}
+        className="relative w-full max-w-2xl p-8 overflow-hidden text-white transition-all border shadow-2xl rounded-3xl border-white/10 bg-white/5 backdrop-blur-xl ring-1 ring-white/20 hover:ring-pink-500"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Floating Close Button */}
+        <motion.button
+          onClick={closeViewProfileModal}
+          whileHover={{ scale: 1.2, rotate: 90 }}
+          className="absolute text-gray-300 transition-all top-4 right-4 hover:text-pink-400"
+        >
+          <X size={22} />
+        </motion.button>
+
+        {/* Loading */}
+        {profileLoading && <p className="text-center text-gray-300">Loading...</p>}
+
+        {/* Profile Content */}
+        {!profileLoading && selectedDoctorProfile && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+            className="space-y-6"
+          >
+            {selectedDoctorProfile.profileImageUrl && (
+              <motion.img
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                src={selectedDoctorProfile.profileImageUrl}
+                alt={selectedDoctorProfile.name}
+                className="object-cover mx-auto rounded-full shadow-lg w-28 h-28 ring-4 ring-pink-500/30"
+              />
             )}
-          </AnimatePresence>
+
+            <div className="space-y-1 text-center">
+              <h2 className="text-2xl font-bold tracking-wide text-white">
+                Dr. {selectedDoctorProfile.name}
+              </h2>
+              <p className="text-pink-300">{selectedDoctorProfile.specialty}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 text-sm text-gray-200 md:grid-cols-2">
+              <div>
+                <h3 className="mb-1 font-semibold text-white">Experience</h3>
+                <p>{selectedDoctorProfile.experience} years</p>
+              </div>
+              <div>
+                <h3 className="mb-1 font-semibold text-white">Consultation Fee</h3>
+                <p>₹ {selectedDoctorProfile.consultationFee}</p>
+              </div>
+              <div className="md:col-span-2">
+                <h3 className="mb-1 font-semibold text-white">Available Slots</h3>
+                {selectedDoctorProfile.availabilitySlots.length > 0 ? (
+                  <ul className="pl-5 list-disc">
+                    {selectedDoctorProfile.availabilitySlots.map((slot, i) => {
+                      let disp = slot;
+                      try {
+                        const dt = new Date(slot);
+                        if (!isNaN(dt.getTime())) {
+                          disp = dt.toLocaleString();
+                        }
+                      } catch {}
+                      return <li key={i}>{disp}</li>;
+                    })}
+                  </ul>
+                ) : (
+                  <p>No upcoming slots</p>
+                )}
+              </div>
+
+              {selectedDoctorProfile.qualifications?.length > 0 && (
+                <div className="md:col-span-2">
+                  <h3 className="mb-1 font-semibold text-white">Qualifications</h3>
+                  <ul className="pl-5 list-disc">
+                    {selectedDoctorProfile.qualifications.map((q, i) => (
+                      <li key={i}>{q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {selectedDoctorProfile.languages?.length > 0 && (
+                <div className="md:col-span-2">
+                  <h3 className="mb-1 font-semibold text-white">Languages</h3>
+                  <p>{selectedDoctorProfile.languages.join(', ')}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {!profileLoading && !selectedDoctorProfile && (
+          <p className="text-center text-gray-300">No profile data available.</p>
+        )}
+      </motion.div>
+    </div>
+  )}
+</AnimatePresence>
+
         </div>
       </main>
 
