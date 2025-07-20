@@ -98,7 +98,7 @@ const App: React.FC = () => {
           <Route
             path="/login"
             element={
-              <LoginPage onNavigateBack={navigateToLanding} />
+              <LoginPage />
             }
           />
           <Route path="/signup" element={<SignupPage />} />

@@ -157,10 +157,7 @@ DoctorSchema.set('toJSON', {
 
 // Pre-save hook: hash raw password exactly once
 DoctorSchema.pre<IDoctor>('save', async function (next) {
-  if (this.isModified('passwordHash') && this.passwordHash) {
-    const salt = await bcrypt.genSalt(10);
-    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
-  }
+ 
   next();
 });
 

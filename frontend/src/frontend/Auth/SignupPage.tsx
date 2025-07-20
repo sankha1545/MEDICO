@@ -1,5 +1,3 @@
-// File: frontend/src/pages/SignUpPage.tsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,11 +8,14 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Sparkles,
+  Shield,
+  Zap,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import { SlideIn, FadeIn } from '../components/animations/Transitions';
 
 type Step =
   | 'chooseMethod'
@@ -129,7 +130,7 @@ const SignUpPage: React.FC = () => {
     window.google.accounts.id.renderButton(googleBtnRef.current, {
       theme: 'outline',
       size: 'large',
-      width: 500,
+      width: 400,
       text: 'signup_with',
     });
   }, [gsiLoaded, step]);
@@ -229,7 +230,7 @@ const SignUpPage: React.FC = () => {
 
   const renderOtpInputs = () =>
     Array.from({ length: 6 }).map((_, i) => (
-      <input
+      <motion.input
         key={i}
         id={`otp-${i}`}
         type="text"
@@ -243,190 +244,345 @@ const SignUpPage: React.FC = () => {
           setOtp(arr.join(''));
           if (d && i < 5) document.getElementById(`otp-${i+1}`)?.focus();
         }}
-        className="w-12 h-12 text-lg text-center border-2 border-gray-300 rounded-md outline-none focus:border-primary-500"
+        className="w-14 h-14 text-xl font-bold text-center bg-white/80 backdrop-blur-md border-2 border-gray-200 rounded-xl outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 hover:bg-white/90 focus:bg-white/90 transform-gpu hover:scale-110 focus:scale-110"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: i * 0.1, type: 'spring', stiffness: 300 }}
+        whileFocus={{ scale: 1.1, boxShadow: '0 0 20px rgba(99, 102, 241, 0.3)' }}
       />
     ));
 
   return (
-    <div className="grid min-h-screen bg-white md:grid-cols-2">
-      {/* Left pane */}
-     <SlideIn direction="left">
-        <div className="relative hidden overflow-hidden md:block">
-          <div className="absolute inset-0 bg-gradient-to-tl from-secondary-500 to-primary-500 opacity-90" />
-          <img
-            src="https://images.pexels.com/photos/7089401/pexels-photo-7089401.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
-            alt="Doctor with patient"
-            className="object-cover w-full h-full"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-12">
-            <div className="max-w-md p-8 text-white bg-white/10 backdrop-blur-md rounded-2xl">
-              <h2 className="mb-4 text-2xl font-bold">
-                Join our healthcare community
-              </h2>
-              <p className="mb-6">
-                Create an account to book appointments, access virtual consultations,
-                and manage your health journey seamlessly.
-              </p>
-              <motion.div
-                className="flex flex-col space-y-4"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: { opacity: 0 },
-                  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-                }}
-              >
-                {[
-                  'Book appointments with top specialists',
-                  'Access your medical records anytime',
-                  'Get reminders for medications and appointments',
-                  'Connect with doctors via virtual consultation',
-                ].map((b, i) => (
-                  <motion.div
-                    key={i}
-                    className="flex items-center space-x-2"
-                    variants={{
-                      hidden: { opacity: 0, x: -20 },
-                      visible: { opacity: 1, x: 0 },
-                    }}
-                  >
-                    <ChevronsRight size={18} />
-                    <span>{b}</span>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </div>
-          </div>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Animated Background */}
+      <div className="absolute inset-0">
+        {/* Gradient Mesh */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/20 via-secondary-500/20 to-accent-500/20" />
+        
+        {/* Floating Particles */}
+        <div className="absolute inset-0">
+          {Array.from({ length: 50 }).map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-white/30 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0.3, 1, 0.3],
+                scale: [1, 1.5, 1],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
         </div>
-      </SlideIn>
 
-      {/* Right pane */}
-      <FadeIn>
-        <div className="flex items-center justify-center p-8 md:p-12">
-          <div className="w-full max-w-md">
+        {/* Grid Pattern */}
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+          }}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
+        <motion.div 
+          className="w-full max-w-md"
+          initial={{ opacity: 0, y: 50, rotateX: 10 }}
+          animate={{ opacity: 1, y: 0, rotateX: 0 }}
+          transition={{ 
+            duration: 0.8, 
+            type: 'spring',
+            stiffness: 100,
+            damping: 20 
+          }}
+          style={{ 
+            perspective: '1000px',
+            transformStyle: 'preserve-3d' 
+          }}
+        >
+          {/* Floating Form Container */}
+          <motion.div 
+            className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl"
+            whileHover={{ 
+              scale: 1.02,
+              rotateY: 2,
+              boxShadow: '0 25px 50px rgba(0,0,0,0.2)' 
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+              transformStyle: 'preserve-3d'
+            }}
+          >
+            {/* Glow Effect */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-3xl opacity-20 blur-xl" />
+            
             {/* Header */}
-            <div className="mb-8 text-center">
-              <Link to="/" className="inline-flex items-center mb-5">
-                {/* logo */}
-                <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-primary-900">
-                  MedicoX
-                </span>
+            <motion.div 
+              className="mb-8 text-center"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Link to="/" className="inline-flex items-center mb-6 group">
+                <motion.div
+                  className="flex items-center space-x-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <motion.div
+                    className="p-2 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl"
+                    animate={{ rotate: [0, 360] }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </motion.div>
+                  <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400">
+                    MedicoX
+                  </span>
+                </motion.div>
               </Link>
-              <h1 className="text-3xl font-bold">Create an account</h1>
-              <p className="mt-2 text-gray-600">Sign up to get started</p>
-            </div>
+              
+              <motion.h1 
+                className="text-4xl font-bold text-white mb-2"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, type: 'spring' }}
+              >
+                Join the Future
+              </motion.h1>
+              
+              <motion.p 
+                className="text-white/70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                Create your account to experience next-gen healthcare
+              </motion.p>
+            </motion.div>
 
-            {/* OTP success */}
+            {/* Success Banner */}
             <AnimatePresence>
               {otpSentSuccess && step === 'otpInput' && (
                 <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="p-3 mb-4 text-center text-green-700 rounded-md bg-green-50"
+                  initial={{ opacity: 0, y: -20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                  className="p-4 mb-6 text-center text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl backdrop-blur-md"
                 >
-                  Your OTP has been sent!
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: 'spring' }}
+                  >
+                    ✨ OTP sent successfully! Check your email
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Error banner */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 mb-4 text-center text-red-700 rounded-md bg-red-50"
-              >
-                {error}
-              </motion.div>
-            )}
-
+            {/* Error Banner */}
             <AnimatePresence>
-              {/* chooseMethod */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                  className="p-4 mb-6 text-center text-red-300 bg-red-500/20 border border-red-500/30 rounded-2xl backdrop-blur-md"
+                >
+                  <motion.div
+                    animate={{ x: [-10, 10, -10, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    {error}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Multi-Step Form */}
+            <AnimatePresence mode="wait">
+              {/* Choose Method */}
               {step === 'chooseMethod' && (
                 <motion.div
                   key="chooseMethod"
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 50 }}
-                  className="space-y-4"
+                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
+                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="space-y-6"
                 >
-                  <div ref={googleBtnRef} />
-                  <div className="my-2 text-center">OR</div>
-                  <Button fullWidth onClick={() => { setError(null); setStep('emailInput'); }}>
-                    Sign up with Email
+                  {/* Google Button Container */}
+                  <motion.div 
+                    ref={googleBtnRef}
+                    className="flex justify-center"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  />
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/20" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-4 text-white/70 bg-slate-900/50 backdrop-blur-sm rounded-full">
+                        OR
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    fullWidth 
+                    onClick={() => { setError(null); setStep('emailInput'); }}
+                    className="relative overflow-hidden group"
+                  >
+                    <span className="relative z-10 flex items-center justify-center space-x-2">
+                      <Mail className="w-5 h-5" />
+                      <span>Continue with Email</span>
+                    </span>
                   </Button>
                 </motion.div>
               )}
 
-              {/* emailInput */}
+              {/* Email Input */}
               {step === 'emailInput' && (
                 <motion.div
                   key="emailInput"
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 50 }}
-                  className="space-y-4"
+                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
+                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="space-y-6"
                 >
                   <Input
                     type="email"
                     label="Email Address"
                     placeholder="you@example.com"
-                    icon={<Mail size={16} />}
+                    icon={<Mail size={20} className="text-primary-500" />}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     fullWidth
                   />
+                  
                   <Button fullWidth onClick={handleSendOtp} isLoading={sendingOtp}>
-                    {sendingOtp ? 'Sending OTP…' : 'Send OTP'}
+                    <span className="flex items-center justify-center space-x-2">
+                      <Zap className="w-5 h-5" />
+                      <span>{sendingOtp ? 'Sending Magic Link...' : 'Send Verification Code'}</span>
+                    </span>
                   </Button>
-                  <div className="text-sm text-gray-500">
-                    <button onClick={() => setStep('chooseMethod')} className="underline">
-                      Back
-                    </button>
-                  </div>
+                  
+                  <motion.button
+                    onClick={() => setStep('chooseMethod')}
+                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    ← Back to options
+                  </motion.button>
                 </motion.div>
               )}
 
-              {/* otpInput */}
+              {/* OTP Input */}
               {step === 'otpInput' && (
                 <motion.div
                   key="otpInput"
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 50 }}
-                  className="space-y-6"
+                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
+                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="space-y-8"
                 >
-                  <div className="flex justify-between">{renderOtpInputs()}</div>
+                  <div className="text-center">
+                    <motion.div
+                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl"
+                      animate={{ rotateY: [0, 180, 360] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      <Shield className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <h3 className="text-xl font-semibold text-white mb-2">Verify Your Email</h3>
+                    <p className="text-white/70 text-sm">
+                      Enter the 6-digit code sent to {email}
+                    </p>
+                  </div>
+                  
+                  <div className="flex justify-center space-x-3">
+                    {renderOtpInputs()}
+                  </div>
+                  
                   <Button fullWidth onClick={handleVerifyOtp} isLoading={verifyingOtp}>
-                    {verifyingOtp ? 'Verifying…' : 'Verify OTP'}
+                    <span className="flex items-center justify-center space-x-2">
+                      <Shield className="w-5 h-5" />
+                      <span>{verifyingOtp ? 'Verifying...' : 'Verify Code'}</span>
+                    </span>
                   </Button>
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <button onClick={handleBack} className="underline">Back</button>
+                  
+                  <div className="flex justify-between items-center text-sm">
+                    <motion.button
+                      onClick={handleBack}
+                      className="text-white/70 hover:text-white transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      ← Back
+                    </motion.button>
+                    
                     {canResendOtp ? (
-                      <button onClick={handleSendOtp} className="underline">Resend OTP</button>
+                      <motion.button
+                        onClick={handleSendOtp}
+                        className="text-primary-400 hover:text-primary-300 transition-colors"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        Resend Code
+                      </motion.button>
                     ) : (
-                      <span>Resend in {timer}s</span>
+                      <span className="text-white/50">Resend in {timer}s</span>
                     )}
                   </div>
                 </motion.div>
               )}
 
-              {/* details */}
+              {/* Account Details */}
               {step === 'details' && (
                 <motion.div
                   key="details"
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 50 }}
-                  className="space-y-4"
+                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
+                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="space-y-6"
                 >
+                  <div className="text-center mb-6">
+                    <motion.div
+                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl"
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <Users className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <h3 className="text-xl font-semibold text-white">Complete Your Profile</h3>
+                  </div>
+
                   <Input
                     type="text"
                     label="Full Name"
                     placeholder="John Doe"
-                    icon={<UserIcon size={16} />}
+                    icon={<UserIcon size={20} className="text-primary-500" />}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     fullWidth
@@ -437,18 +593,20 @@ const SignUpPage: React.FC = () => {
                       type={showPassword ? 'text' : 'password'}
                       label="Password"
                       placeholder="••••••••"
-                      icon={<Lock size={16} />}
+                      icon={<Lock size={20} className="text-primary-500" />}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       fullWidth
                     />
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => setShowPassword(v => !v)}
-                      className="absolute inset-y-0 flex items-center right-3"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                     >
                       {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                    </motion.button>
                   </div>
 
                   <div className="relative">
@@ -456,90 +614,197 @@ const SignUpPage: React.FC = () => {
                       type={showConfirmPassword ? 'text' : 'password'}
                       label="Confirm Password"
                       placeholder="••••••••"
-                      icon={<Lock size={16} />}
+                      icon={<Lock size={20} className="text-primary-500" />}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       fullWidth
                     />
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => setShowConfirmPassword(v => !v)}
-                      className="absolute inset-y-0 flex items-center right-3"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                     >
                       {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                    </motion.button>
                   </div>
 
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-700">I am a:</label>
+                    <label className="block mb-4 text-sm font-medium text-white">I am a:</label>
                     <div className="grid grid-cols-2 gap-4">
                       {(['patient', 'doctor'] as Role[]).map(r => (
-                        <button
+                        <motion.button
                           key={r}
                           type="button"
                           onClick={() => setRole(r)}
                           disabled={creating}
-                          className={`py-2 rounded-md border transition ${
-                            role === r
-                              ? 'bg-primary-50 border-primary-500 text-primary-700'
-                              : 'border-gray-300 hover:bg-gray-50'
-                          }`}
+                          className={`
+                            relative py-4 px-6 rounded-xl border-2 transition-all duration-300
+                            transform-gpu hover:scale-105 hover:-translate-y-1
+                            ${role === r
+                              ? 'bg-primary-500/20 border-primary-500 text-primary-300 shadow-lg shadow-primary-500/25'
+                              : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10 hover:border-white/30'
+                            }
+                          `}
+                          whileHover={{ scale: 1.05, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: r === 'patient' ? 0.1 : 0.2 }}
                         >
-                          {r.charAt(0).toUpperCase() + r.slice(1)}
-                        </button>
+                          <span className="font-semibold">
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </span>
+                          {role === r && (
+                            <motion.div
+                              className="absolute inset-0 bg-gradient-to-r from-primary-500/10 to-secondary-500/10 rounded-xl"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          )}
+                        </motion.button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-500">
-                    <button onClick={handleBack} className="underline">Back</button>
-                  </div>
+                  <motion.button
+                    onClick={handleBack}
+                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    ← Back
+                  </motion.button>
 
                   <Button fullWidth onClick={handleCreateAccount} isLoading={creating}>
-                    {creating ? 'Creating…' : 'Create Account'}
+                    <span className="flex items-center justify-center space-x-2">
+                      <Sparkles className="w-5 h-5" />
+                      <span>{creating ? 'Creating Your Account...' : 'Create Account'}</span>
+                    </span>
                   </Button>
                 </motion.div>
               )}
 
-              {/* googleProcessing */}
+              {/* Google Processing */}
               {step === 'googleProcessing' && (
-                <motion.div key="googleProcessing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-4 text-center">
-                  Processing Google signup…
+                <motion.div 
+                  key="googleProcessing" 
+                  initial={{ opacity: 0, scale: 0.8 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="py-12 text-center"
+                >
+                  <motion.div
+                    className="flex items-center justify-center w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl"
+                    animate={{ rotateY: [0, 180, 360] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <Sparkles className="w-10 h-10 text-white" />
+                  </motion.div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Processing Google Signup</h3>
+                  <p className="text-white/70">Please wait while we set up your account...</p>
                 </motion.div>
               )}
 
-              {/* googleRoleSelection */}
+              {/* Google Role Selection */}
               {step === 'googleRoleSelection' && (
-                <motion.div key="googleRoleSelection" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }} className="space-y-4">
-                  <h3 className="text-lg font-medium text-center">Choose Your Role</h3>
-                  <div className="flex items-center justify-center space-x-4">
+                <motion.div 
+                  key="googleRoleSelection" 
+                  initial={{ opacity: 0, x: -100, rotateY: -10 }} 
+                  animate={{ opacity: 1, x: 0, rotateY: 0 }} 
+                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="space-y-6"
+                >
+                  <div className="text-center">
+                    <motion.div
+                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl"
+                      animate={{ rotateX: [0, 180, 360] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      <Users className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <h3 className="text-xl font-semibold text-white mb-2">Choose Your Role</h3>
+                    <p className="text-white/70">How would you like to use MedicoX?</p>
+                  </div>
+
+                  <div className="space-y-4">
                     {(['patient', 'doctor'] as Role[]).map(r => (
-                      <label key={r} className="flex items-center space-x-2">
-                        <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} /> 
-                        <span>{r.charAt(0).toUpperCase() + r.slice(1)}</span>
-                      </label>
+                      <motion.label 
+                        key={r} 
+                        className={`
+                          flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-300
+                          transform-gpu hover:scale-105
+                          ${role === r
+                            ? 'bg-primary-500/20 border-primary-500 shadow-lg shadow-primary-500/25'
+                            : 'bg-white/5 border-white/20 hover:bg-white/10'
+                          }
+                        `}
+                        whileHover={{ scale: 1.02, x: 5 }}
+                        whileTap={{ scale: 0.98 }}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: r === 'patient' ? 0.1 : 0.2 }}
+                      >
+                        <input 
+                          type="radio" 
+                          name="role" 
+                          value={r} 
+                          checked={role === r} 
+                          onChange={() => setRole(r)}
+                          className="mr-4 w-5 h-5 text-primary-500 border-white/30 focus:ring-primary-500 focus:ring-2"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-white">
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </div>
+                          <div className="text-sm text-white/70">
+                            {r === 'patient' ? 'Book appointments and manage health' : 'Provide consultations and manage patients'}
+                          </div>
+                        </div>
+                      </motion.label>
                     ))}
                   </div>
+
                   <Button fullWidth onClick={handleGoogleRoleSubmit} isLoading={creating}>
-                    {creating ? 'Processing…' : 'Continue'}
+                    <span className="flex items-center justify-center space-x-2">
+                      <ChevronsRight className="w-5 h-5" />
+                      <span>{creating ? 'Setting Up...' : 'Continue'}</span>
+                    </span>
                   </Button>
-                  <div className="text-sm text-center text-gray-500">
-                    <button onClick={() => setStep('chooseMethod')} className="underline">Cancel</button>
-                  </div>
+
+                  <motion.button
+                    onClick={() => setStep('chooseMethod')}
+                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Cancel
+                  </motion.button>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Footer link */}
-            <div className="mt-6 text-sm text-center text-gray-600">
+            {/* Footer */}
+            <motion.div 
+              className="mt-8 text-center text-sm text-white/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
               Already have an account?{' '}
-              <Link to="/login" className="text-primary-500 hover:underline">
+              <Link 
+                to="/login" 
+                className="text-primary-400 hover:text-primary-300 transition-colors font-semibold hover:underline"
+              >
                 Sign in
               </Link>
-            </div>
-          </div>
-        </div>
-      </FadeIn>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 };
