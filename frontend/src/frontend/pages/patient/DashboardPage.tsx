@@ -635,7 +635,7 @@ function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
                   )}
 
                   {/* Appointments Tab */}
-                  {activeTab === 'appointments' && (
+{activeTab === 'appointments' && (
   <motion.div
     key="appointments"
     variants={tabContentVariants}
@@ -706,90 +706,54 @@ function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
       )}
     </motion.div>
 
-    {/* Centered Details Modal */}
-<AnimatePresence>
-      {isModalOpen && selectedAppt && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="w-full max-w-md p-8 bg-white shadow-2xl bg-opacity-20 backdrop-blur-md rounded-2xl perspective-1000 transform-style-preserve-3d"
-            style={{ transformStyle: 'preserve-3d' }}
-            initial={{ rotateX: 90, scale: 0.5, opacity: 0 }}
-            animate={{ rotateX: 0, scale: 1, opacity: 1 }}
-            exit={{ rotateX: 90, scale: 0.5, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-          >
-            <h3 className="mb-6 text-2xl font-extrabold tracking-wide text-center text-white">
-              Appointment Details
-            </h3>
-            <div className="space-y-4 text-white">
-              <div>
-                <span className="font-semibold">Doctor:</span>{' '}
-                {selectedAppt.doctor.name}
-              </div>
-              {selectedAppt.doctor.specialty && (
-                <div>
-                  <span className="font-semibold">Field:</span>{' '}
-                  {selectedAppt.doctor.specialty}
-                </div>
-              )}
-              <div>
-                <span className="font-semibold">Date:</span>{' '}
-                {format(new Date(selectedAppt.datetime), 'PPP')}
-              </div>
-              <div>
-                <span className="font-semibold">Time:</span>{' '}
-                {format(new Date(selectedAppt.datetime), 'h:mm a')}
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">Status</label>
-                <select
-                  value={modalStatus}
-                  onChange={handleStatusChange}
-                  className="w-full px-4 py-2 text-white transition border-2 rounded-lg border-white/30 bg-white/10 focus:outline-none focus:border-blue-400"
-                >
-                  <option className="text-black bg-white/90" value="pending">
-                    Pending
-                  </option>
-                  <option className="text-black bg-white/90" value="scheduled">
-                    Upcoming
-                  </option>
-                  <option className="text-black bg-white/90" value="cancelled">
-                    Cancelled
-                  </option>
-                  <option className="text-black bg-white/90" value="completed">
-                    Completed
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-8">
-              <button
-                onClick={closeModal}
-                className="px-6 py-2 font-semibold text-white transition transform bg-gray-300 bg-opacity-50 rounded-full shadow hover:scale-105"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleStatusSubmit}
-                className="px-6 py-2 font-semibold text-white transition transform bg-blue-500 rounded-full shadow bg-opacity-80 hover:scale-105"
-              >
-                Submit
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    {/* Scrollable Background with Centered Details Modal */}
+    <AnimatePresence>
+                      {isModalOpen && selectedAppt && (
+                        <motion.div className="fixed inset-0 z-50 pointer-events-none"
+                          initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
+                          <motion.div className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+                            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
+                            <motion.div className="w-full max-w-md p-8 bg-white bg-opacity-20 backdrop-blur-md rounded-2xl max-h-[90vh] overflow-y-auto"
+                              initial={{ rotateX:90, scale:0.5, opacity:0 }}
+                              animate={{ rotateX:0, scale:1, opacity:1 }}
+                              exit={{ rotateX:90, scale:0.5, opacity:0 }}
+                              transition={{ type:'spring', stiffness:300, damping:20 }}>
+                              <h3 className="text-2xl font-extrabold text-center text-white mb-4">Appointment Details</h3>
+                              <div className="space-y-4 text-white">
+                                <div><span className="font-semibold">Doctor:</span> {selectedAppt.doctor.name}</div>
+                                {selectedAppt.doctor.specialty && (
+                                  <div><span className="font-semibold">Field:</span> {selectedAppt.doctor.specialty}</div>
+                                )}
+                                <div><span className="font-semibold">Date:</span> {format(new Date(selectedAppt.datetime),'PPP')}</div>
+                                <div><span className="font-semibold">Time:</span> {format(new Date(selectedAppt.datetime),'h:mm a')}</div>
+                                <div>
+                                  <label className="block mb-1 font-medium">Status</label>
+                                  <select value={modalStatus} onChange={handleStatusChange}
+                                    className="w-full px-4 py-2 bg-white/10 border-2 border-white/30 rounded-lg text-white focus:border-blue-400">
+                                    <option value="pending">Pending</option>
+                                    <option value="scheduled">Upcoming</option>
+                                    <option value="cancelled">Cancelled</option>
+                                    <option value="completed">Completed</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="flex justify-between mt-6">
+                                <button onClick={closeModal}
+                                  className="px-6 py-2 bg-gray-300 bg-opacity-50 rounded-full font-semibold text-white">
+                                  Close
+                                </button>
+                                <button onClick={handleStatusSubmit}
+                                  className="px-6 py-2 bg-blue-500 rounded-full font-semibold text-white">
+                                  Submit
+                                </button>
+                              </div>
+                            </motion.div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
   </motion.div>
 )}
-
-
 
                   {/* Notifications Tab */}
 {activeTab === 'notifications' && (

@@ -122,7 +122,7 @@ export default function DocDashboardPage() {
   const [unreadCount, setUnreadCount] = useState(0);
 const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(null);
 const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
+const [showAllNotifications, setShowAllNotifications] = useState(false);
 // Controls visibility of the “Cancel All” confirmation modal
 const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState<boolean>(false);
 
@@ -764,46 +764,50 @@ const handleCleanSlots = async () => {
             </motion.div>
           )}
 
-          {activeTab === 'appointments' && (
-            <motion.div
-              key="appointments"
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -50 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-4"
-            >
-              <h2 className="text-2xl font-bold text-white">Appointments</h2>
-              <ul className="space-y-2">
-                {appointments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between p-4 bg-gray-800 rounded-xl"
-                  >
-                    <div>
-                      <p className="text-white">{a.patientName}</p>
-                      <p className="text-gray-400">
-                        {format(new Date(a.date), 'PPP p')}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        a.status === 'upcoming'
-                          ? 'bg-blue-600 text-white'
-                          : a.status === 'completed'
-                          ? 'bg-green-600 text-white'
-                          : a.status === 'pending'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-red-600 text-white'
-                      }`}
-                    >
-                      {a.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
+{activeTab === 'appointments' && (
+  <motion.div
+    key="appointments"
+    initial={{ opacity: 0, y: 50 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -50 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-4"
+  >
+    <h2 className="text-2xl font-bold text-white">Appointments</h2>
+    <ul className="space-y-2">
+      {appointments.map((a) => (
+        <motion.li
+          key={a.id}
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="flex items-center justify-between p-4 rounded-xl bg-violet-200 bg-opacity-20 backdrop-blur-sm transform"
+        >
+          <div>
+            <p className="text-white">{a.patientName}</p>
+            <p className="text-gray-300">
+              {format(new Date(a.date), 'PPP p')}
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-sm ${
+              a.status === 'upcoming'
+                ? 'bg-blue-600 text-white'
+                : a.status === 'completed'
+                ? 'bg-green-600 text-white'
+                : a.status === 'pending'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            {a.status}
+          </span>
+        </motion.li>
+      ))}
+    </ul>
+  </motion.div>
+)}
+
+
 
 {activeTab === 'patients' && (
   <motion.div
@@ -908,50 +912,77 @@ const handleCleanSlots = async () => {
             </motion.div>
           )}
 
-          {activeTab === 'messages' && (
-            <motion.div
-              key="messages"
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -50 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-4"
+{activeTab === 'messages' && (
+  <motion.div
+    key="messages"
+    initial={{ opacity: 0, y: 50 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -50 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-4"
+  >
+   
+      <h2 className="text-2xl font-bold text-white">Notifications</h2>
+     <div style={{marginLeft:"1000px"}}>
+   {notifications.length > 10 && (
+      <div className="flex justify-center space-x-4">
+        {!showAllNotifications ? (
+          <button
+            onClick={() => setShowAllNotifications(true)}
+            className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+          >
+            View All
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowAllNotifications(false)}
+            className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+          >
+            View Less
+          </button>
+        )}
+      </div>
+    )}
+    </div>
+    <ul className="space-y-2">
+      {(showAllNotifications ? notifications : notifications.slice(0, 10)).map((n) => (
+        <li
+          key={n._id}
+          className={`p-4 rounded-xl flex justify-between items-center bg-black bg-opacity-50 backdrop-blur-sm ${
+            n.read ? 'text-gray-300' : 'text-white'
+          }`}
+        >
+          <span>{n.message}</span>
+          {!n.read && (
+            <button
+              onClick={() => {
+                axios
+                  .put(buildUrl(`/notifications/${n._id}/read`), {}, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                  .then(() => {
+                    setNotifications((prev) =>
+                      prev.map((x) =>
+                        x._id === n._id ? { ...x, read: true } : x
+                      )
+                    );
+                    setUnreadCount((c) => Math.max(c - 1, 0));
+                  })
+                  .catch(console.error);
+              }}
+              className="ml-4 text-blue-400 hover:underline"
             >
-              <h2 className="text-2xl font-bold text-white">Notifications</h2>
-              <ul className="space-y-2">
-                {notifications.map((n) => (
-                  <li
-                    key={n._id}
-                    className={`p-4 rounded-xl flex justify-between items-center ${
-                      n.read ? 'bg-gray-700 text-gray-300' : 'bg-gray-800 text-white'
-                    }`}
-                  >
-                    <span>{n.message}</span>
-                    {!n.read && (
-                      <button
-                        onClick={() => {
-                          axios
-                            .put(buildUrl(`/notifications/${n._id}/read`), {}, {
-                              headers: { Authorization: `Bearer ${token}` },
-                            })
-                            .then(() => {
-                              setNotifications(prev =>
-                                prev.map(x => x._id === n._id ? { ...x, read: true } : x)
-                              );
-                              setUnreadCount(c => Math.max(c - 1, 0));
-                            })
-                            .catch(console.error);
-                        }}
-                        className="ml-4 text-blue-400 hover:underline"
-                      >
-                        Mark read
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
+              Mark read
+            </button>
           )}
+        </li>
+      ))}
+    </ul>
+
+  </motion.div>
+)}
+
+
 
           {activeTab === 'profile' && (
             <motion.div

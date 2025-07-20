@@ -449,13 +449,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // ------- Medical Info -------
   const fetchMedicalInfo = async (): Promise<MedicalInfo> => {
-    const res = await api.get<MedicalInfo>('/api/medicalinfo/me');
+    const res = await api.get<MedicalInfo>('/medicalinfo/me');
     setMedicalInfo(res.data);
     return res.data;
   };
 
   const updateMedicalInfo = async (data: MedicalInfoInput): Promise<MedicalInfo> => {
-    const res = await api.put<MedicalInfo>('/api/medicalinfo/me', data);
+    const res = await api.put<MedicalInfo>('/medicalinfo/me', data);
     setMedicalInfo(res.data);
     return res.data;
   };

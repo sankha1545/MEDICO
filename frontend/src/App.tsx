@@ -1,14 +1,14 @@
 // File: src/App.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Layouts
 import { Layout } from './frontend/components/layout/patient/Layout';
 import { Layout1 } from './frontend/components/layout/doctor/Layout';
 
-// Pages — patient
+// Patient pages
 import HomePage from './frontend/pages/patient/HomePage';
 import LoginPage from './frontend/Auth/LoginPage';
 import SignupPage from './frontend/Auth/SignupPage';
@@ -28,26 +28,24 @@ import TOS from './frontend/components/footerlinks/TermsOfService';
 import HelpCenter from './frontend/components/footerlinks/HelpCentre';
 import Docpatient from './frontend/pages/doctor/PatientAdmission';
 
-// Pages — doctor
+// Doctor pages
 import HomePage1 from './frontend/pages/doctor/HomePage';
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 import SettingsPage from './frontend/components/common/settingspage';
-import { ToastContainer } from 'react-toastify';
-
 
 // Common
-import Bookappointment from './frontend/components/common/bookappointment/BookAppointment';
+import LandingPage from './frontend/pages/LandingPage/LandingPage';
+import ChakraTransition from './frontend/components/animations/ChakraTransition';
+
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 import Glimpse from './frontend/components/ProjectGlimpse';
-// Patient Settings
 import PatientSettingsPage from './frontend/components/common/settingsdoc';
 import LoadingScreen from './frontend/components/common/LoadingScreen/LoadingScreen';
-// Payment page (new)
 import PaymentPage from './frontend/pages/patient/paymentspage';
-// Animated cursor
 import AnimatedCursor from './frontend/components/common/cursor';
+import { ToastContainer } from 'react-toastify';
 
-// Protected route wrapper
+// A simple wrapper to guard protected routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -57,35 +55,63 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => {
-  // Example loading state: if you have any global initialization you can toggle this.
+  // 1) Global “app loading” (e.g. checking token)
   const [appLoading, setAppLoading] = useState(true);
 
-  // Simulate initial loading (e.g., checking auth token). Replace with real logic as needed.
+  // 2) Initial splash sequence: landing → chakra → login
+  const [currentPage, setCurrentPage] = useState<
+    'landing' | 'chakra' | 'login'
+  >('landing');
+
+  // Simulate minimal loading
   useEffect(() => {
-    // For demo: delay 500ms then hide loading screen
-    const timer = setTimeout(() => {
-      setAppLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setAppLoading(false), 500);
+    return () => clearTimeout(t);
   }, []);
 
+  // Handlers for the splash flow
+  const navigateToChakra = () => setCurrentPage('chakra');
+  const handleChakraComplete = () => setCurrentPage('login');
+  const navigateToLanding = () => setCurrentPage('landing');
+
+  // 1️⃣ Show global loading screen first
   if (appLoading) {
-    // Show loading screen before rendering the app
-    return <LoadingScreen message="Welcome to MedicoX..." />;
+    return <LoadingScreen message="Welcome to MedicoX…" />;
   }
 
+  // 2️⃣ Run the three‑step splash flow before mounting Router
+  if (currentPage === 'landing') {
+    return <LandingPage onNavigateToLogin={navigateToChakra} />;
+  }
+  if (currentPage === 'chakra') {
+    return <ChakraTransition onComplete={handleChakraComplete} />;
+  }
+
+  // 3️⃣ Once we’re at “login”, mount the real app
   return (
     <AuthProvider>
-      {/* Animated custom cursor covering entire app */}
       <AnimatedCursor />
       <ToastContainer />
-      {/* Hide default OS cursor */}
       <div className="cursor">
         <Routes>
-          {/* Redirect root to login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* ─── Authentication ─── */}
+          <Route
+            path="/login"
+            element={
+              <LoginPage onNavigateBack={navigateToLanding} />
+            }
+          />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route
+            path="/verify-email-otp"
+            element={<OTPVerificationPage />}
+          />
+          <Route
+            path="/oauth-success"
+            element={<OAuthSuccessPage />}
+          />
 
-          {/* Public patient pages */}
+          {/* ─── Public patient pages ─── */}
           <Route
             path="/home"
             element={
@@ -94,17 +120,6 @@ const App: React.FC = () => {
               </Layout>
             }
           />
-
-          {/* Authentication */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/verify-email-otp" element={<OTPVerificationPage />} />
-
-          {/* OAuth Success */}
-          <Route 
-          path="/oauth-success" element={<OAuthSuccessPage />} />
-
-          {/* More public patient pages */}
           <Route
             path="/doctors"
             element={
@@ -137,51 +152,49 @@ const App: React.FC = () => {
               </Layout>
             }
           />
-          <Route path="/bookappointment" element={<Bookappointment />} />
-
-          {/* FAQ and Health Blog (public) */}
+         
           <Route
             path="/faq"
             element={
-              <Layout>
+             
                 <FAQ />
-              </Layout>
+              
             }
           />
           <Route
             path="/privacypolicy"
             element={
-              <Layout>
+             
                 <PrivacyPolicy />
-              </Layout>
+             
             }
           />
           <Route
             path="/tos"
             element={
-              <Layout>
+              
                 <TOS />
-              </Layout>
+             
             }
           />
           <Route
             path="/blog"
             element={
-              <Layout>
+             
                 <HealthBlog />
-              </Layout>
+             
             }
           />
           <Route
             path="/helpcentre"
             element={
-              <Layout>
+             
                 <HelpCenter />
-              </Layout>
+             
             }
           />
 
-          {/* ─── Protected patient-only routes ─── */}
+          {/* ─── Protected patient routes ─── */}
           <Route
             path="/dashboard"
             element={
@@ -212,8 +225,6 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-
-          {/* Patient Settings page */}
           <Route
             path="/settings"
             element={
@@ -224,15 +235,11 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-
-          {/* Payment page (protected) */}
           <Route
             path="/payment"
             element={
               <ProtectedRoute>
-               
-                  <PaymentPage />
-               
+                <PaymentPage />
               </ProtectedRoute>
             }
           />
@@ -261,9 +268,7 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Layout1>
-                  <SettingsPage onBack={() => {
-                    window.history.back();
-                  }} />
+                  <SettingsPage onBack={() => window.history.back()} />
                 </Layout1>
               </ProtectedRoute>
             }
@@ -277,9 +282,9 @@ const App: React.FC = () => {
             }
           />
 
-          {/* Catch-all 404 */}
-          <Route path="*" element={<NotFoundPage />} />
+          {/* Utility & Fallback */}
           <Route path="/glimpse" element={<Glimpse />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AuthProvider>

@@ -160,7 +160,7 @@ export default function ContactPage() {
           <motion.div variants={itemVariants} className="space-y-8">
             {/** Info Cards **/}
             {[
-              { label: 'Email', value: 'support@medico.com', svgPath: 'M16 12a4 4 0 10-8 0 4 0 008 0zm1.5 6.5h-13a2 2 0 00-2 2v.5a.5.5 0 00.5.5h17a.5.5 0 00.5-.5v-.5a2 2 0 00-2-2z' },
+              { label: 'Email', value: 'MedicoX@gmail.com', svgPath: 'M16 12a4 4 0 10-8 0 4 0 008 0zm1.5 6.5h-13a2 2 0 00-2 2v.5a.5.5 0 00.5.5h17a.5.5 0 00.5-.5v-.5a2 2 0 00-2-2z' },
               { label: 'Phone', value: '(123) 456-7890', svgPath: 'M3 10l1.89 5.66a2 2 0 001.8 1.34h8.62a2 2 0 001.8-1.34L21 10m-9-7v4m0 0a4 4 0 110 8 4 4 0 010-8z' },
               { label: 'Address', value: '123 Health St, Wellness City, Carestate 45678', svgPath: 'M17 9v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9m5-4v4m0 0H7m5 0h5' },
             ].map((info, idx) => (
