@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { DoctorNavbar } from './navbar';
+import  {DoctorNavbar}  from './navbar';
 import { DoctorFooter} from  './footer';
 import { PageTransition } from '../../animations/Transitions';
 
@@ -17,7 +17,7 @@ export const Layout1 = ({ children, fullWidth = false }: LayoutProps) => {
           {fullWidth ? (
             children
           ) : (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
               {children}
             </div>
           )}

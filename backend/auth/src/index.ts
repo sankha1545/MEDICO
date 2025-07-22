@@ -130,6 +130,7 @@ app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+
 app.use('/api/payout', payoutRouter);
 
 // 11. Health check

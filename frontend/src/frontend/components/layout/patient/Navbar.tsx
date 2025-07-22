@@ -89,7 +89,7 @@ export const Navbar: React.FC = () => {
             : 'bg-transparent py-4'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex justify-between items-center relative z-10">
+        <div className="relative z-10 flex items-center justify-between px-6 mx-auto max-w-7xl lg:px-8">
           {/* Logo & Brand */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -105,13 +105,13 @@ export const Navbar: React.FC = () => {
               <HeartPulse size={36} />
               {/* Pulsating circle behind the heart */}
               <motion.span
-                className="absolute inset-0 rounded-full bg-pink-400"
+                className="absolute inset-0 bg-pink-400 rounded-full"
                 animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0.2, 0.6] }}
                 transition={{ duration: 2, repeat: Infinity }}
               />
             </motion.div>
             <motion.span
-              className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-indigo-500"
+              className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-indigo-500"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
@@ -121,7 +121,7 @@ export const Navbar: React.FC = () => {
           </motion.div>
 
           {/* Desktop Menu */}
-          <div className="hidden lg:flex items-center space-x-10">
+          <div className="items-center hidden space-x-10 lg:flex">
             {[
               { to: '/home', label: 'Home', Icon: Home },
               { to: '/doctors', label: 'Doctors', Icon: BookOpen },
@@ -172,7 +172,7 @@ export const Navbar: React.FC = () => {
               <div className="relative">
                 <motion.button
                   onClick={() => setIsProfileOpen((p) => !p)}
-                  className="flex items-center space-x-1 text-white hover:text-pink-500 transition-colors"
+                  className="flex items-center space-x-1 text-white transition-colors hover:text-pink-500"
                   whileHover={{ scale: 1.02 }}
                   transition={{ type: 'spring', stiffness: 300 }}
                 >
@@ -192,7 +192,7 @@ export const Navbar: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden"
+                      className="absolute right-0 w-56 mt-2 overflow-hidden bg-white border border-gray-200 shadow-xl rounded-2xl"
                     >
                       <ProfileItem
                         to="/dashboard"
@@ -233,7 +233,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Hamburger Toggle */}
-          <div className="lg:hidden z-20">
+          <div className="z-20 lg:hidden">
             <motion.button
               onClick={() => setIsMobileOpen((p) => !p)}
               className="text-gray-800"
@@ -258,7 +258,7 @@ export const Navbar: React.FC = () => {
                 initial="hidden"
                 animate="visible"
                 exit="hidden"
-                className="fixed inset-0 bg-black bg-opacity-50 z-30"
+                className="fixed inset-0 z-30 bg-black bg-opacity-50"
                 onClick={() => setIsMobileOpen(false)}
               />
 
@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'tween', duration: 0.4 }}
-                className="fixed top-0 right-0 w-4/5 h-full bg-gradient-to-br from-pink-500 to-purple-600 z-40 p-8 flex flex-col"
+                className="fixed top-0 right-0 z-40 flex flex-col w-4/5 h-full p-8 bg-gradient-to-br from-pink-500 to-purple-600"
               >
                 <motion.div
                   initial="hidden"
@@ -379,7 +379,7 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center z-50"
+            className="fixed inset-0 z-50 flex items-center justify-center"
           >
             <div
               className="absolute inset-0 bg-black bg-opacity-60"
@@ -390,12 +390,12 @@ export const Navbar: React.FC = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full z-10"
+              className="z-10 w-full max-w-sm p-8 bg-white shadow-2xl rounded-2xl"
             >
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+              <h3 className="mb-4 text-2xl font-bold text-gray-800">
                 Confirm Logout
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="mb-6 text-gray-600">
                 Are you sure you want to log out? You’ll be redirected to the login page.
               </p>
               <div className="flex justify-end space-x-4">
@@ -423,10 +423,10 @@ type ProfileProps = {
 const ProfileItem: React.FC<ProfileProps> = ({ to, icon, children }) => (
   <Link
     to={to}
-    className="flex items-center px-4 py-3 hover:bg-gray-100 transition-colors"
+    className="flex items-center px-4 py-3 transition-colors hover:bg-gray-100"
   >
     <span className="mr-2 text-pink-500">{icon}</span>
-    <span className="text-gray-800 font-medium">{children}</span>
+    <span className="font-medium text-gray-800">{children}</span>
   </Link>
 );
 
@@ -438,7 +438,7 @@ const ProfileButton: React.FC<{
 }> = ({ onClick, icon, children }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors"
+    className="flex items-center w-full px-4 py-3 text-gray-800 transition-colors hover:bg-gray-100"
   >
     <span className="mr-2 text-pink-500">{icon}</span>
     <span className="font-medium">{children}</span>

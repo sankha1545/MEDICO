@@ -189,22 +189,7 @@ export const DoctorFooter: React.FC = () => {
           <p className="text-sm text-gray-400">
             © {currentYear} MedicoX. All rights reserved.
           </p>
-          <div className="flex mt-4 space-x-6 md:mt-0">
-            {['Privacy', 'Terms', 'Cookies'].map((item, idx) => (
-              <motion.a
-                key={item}
-                href={`/${item.toLowerCase()}`}
-                className="text-sm text-gray-400 transition-colors duration-300 hover:text-blue-400"
-                whileHover={{ y: -2 }}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1, duration: 0.6 }}
-                viewport={{ once: true }}
-              >
-                {item}
-              </motion.a>
-            ))}
-          </div>
+        
         </motion.div>
       </div>
     </footer>

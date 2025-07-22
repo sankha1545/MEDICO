@@ -1,29 +1,28 @@
 // File: frontend/src/components/common/medicalinfo/UpdateMedicalInfoForm.tsx
 
-import React, { useState, FormEvent, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { Button } from '../Button';
-import { Droplet, AlertTriangle, Pill, Heart } from 'lucide-react';
+import React, { useState, FormEvent, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '../../../../contexts/AuthContext'
+import { Button } from '../Button'
+import { Droplet, AlertTriangle, Pill, Heart } from 'lucide-react'
 
-// Shape of the medical-info payload
 export interface MedicalInfo {
-  bloodType: string;
-  allergies: string;
-  currentMedications: string;
-  medicalConditions: string;
+  bloodType: string
+  allergies: string
+  currentMedications: string
+  medicalConditions: string
 }
 
 interface UpdateMedicalInfoFormProps {
-  medicalInfo: MedicalInfo;
-  onClose: () => void;
-  onSave: (info: MedicalInfo) => void;
+  medicalInfo: MedicalInfo
+  onClose: () => void
+  onSave: (info: MedicalInfo) => void
 }
 
 const backdropVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+}
 
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.9 },
@@ -33,73 +32,70 @@ const modalVariants = {
     transition: { type: 'spring', stiffness: 250, damping: 20 },
   },
   exit: { opacity: 0, scale: 0.9, transition: { duration: 0.2 } },
-};
+}
 
 const fieldVariants = {
   hidden: { opacity: 0, x: -20 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
-};
+}
 
-const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
 
 const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
   medicalInfo,
   onClose,
   onSave,
 }) => {
-  const { updateMedicalInfo } = useAuth();
-  const [formState, setFormState] = useState<MedicalInfo>({ ...medicalInfo });
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { updateMedicalInfo } = useAuth()
+  const [formState, setFormState] = useState<MedicalInfo>({ ...medicalInfo })
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Reset form when the incoming props change
   useEffect(() => {
-    setFormState({ ...medicalInfo });
-  }, [medicalInfo]);
+    setFormState({ ...medicalInfo })
+  }, [medicalInfo])
 
-  // Generic change handler
-  const handleChange = (field: keyof MedicalInfo) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    setFormState(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsSaving(true);
-    try {
-      const updated = await updateMedicalInfo(formState);
-      onSave(updated);      // updated is the MedicalInfo doc!
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Unable to save.');
-    } finally {
-      setIsSaving(false);
+  const handleChange =
+    (field: keyof MedicalInfo) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setFormState((prev) => ({ ...prev, [field]: e.target.value }))
     }
-  };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsSaving(true)
+    try {
+      const updated = await updateMedicalInfo(formState)
+      onSave(updated)
+      onClose()
+    } catch (err: any) {
+      setError(err.message || 'Unable to save.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50"
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
         exit="hidden"
       >
         <motion.div
-          className="w-full max-w-md mx-4 overflow-hidden bg-white shadow-xl rounded-3xl"
+          className="w-full max-w-md overflow-hidden bg-white shadow-xl sm:max-w-lg md:max-w-xl rounded-3xl"
           variants={modalVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
         >
+          {/* Header */}
           <div className="relative px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600">
-            <h3 className="flex items-center text-2xl font-semibold text-white">
-              <span className="mr-2 text-xl animate-pulse">🩺</span>
+            <h3 className="flex items-center text-xl font-semibold text-white sm:text-2xl">
+              <span className="mr-2 text-2xl animate-pulse">🩺</span>
               Update Medical Info
             </h3>
             <button
@@ -111,9 +107,10 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
             </button>
           </div>
 
+          {/* Form */}
           <motion.form
             onSubmit={handleSubmit}
-            className="p-6 space-y-5"
+            className="p-6 space-y-6 sm:p-8 sm:space-y-8"
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -122,25 +119,26 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
               visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
             }}
           >
-            {error && <div className="text-sm text-red-600">{error}</div>}
+            {error && (
+              <div className="text-sm text-center text-red-600">{error}</div>
+            )}
 
             {/* Blood Type */}
             <motion.div variants={fieldVariants}>
-              <label className="flex items-center text-sm font-medium text-gray-700">
+              <label className="flex items-center text-sm font-medium text-gray-700 sm:text-base">
                 <Droplet className="mr-2 text-indigo-500" size={18} />
                 Blood Type
               </label>
               <select
-                name="bloodType"
                 value={formState.bloodType}
                 onChange={handleChange('bloodType')}
-                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
                 required
               >
                 <option value="" disabled>
                   Select type
                 </option>
-                {BLOOD_TYPES.map(type => (
+                {BLOOD_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type}
                   </option>
@@ -150,59 +148,68 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
 
             {/* Allergies */}
             <motion.div variants={fieldVariants}>
-              <label className="flex items-center text-sm font-medium text-gray-700">
+              <label className="flex items-center text-sm font-medium text-gray-700 sm:text-base">
                 <AlertTriangle className="mr-2 text-red-500" size={18} />
                 Allergies
               </label>
               <input
                 type="text"
-                name="allergies"
                 value={formState.allergies}
                 onChange={handleChange('allergies')}
-                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Peanuts"
+                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
                 required
               />
             </motion.div>
 
             {/* Current Medications */}
             <motion.div variants={fieldVariants}>
-              <label className="flex items-center text-sm font-medium text-gray-700">
+              <label className="flex items-center text-sm font-medium text-gray-700 sm:text-base">
                 <Pill className="mr-2 text-green-500" size={18} />
                 Current Medications
               </label>
               <input
                 type="text"
-                name="currentMedications"
                 value={formState.currentMedications}
                 onChange={handleChange('currentMedications')}
-                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Metformin"
+                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
               />
             </motion.div>
 
             {/* Medical Conditions */}
             <motion.div variants={fieldVariants}>
-              <label className="flex items-center text-sm font-medium text-gray-700">
+              <label className="flex items-center text-sm font-medium text-gray-700 sm:text-base">
                 <Heart className="mr-2 text-pink-500" size={18} />
                 Medical Conditions
               </label>
               <input
                 type="text"
-                name="medicalConditions"
                 value={formState.medicalConditions}
                 onChange={handleChange('medicalConditions')}
-                className="w-full px-3 py-2 mt-1 text-black border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="e.g. Hypertension"
+                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
               />
             </motion.div>
 
             {/* Actions */}
-            <motion.div className="flex justify-end pt-4 border-t" variants={fieldVariants}>
-              <Button variant="ghost" onClick={onClose} disabled={isSaving}>
+            <motion.div
+              className="flex flex-col justify-end gap-4 pt-4 border-t sm:flex-row"
+              variants={fieldVariants}
+            >
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                disabled={isSaving}
+                className="w-full sm:w-auto"
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="ml-4" disabled={isSaving}>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="w-full sm:w-auto"
+              >
                 {isSaving ? 'Saving...' : 'Save'}
               </Button>
             </motion.div>
@@ -210,7 +217,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
         </motion.div>
       </motion.div>
     </AnimatePresence>
-  );
-};
+  )
+}
 
-export default UpdateMedicalInfoForm;
+export default UpdateMedicalInfoForm

@@ -1,17 +1,19 @@
+// File: frontend/src/pages/SignUpPage.tsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronsRight,
-  User as UserIcon,
   Mail,
-  Lock,
-  Eye,
-  EyeOff,
   Sparkles,
   Shield,
   Zap,
   Users,
+  Atom,
+  Cpu,
+  Globe,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
@@ -43,41 +45,41 @@ const SignUpPage: React.FC = () => {
     completeGoogleSignup,
   } = useAuth();
 
-  // --- Multi-step & Error State ---
+  // Multi-step & error
   const [step, setStep] = useState<Step>('chooseMethod');
   const [error, setError] = useState<string | null>(null);
 
-  // --- Email Signup State ---
+  // Email signup
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
 
-  // --- Account Details State ---
+  // Account details
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Role>('patient');
   const [creating, setCreating] = useState(false);
 
-  // --- Password Visibility ---
+  // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // --- OTP Timer & Resend Control ---
+  // OTP timer
   const [timer, setTimer] = useState(30);
   const [canResendOtp, setCanResendOtp] = useState(false);
 
-  // --- Google Signup State ---
+  // Google signup
   const [googleTempToken, setGoogleTempToken] = useState<string | null>(null);
   const [googleProcessing, setGoogleProcessing] = useState(false);
 
-  // --- GSI Script Loading & Button Ref ---
+  // GSI script & ref
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [gsiLoaded, setGsiLoaded] = useState(false);
 
-  // Load the GSI script once
+  // Load GSI script
   useEffect(() => {
     if (gsiLoaded) return;
     const script = document.createElement('script');
@@ -89,7 +91,7 @@ const SignUpPage: React.FC = () => {
     document.body.appendChild(script);
   }, [gsiLoaded]);
 
-  // Initialize Google client when script loads
+  // Init GSI client
   useEffect(() => {
     if (!gsiLoaded) return;
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
@@ -99,17 +101,17 @@ const SignUpPage: React.FC = () => {
     }
     window.google.accounts.id.initialize({
       client_id: clientId,
-      callback: async (resp: { credential: string }) => {
-        if (!resp.credential) {
+      ux_mode: 'popup',
+      callback: async ({ credential }: { credential: string }) => {
+        if (!credential) {
           setError('Google authentication failed');
-          setStep('chooseMethod');
-          return;
+          return setStep('chooseMethod');
         }
         setError(null);
         setStep('googleProcessing');
         setGoogleProcessing(true);
         try {
-          const token = await signUpWithGoogle(resp.credential);
+          const token = await signUpWithGoogle(credential);
           setGoogleTempToken(token);
           setStep('googleRoleSelection');
         } catch (e: any) {
@@ -119,23 +121,23 @@ const SignUpPage: React.FC = () => {
           setGoogleProcessing(false);
         }
       },
-      ux_mode: 'popup',
     });
   }, [gsiLoaded, signUpWithGoogle]);
 
-  // Render or re-render Google button whenever we are in chooseMethod
+  // Render GSI button
   useEffect(() => {
-    if (!gsiLoaded || step !== 'chooseMethod' || !googleBtnRef.current) return;
-    googleBtnRef.current.innerHTML = '';
-    window.google.accounts.id.renderButton(googleBtnRef.current, {
-      theme: 'outline',
-      size: 'large',
-      width: 400,
-      text: 'signup_with',
-    });
+    if (gsiLoaded && step === 'chooseMethod' && googleBtnRef.current) {
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: 200,
+        text: 'signup_with',
+      });
+    }
   }, [gsiLoaded, step]);
 
-  // OTP countdown
+  // OTP timer countdown
   useEffect(() => {
     if (step !== 'otpInput') return;
     if (timer > 0 && !canResendOtp) {
@@ -145,7 +147,7 @@ const SignUpPage: React.FC = () => {
     if (timer === 0) setCanResendOtp(true);
   }, [timer, canResendOtp, step]);
 
-  // Hide OTP success banner after 3s
+  // Hide OTP success banner
   useEffect(() => {
     if (otpSentSuccess) {
       const id = setTimeout(() => setOtpSentSuccess(false), 3000);
@@ -166,8 +168,7 @@ const SignUpPage: React.FC = () => {
       setCanResendOtp(false);
       setOtp('');
     } catch (e: any) {
-      const msg = e.response?.data?.message || e.message;
-      setError(msg.includes('exists') ? msg : msg || 'Failed to send OTP');
+      setError(e.response?.data?.message || e.message || 'Failed to send OTP');
     } finally {
       setSendingOtp(false);
     }
@@ -206,8 +207,7 @@ const SignUpPage: React.FC = () => {
   const handleGoogleRoleSubmit = async () => {
     if (!googleTempToken) {
       setError('Missing Google token');
-      setStep('chooseMethod');
-      return;
+      return setStep('chooseMethod');
     }
     setCreating(true);
     setError(null);
@@ -242,566 +242,352 @@ const SignUpPage: React.FC = () => {
           const arr = otp.split('');
           arr[i] = d;
           setOtp(arr.join(''));
-          if (d && i < 5) document.getElementById(`otp-${i+1}`)?.focus();
+          if (d && i < 5) {
+            document.getElementById(`otp-${i+1}`)?.focus();
+          }
         }}
-        className="w-14 h-14 text-xl font-bold text-center bg-white/80 backdrop-blur-md border-2 border-gray-200 rounded-xl outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/20 transition-all duration-300 hover:bg-white/90 focus:bg-white/90 transform-gpu hover:scale-110 focus:scale-110"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: i * 0.1, type: 'spring', stiffness: 300 }}
-        whileFocus={{ scale: 1.1, boxShadow: '0 0 20px rgba(99, 102, 241, 0.3)' }}
+        className="w-16 h-16 text-2xl font-bold text-center transition transform border-2 bg-white/10 border-white/20 rounded-2xl backdrop-blur-xl focus:border-primary-400 focus:ring-4 focus:ring-primary-400/30 hover:scale-110 focus:scale-110 placeholder-white/50"
+        initial={{ opacity:0, scale:0.8, rotateY:-90 }}
+        animate={{ opacity:1, scale:1, rotateY:0 }}
+        transition={{ delay:i*0.1, type:'spring', stiffness:300, damping:20 }}
+        whileFocus={{ boxShadow:'0 0 30px rgba(99,102,241,0.5)', scale:1.15, rotateY:10 }}
       />
     ));
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        {/* Gradient Mesh */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/20 via-secondary-500/20 to-accent-500/20" />
-        
-        {/* Floating Particles */}
-        <div className="absolute inset-0">
-          {Array.from({ length: 50 }).map((_, i) => (
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background (non-interactive) */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <div className="absolute inset-0 pointer-events-none animate-gradient-xy bg-gradient-to-tl from-primary-500/30 via-secondary-500/20 to-accent-500/30" />
+        </div>
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(99,102,241,0.3) 1px,transparent 1px),
+              linear-gradient(90deg,rgba(99,102,241,0.3) 1px,transparent 1px),
+              linear-gradient(rgba(168,85,247,0.2) 1px,transparent 1px),
+              linear-gradient(90deg,rgba(168,85,247,0.2) 1px,transparent 1px)
+            `,
+            backgroundSize: '100px 100px,100px 100px,20px 20px,20px 20px',
+            animation: 'float 20s ease-in-out infinite',
+          }}
+        />
+        <div className="absolute inset-0 pointer-events-none">
+          {Array.from({ length: 80 }).map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-1 h-1 bg-white/30 rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
+              className="absolute w-2 h-2 rounded-full pointer-events-none bg-gradient-to-r from-primary-400 to-secondary-400"
+              style={{ top:`${Math.random()*100}%`, left:`${Math.random()*100}%` }}
               animate={{
-                y: [0, -30, 0],
-                opacity: [0.3, 1, 0.3],
-                scale: [1, 1.5, 1],
+                x:[0, Math.random()*30-15, 0],
+                y:[0, -50, 0],
+                opacity:[0.2,1,0.2],
+                scale:[1,1.5,1],
+                rotateZ:[0,360],
               }}
-              transition={{
-                duration: 3 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
+              transition={{ duration:5+Math.random()*5, repeat:Infinity, ease:'easeInOut', delay:Math.random()*5 }}
             />
           ))}
         </div>
-
-        {/* Grid Pattern */}
-        <div 
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-          }}
-        />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[Atom, Cpu, Globe, Star].map((Icon, i) => (
+            <motion.div
+              key={i}
+              className="absolute pointer-events-none text-white/10"
+              style={{ left:`${20+i*20}%`, top:`${10+i*15}%`, fontSize:'6rem' }}
+              animate={{ rotateY:[0,360], rotateX:[0,180,0], scale:[1,1.2,1] }}
+              transition={{ duration:15+i*5, repeat:Infinity, ease:'linear' }}
+            >
+              <Icon size={96} />
+            </motion.div>
+          ))}
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
-        <motion.div 
-          className="w-full max-w-md"
-          initial={{ opacity: 0, y: 50, rotateX: 10 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0 }}
-          transition={{ 
-            duration: 0.8, 
-            type: 'spring',
-            stiffness: 100,
-            damping: 20 
-          }}
-          style={{ 
-            perspective: '1000px',
-            transformStyle: 'preserve-3d' 
-          }}
+      {/* Interactive content */}
+      <div className="relative z-20 flex items-center justify-center min-h-screen p-4 pointer-events-auto">
+        <motion.div
+          className="w-full max-w-xl"
+          initial={{ opacity:0, y:100, rotateX:45, scale:0.8 }}
+          animate={{ opacity:1, y:0, rotateX:0, scale:1 }}
+          transition={{ duration:1.2, type:'spring', stiffness:100, damping:20 }}
+          style={{ perspective:'2000px', transformStyle:'preserve-3d' }}
         >
-          {/* Floating Form Container */}
-          <motion.div 
-            className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl"
-            whileHover={{ 
-              scale: 1.02,
-              rotateY: 2,
-              boxShadow: '0 25px 50px rgba(0,0,0,0.2)' 
-            }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
-              transformStyle: 'preserve-3d'
-            }}
+          <motion.div
+            className="relative p-10 border shadow-2xl bg-white/10 backdrop-blur-2xl border-white/20 rounded-3xl"
+            whileHover={{ scale:1.02, rotateY:5, rotateX:2, boxShadow:'0 50px 100px rgba(0,0,0,0.3)' }}
+            transition={{ type:'spring', stiffness:300, damping:30 }}
           >
-            {/* Glow Effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-3xl opacity-20 blur-xl" />
-            
+            {/* Glow */}
+            <div className="absolute pointer-events-none -inset-1 bg-gradient-to-r from-primary-500 via-secondary-500 to-accent-500 opacity-30 blur-xl animate-pulse rounded-3xl" />
+
             {/* Header */}
-            <motion.div 
-              className="mb-8 text-center"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Link to="/" className="inline-flex items-center mb-6 group">
-                <motion.div
-                  className="flex items-center space-x-2"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <motion.div
-                    className="p-2 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl"
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </motion.div>
-                  <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400">
-                    MedicoX
-                  </span>
-                </motion.div>
-              </Link>
-              
-              <motion.h1 
-                className="text-4xl font-bold text-white mb-2"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3, type: 'spring' }}
+            <div className="mb-8 text-center pointer-events-auto">
+              <motion.h1
+                className="mb-2 text-5xl font-bold text-white"
+                initial={{ opacity:0, scale:0.5, rotateX:-90 }}
+                animate={{ opacity:1, scale:1, rotateX:0 }}
+                transition={{ delay:0.3, type:'spring', stiffness:200 }}
+                style={{
+                  textShadow:'0 0 30px rgba(255,255,255,0.5)',
+                  background:'linear-gradient(135deg,#fff 0%,#e0e7ff 50%,#c7d2fe 100%)',
+                  WebkitBackgroundClip:'text',
+                  WebkitTextFillColor:'transparent'
+                }}
               >
                 Join the Future
               </motion.h1>
-              
-              <motion.p 
-                className="text-white/70"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                Create your account to experience next-gen healthcare
+              <motion.p className="text-lg text-white/80" initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.5 }}>
+                Experience next-generation healthcare
               </motion.p>
-            </motion.div>
+            </div>
 
-            {/* Success Banner */}
+            {/* Success */}
             <AnimatePresence>
-              {otpSentSuccess && step === 'otpInput' && (
+              {otpSentSuccess && step==='otpInput' && (
                 <motion.div
-                  initial={{ opacity: 0, y: -20, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                  className="p-4 mb-6 text-center text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl backdrop-blur-md"
+                  className="p-4 mb-6 border pointer-events-auto bg-emerald-500/20 border-emerald-500/30 text-emerald-300 rounded-2xl backdrop-blur-md"
+                  initial={{ opacity:0, y:-20 }}
+                  animate={{ opacity:1, y:0 }}
+                  exit={{ opacity:0, y:-20 }}
+                  style={{ boxShadow:'0 0 30px rgba(16,185,129,0.3)' }}
                 >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.2, type: 'spring' }}
-                  >
-                    ✨ OTP sent successfully! Check your email
-                  </motion.div>
+                  <div className="flex items-center justify-center space-x-2">
+                    <Sparkles size={20}/>
+                    <span>OTP sent successfully! Check your email</span>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Error Banner */}
+            {/* Error */}
             <AnimatePresence>
               {error && (
                 <motion.div
-                  initial={{ opacity: 0, y: -20, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                  className="p-4 mb-6 text-center text-red-300 bg-red-500/20 border border-red-500/30 rounded-2xl backdrop-blur-md"
+                  className="p-4 mb-6 text-red-300 border pointer-events-auto bg-red-500/20 border-red-500/30 rounded-2xl backdrop-blur-md"
+                  initial={{ opacity:0, y:-20 }}
+                  animate={{ opacity:1, y:0 }}
+                  exit={{ opacity:0, y:-20 }}
+                  style={{ boxShadow:'0 0 30px rgba(239,68,68,0.3)' }}
                 >
-                  <motion.div
-                    animate={{ x: [-10, 10, -10, 0] }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    {error}
-                  </motion.div>
+                  <div className="flex items-center justify-center space-x-2">
+                    <Shield size={20}/>
+                    <span>{error}</span>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Multi-Step Form */}
-            <AnimatePresence mode="wait">
+            {/* Multi-step */}
+            <AnimatePresence exitBeforeEnter>
               {/* Choose Method */}
-              {step === 'chooseMethod' && (
+              {step==='chooseMethod' && (
                 <motion.div
                   key="chooseMethod"
-                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="space-y-6"
+                  className="space-y-6 pointer-events-auto"
+                  initial={{ opacity:0, x:-100 }}
+                  animate={{ opacity:1, x:0 }}
+                  exit={{ opacity:0, x:100 }}
+                  transition={{ type:'spring', stiffness:200, damping:25 }}
                 >
-                  {/* Google Button Container */}
-                  <motion.div 
-                    ref={googleBtnRef}
-                    className="flex justify-center"
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: 'spring', stiffness: 400 }}
-                  />
-                  
+                  <div ref={googleBtnRef} className="flex justify-center" />
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/20" />
+                      <div className="w-full border-t border-white/30" />
                     </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-4 text-white/70 bg-slate-900/50 backdrop-blur-sm rounded-full">
-                        OR
-                      </span>
+                    <div className="relative flex justify-center">
+                      <span className="px-4 border rounded-full bg-slate-900/70 text-white/80 border-white/20 backdrop-blur-sm">OR</span>
                     </div>
                   </div>
-                  
-                  <Button 
-                    fullWidth 
-                    onClick={() => { setError(null); setStep('emailInput'); }}
-                    className="relative overflow-hidden group"
-                  >
-                    <span className="relative z-10 flex items-center justify-center space-x-2">
-                      <Mail className="w-5 h-5" />
+                  <Button fullWidth onClick={() => { setError(null); setStep('emailInput'); }}>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Mail size={20}/>
                       <span>Continue with Email</span>
-                    </span>
+                      <ChevronsRight size={20}/>
+                    </div>
                   </Button>
                 </motion.div>
               )}
 
               {/* Email Input */}
-              {step === 'emailInput' && (
+              {step==='emailInput' && (
                 <motion.div
                   key="emailInput"
-                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="space-y-6"
+                  className="space-y-6 pointer-events-auto"
+                  initial={{ opacity:0, x:-100 }}
+                  animate={{ opacity:1, x:0 }}
+                  exit={{ opacity:0, x:100 }}
+                  transition={{ type:'spring', stiffness:200, damping:25 }}
                 >
                   <Input
                     type="email"
                     label="Email Address"
                     placeholder="you@example.com"
-                    icon={<Mail size={20} className="text-primary-500" />}
+                    icon={<Mail size={20} className="text-primary-400"/>}
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e=>setEmail(e.target.value)}
                     fullWidth
                   />
-                  
                   <Button fullWidth onClick={handleSendOtp} isLoading={sendingOtp}>
-                    <span className="flex items-center justify-center space-x-2">
-                      <Zap className="w-5 h-5" />
-                      <span>{sendingOtp ? 'Sending Magic Link...' : 'Send Verification Code'}</span>
-                    </span>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Zap size={20}/>
+                      <span>{sendingOtp ? 'Sending…' : 'Send Verification Code'}</span>
+                    </div>
                   </Button>
-                  
-                  <motion.button
-                    onClick={() => setStep('chooseMethod')}
-                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
+                  <button onClick={()=>setStep('chooseMethod')} className="underline text-white/70">
                     ← Back to options
-                  </motion.button>
+                  </button>
                 </motion.div>
               )}
 
               {/* OTP Input */}
-              {step === 'otpInput' && (
+              {step==='otpInput' && (
                 <motion.div
                   key="otpInput"
-                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="space-y-8"
+                  className="space-y-6 pointer-events-auto"
+                  initial={{ opacity:0, x:-100 }}
+                  animate={{ opacity:1, x:0 }}
+                  exit={{ opacity:0, x:100 }}
+                  transition={{ type:'spring', stiffness:200, damping:25 }}
                 >
-                  <div className="text-center">
-                    <motion.div
-                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl"
-                      animate={{ rotateY: [0, 180, 360] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      <Shield className="w-8 h-8 text-white" />
-                    </motion.div>
-                    <h3 className="text-xl font-semibold text-white mb-2">Verify Your Email</h3>
-                    <p className="text-white/70 text-sm">
-                      Enter the 6-digit code sent to {email}
-                    </p>
-                  </div>
-                  
-                  <div className="flex justify-center space-x-3">
+                  <div className="flex justify-center space-x-2">
                     {renderOtpInputs()}
                   </div>
-                  
                   <Button fullWidth onClick={handleVerifyOtp} isLoading={verifyingOtp}>
-                    <span className="flex items-center justify-center space-x-2">
-                      <Shield className="w-5 h-5" />
-                      <span>{verifyingOtp ? 'Verifying...' : 'Verify Code'}</span>
-                    </span>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Shield size={20}/>
+                      <span>{verifyingOtp ? 'Verifying…' : 'Verify Code'}</span>
+                    </div>
                   </Button>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <motion.button
-                      onClick={handleBack}
-                      className="text-white/70 hover:text-white transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      ← Back
-                    </motion.button>
-                    
-                    {canResendOtp ? (
-                      <motion.button
-                        onClick={handleSendOtp}
-                        className="text-primary-400 hover:text-primary-300 transition-colors"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Resend Code
-                      </motion.button>
-                    ) : (
-                      <span className="text-white/50">Resend in {timer}s</span>
-                    )}
+                  <div className="flex items-center justify-between text-white/70">
+                    <button onClick={handleBack}>← Back</button>
+                    {canResendOtp
+                      ? <button onClick={handleSendOtp} className="text-primary-400">Resend Code</button>
+                      : <span>Resend in {timer}s</span>}
                   </div>
                 </motion.div>
               )}
 
-              {/* Account Details */}
-              {step === 'details' && (
+              {/* Details */}
+              {step==='details' && (
                 <motion.div
                   key="details"
-                  initial={{ opacity: 0, x: -100, rotateY: -10 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="space-y-6"
+                  className="space-y-6 pointer-events-auto"
+                  initial={{ opacity:0, x:-100 }}
+                  animate={{ opacity:1, x:0 }}
+                  exit={{ opacity:0, x:100 }}
+                  transition={{ type:'spring', stiffness:200, damping:25 }}
                 >
-                  <div className="text-center mb-6">
-                    <motion.div
-                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl"
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Users className="w-8 h-8 text-white" />
-                    </motion.div>
-                    <h3 className="text-xl font-semibold text-white">Complete Your Profile</h3>
-                  </div>
-
                   <Input
                     type="text"
                     label="Full Name"
                     placeholder="John Doe"
-                    icon={<UserIcon size={20} className="text-primary-500" />}
+                    icon={<Users size={20} className="text-primary-400"/>}
                     value={name}
-                    onChange={e => setName(e.target.value)}
+                    onChange={e=>setName(e.target.value)}
                     fullWidth
                   />
-
                   <div className="relative">
                     <Input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword?'text':'password'}
                       label="Password"
                       placeholder="••••••••"
-                      icon={<Lock size={20} className="text-primary-500" />}
+                      icon={<Lock size={20} className="text-primary-400"/>}
                       value={password}
-                      onChange={e => setPassword(e.target.value)}
+                      onChange={e=>setPassword(e.target.value)}
                       fullWidth
                     />
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </motion.button>
+                    <button type="button" onClick={()=>setShowPassword(v=>!v)} className="absolute -translate-y-1/2 right-4 top-1/2 text-white/70">
+                      {showPassword?<EyeOff size={20}/>:<Eye size={20}/>}
+                    </button>
                   </div>
-
                   <div className="relative">
                     <Input
-                      type={showConfirmPassword ? 'text' : 'password'}
+                      type={showConfirmPassword?'text':'password'}
                       label="Confirm Password"
                       placeholder="••••••••"
-                      icon={<Lock size={20} className="text-primary-500" />}
+                      icon={<Lock size={20} className="text-primary-400"/>}
                       value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
+                      onChange={e=>setConfirmPassword(e.target.value)}
                       fullWidth
                     />
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(v => !v)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </motion.button>
+                    <button type="button" onClick={()=>setShowConfirmPassword(v=>!v)} className="absolute -translate-y-1/2 right-4 top-1/2 text-white/70">
+                      {showConfirmPassword?<EyeOff size={20}/>:<Eye size={20}/>}
+                    </button>
                   </div>
-
                   <div>
-                    <label className="block mb-4 text-sm font-medium text-white">I am a:</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      {(['patient', 'doctor'] as Role[]).map(r => (
-                        <motion.button
+                    <label className="block mb-2 text-white">I am a:</label>
+                    <div className="flex space-x-4">
+                      {(['patient','doctor'] as Role[]).map(r=>(
+                        <button
                           key={r}
                           type="button"
-                          onClick={() => setRole(r)}
-                          disabled={creating}
-                          className={`
-                            relative py-4 px-6 rounded-xl border-2 transition-all duration-300
-                            transform-gpu hover:scale-105 hover:-translate-y-1
-                            ${role === r
-                              ? 'bg-primary-500/20 border-primary-500 text-primary-300 shadow-lg shadow-primary-500/25'
-                              : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10 hover:border-white/30'
-                            }
-                          `}
-                          whileHover={{ scale: 1.05, y: -2 }}
-                          whileTap={{ scale: 0.95 }}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: r === 'patient' ? 0.1 : 0.2 }}
+                          onClick={()=>setRole(r)}
+                          className={`px-4 py-2 rounded-lg border ${role===r?'border-primary-400 bg-primary-500/20':'border-white/30'} text-white`}
                         >
-                          <span className="font-semibold">
-                            {r.charAt(0).toUpperCase() + r.slice(1)}
-                          </span>
-                          {role === r && (
-                            <motion.div
-                              className="absolute inset-0 bg-gradient-to-r from-primary-500/10 to-secondary-500/10 rounded-xl"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                            />
-                          )}
-                        </motion.button>
+                          {r.charAt(0).toUpperCase()+r.slice(1)}
+                        </button>
                       ))}
                     </div>
                   </div>
-
-                  <motion.button
-                    onClick={handleBack}
-                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    ← Back
-                  </motion.button>
-
-                  <Button fullWidth onClick={handleCreateAccount} isLoading={creating}>
-                    <span className="flex items-center justify-center space-x-2">
-                      <Sparkles className="w-5 h-5" />
-                      <span>{creating ? 'Creating Your Account...' : 'Create Account'}</span>
-                    </span>
-                  </Button>
+                  <div className="flex justify-between">
+                    <button onClick={handleBack} className="text-white/70">← Back</button>
+                    <Button onClick={handleCreateAccount} isLoading={creating}>
+                      Create Account
+                    </Button>
+                  </div>
                 </motion.div>
               )}
 
               {/* Google Processing */}
-              {step === 'googleProcessing' && (
-                <motion.div 
-                  key="googleProcessing" 
-                  initial={{ opacity: 0, scale: 0.8 }} 
-                  animate={{ opacity: 1, scale: 1 }} 
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="py-12 text-center"
+              {step==='googleProcessing' && (
+                <motion.div key="googleProcessing" className="py-16 text-center pointer-events-auto"
+                  initial={{ opacity:0, scale:0.5 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:0.5 }}
                 >
-                  <motion.div
-                    className="flex items-center justify-center w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl"
-                    animate={{ rotateY: [0, 180, 360] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </motion.div>
-                  <h3 className="text-xl font-semibold text-white mb-2">Processing Google Signup</h3>
-                  <p className="text-white/70">Please wait while we set up your account...</p>
+                  <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 animate-spin-slow">
+                    <Sparkles size={24} className="text-white"/>
+                  </div>
+                  <p className="text-white">Processing Google signup…</p>
                 </motion.div>
               )}
 
               {/* Google Role Selection */}
-              {step === 'googleRoleSelection' && (
-                <motion.div 
-                  key="googleRoleSelection" 
-                  initial={{ opacity: 0, x: -100, rotateY: -10 }} 
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }} 
-                  exit={{ opacity: 0, x: 100, rotateY: 10 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="space-y-6"
+              {step==='googleRoleSelection' && (
+                <motion.div key="googleRoleSelection" className="space-y-6 pointer-events-auto"
+                  initial={{ opacity:0, x:-100 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:100 }} transition={{ type:'spring', stiffness:200, damping:25 }}
                 >
-                  <div className="text-center">
-                    <motion.div
-                      className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl"
-                      animate={{ rotateX: [0, 180, 360] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      <Users className="w-8 h-8 text-white" />
-                    </motion.div>
-                    <h3 className="text-xl font-semibold text-white mb-2">Choose Your Role</h3>
-                    <p className="text-white/70">How would you like to use MedicoX?</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {(['patient', 'doctor'] as Role[]).map(r => (
-                      <motion.label 
-                        key={r} 
-                        className={`
-                          flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-300
-                          transform-gpu hover:scale-105
-                          ${role === r
-                            ? 'bg-primary-500/20 border-primary-500 shadow-lg shadow-primary-500/25'
-                            : 'bg-white/5 border-white/20 hover:bg-white/10'
-                          }
-                        `}
-                        whileHover={{ scale: 1.02, x: 5 }}
-                        whileTap={{ scale: 0.98 }}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: r === 'patient' ? 0.1 : 0.2 }}
+                  <p className="mb-4 text-center text-white">Choose your role</p>
+                  <div className="flex space-x-4">
+                    {(['patient','doctor'] as Role[]).map(r=>(
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={()=>setRole(r)}
+                        className={`px-4 py-2 rounded-lg border ${role===r?'border-primary-400 bg-primary-500/20':'border-white/30'} text-white`}
                       >
-                        <input 
-                          type="radio" 
-                          name="role" 
-                          value={r} 
-                          checked={role === r} 
-                          onChange={() => setRole(r)}
-                          className="mr-4 w-5 h-5 text-primary-500 border-white/30 focus:ring-primary-500 focus:ring-2"
-                        />
-                        <div className="flex-1">
-                          <div className="font-semibold text-white">
-                            {r.charAt(0).toUpperCase() + r.slice(1)}
-                          </div>
-                          <div className="text-sm text-white/70">
-                            {r === 'patient' ? 'Book appointments and manage health' : 'Provide consultations and manage patients'}
-                          </div>
-                        </div>
-                      </motion.label>
+                        {r.charAt(0).toUpperCase()+r.slice(1)}
+                      </button>
                     ))}
                   </div>
-
-                  <Button fullWidth onClick={handleGoogleRoleSubmit} isLoading={creating}>
-                    <span className="flex items-center justify-center space-x-2">
-                      <ChevronsRight className="w-5 h-5" />
-                      <span>{creating ? 'Setting Up...' : 'Continue'}</span>
-                    </span>
-                  </Button>
-
-                  <motion.button
-                    onClick={() => setStep('chooseMethod')}
-                    className="w-full text-sm text-white/70 hover:text-white transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Cancel
-                  </motion.button>
+                  <div className="flex justify-between">
+                    <button onClick={()=>setStep('chooseMethod')} className="text-white/70">Cancel</button>
+                    <Button onClick={handleGoogleRoleSubmit} isLoading={creating}>
+                      Continue
+                    </Button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Footer */}
-            <motion.div 
-              className="mt-8 text-center text-sm text-white/70"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
+            <div className="mt-8 text-center pointer-events-auto">
               Already have an account?{' '}
-              <Link 
-                to="/login" 
-                className="text-primary-400 hover:text-primary-300 transition-colors font-semibold hover:underline"
-              >
+              <Link to="/login" className="text-primary-400 hover:underline">
                 Sign in
               </Link>
-            </motion.div>
+            </div>
           </motion.div>
         </motion.div>
       </div>

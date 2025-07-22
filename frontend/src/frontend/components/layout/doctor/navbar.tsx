@@ -52,7 +52,7 @@ export const DoctorNavbar = () => {
       {/* Navbar */}
       <nav
         className={`fixed w-full z-50 transition-all ${
-          isScrolled ? 'bg-white shadow py-2' : 'bg-transparent py-4'
+          isScrolled ? 'bg-transparent shadow py-2' : 'bg-transparent py-4'
         }`}
       >
         <div className="flex items-center justify-between px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -132,90 +132,13 @@ export const DoctorNavbar = () => {
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isMobileOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white shadow-lg md:hidden"
-            >
-              <div className="px-4 pt-2 pb-3 space-y-1">
-                <MobileNavLink to="/doctor/dashboard">Home</MobileNavLink>
-                <MobileNavLink to="/doctor/appointments">Appointments</MobileNavLink>
-                <MobileNavLink to="/doctor/patients">Patients</MobileNavLink>
-                <MobileNavLink to="/doctor/earnings">Earnings</MobileNavLink>
-                <MobileNavLink to="/doctor/reports">Reports</MobileNavLink>
-
-                {isAuthenticated ? (
-                  <button
-                    onClick={handleLogoutClick}
-                    className="flex items-center w-full px-3 py-2 text-gray-700 rounded-md hover:text-secondary-500 hover:bg-gray-50"
-                  >
-                    <LogOut size={18} className="mr-2" /> Logout
-                  </button>
-                ) : (
-                  <div className="pt-2 space-y-2">
-                    <Button asChild fullWidth variant="outline">
-                      <Link to="/login">Login</Link>
-                    </Button>
-                    <Button asChild fullWidth variant="primary">
-                      <Link to="/signup">Sign Up</Link>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+       
+       
       </nav>
 
-      {/* Logout Confirmation Modal */}
-      <AnimatePresence>
-        {isLogoutModalOpen && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="w-full max-w-sm p-6 bg-white shadow-xl rounded-2xl"
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-            >
-              <h2 className="mb-4 text-lg font-semibold">Confirm Logout</h2>
-              <p className="mb-6">Are you sure you want to logout?</p>
-              <div className="flex justify-end space-x-4">
-                <Button variant="outline" onClick={() => setIsLogoutModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={confirmLogout}>
-                  Logout
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+     
     </>
   );
 };
 
-const MobileNavLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
-  const location = useLocation();
-  const active = location.pathname === to;
-  return (
-    <Link
-      to={to}
-      className={`block px-3 py-2 rounded-md text-base font-medium ${
-        active ? 'text-secondary-500 bg-gray-50' : 'text-gray-700 hover:text-secondary-500 hover:bg-gray-50'
-      }`}
-    >
-      {children}
-    </Link>
-  );
-};
+
