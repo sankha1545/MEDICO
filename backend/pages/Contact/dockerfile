@@ -1,0 +1,36 @@
+# ────────────────
+# 1) Build stage
+# ────────────────
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package manifests
+COPY package.json package-lock.json ./
+
+# Install all dependencies (including dev)
+RUN npm ci
+
+# Copy the rest of the application
+COPY . .
+
+# ────────────────
+# 2) Runner stage
+# ────────────────
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy production dependencies only
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy source files
+COPY --from=builder /app ./
+
+# Expose the port your app listens on
+EXPOSE 5000
+
+# Start the app
+CMD ["node", "server.js"]

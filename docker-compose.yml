@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  auth:
+    build:
+      context: ./backend/auth
+      dockerfile: Dockerfile
+    container_name: medico-auth
+    ports:
+      - "7000:4000"
+    env_file:
+      - ./backend/auth/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  chatbot:
+    build:
+      context: ./backend/components/chatbot
+      dockerfile: Dockerfile
+    container_name: medico-chatbot
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/components/chatbot/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  contact:
+    build:
+      context: ./backend/pages/contact
+      dockerfile: Dockerfile
+    container_name: medico-contact
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/pages/contact/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:7000/api
+        VITE_GOOGLE_CLIENT_ID: your-google-client-id
+    container_name: medico-frontend-v2
+    ports:
+      - "80:80"
+    depends_on:
+      - auth
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: medico-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    depends_on:
+      - auth
+      - chatbot
+      - contact
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: medico-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+volumes:
+  grafana-storage:
+
+networks:
+  medico-network:
+    driver: bridge

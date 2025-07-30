@@ -1,17 +1,35 @@
-// File: backend/src/utils/razorpayClient.ts
-
+// utils/razorpayClient.ts
 import Razorpay from 'razorpay';
 
-const key_id = process.env.RAZORPAY_KEY_ID;
-const key_secret = process.env.RAZORPAY_KEY_SECRET;
-if (!key_id || !key_secret) {
-  console.error('❌ Razorpay keys missing in environment');
-  process.exit(1);
+interface RazorpayContactCreateParams {
+  name: string;
+  email?: string;
+  contact: string;
+  type: 'vendor' | 'customer' | 'employee' | string;
 }
 
-export const razorpayInstance = new Razorpay({
-  key_id,
-  key_secret,
-});
+interface RazorpayFundAccountCreateParams {
+  contact_id: string;
+  account_type: 'bank_account';
+  bank_account: {
+    name: string;
+    ifsc: string;
+    account_number: string;
+  };
+}
+
+interface ExtendedRazorpay extends Razorpay {
+  contacts: {
+    create(data: RazorpayContactCreateParams): Promise<any>;
+  };
+  fundAccounts: {
+    create(data: RazorpayFundAccountCreateParams): Promise<any>;
+  };
+}
+
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+}) as ExtendedRazorpay;
 
 export default razorpayInstance;

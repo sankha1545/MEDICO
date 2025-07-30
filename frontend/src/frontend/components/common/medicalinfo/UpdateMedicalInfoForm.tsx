@@ -132,7 +132,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
               <select
                 value={formState.bloodType}
                 onChange={handleChange('bloodType')}
-                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
+                className="w-full px-3 py-2 mt-1 text-sm text-black border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
                 required
               >
                 <option value="" disabled>
@@ -157,7 +157,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 value={formState.allergies}
                 onChange={handleChange('allergies')}
                 placeholder="e.g. Peanuts"
-                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
+                className="w-full px-3 py-2 mt-1 text-sm text-black border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
                 required
               />
             </motion.div>
@@ -173,7 +173,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 value={formState.currentMedications}
                 onChange={handleChange('currentMedications')}
                 placeholder="e.g. Metformin"
-                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
+                className="w-full px-3 py-2 mt-1 text-sm text-black border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
               />
             </motion.div>
 
@@ -188,7 +188,7 @@ const UpdateMedicalInfoForm: React.FC<UpdateMedicalInfoFormProps> = ({
                 value={formState.medicalConditions}
                 onChange={handleChange('medicalConditions')}
                 placeholder="e.g. Hypertension"
-                className="w-full px-3 py-2 mt-1 text-sm border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
+                className="w-full px-3 py-2 mt-1 text-sm text-black border rounded-lg sm:py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:text-base"
               />
             </motion.div>
 

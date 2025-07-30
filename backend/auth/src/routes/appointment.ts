@@ -183,10 +183,12 @@ router.post(
       }
 
       // Find the matching slot definition
-      const slotDef = doc.availabilitySlots.find(
-        (s) => new Date(s.datetime).getTime() === appt.datetime.getTime()
-      );
-      const capacity = slotDef?.quantity ?? doc.maxPatients;
+     const slotDef = doc.availabilitySlots.find(
+  (s) => new Date(s.datetime as Date).getTime() === appt.datetime.getTime()
+);
+
+  const capacity: number = slotDef?.quantity ?? (doc.maxPatients as number);
+
 
       // Count current bookings
       const existing = await Appointment.countDocuments({
@@ -289,6 +291,7 @@ router.get('/doctor', authenticateJWT, async (req: Request, res: Response) => {
       patientName: (a.patient as any).name,
       date: a.datetime.toISOString(),
       status: a.status === 'scheduled' ? 'upcoming' : a.status,
+      amount: a.amount,              // ← include the stored snapshot amount here
     }));
     return res.json(result);
   } catch (err) {
@@ -565,15 +568,25 @@ router.post(
       }
 
       const pdfBuffer = await generatePrescriptionPdf({
-        clinicName: 'MedicoX Clinic',
-        clinicLogoPath: path.join(__dirname, '../../public/assets/medicox-logo.png'),
-        doctorName: user.name,
-        doctorSpecialty: user.specialty || '',
-        patientName: (appt.patient as any).name,
-        appointmentDate: appt.datetime.toISOString().split('T')[0],
-        issueDate: new Date(),
-        prescriptionItems,
-      });
+  clinicName: 'MedicoX Clinic',
+  clinicLogoPath: path.join(__dirname, '../../public/assets/medicox-logo.png'),
+  clinicAddress: '123 Main Street, Kolkata, WB, 700001',
+  clinicEmail: 'contact@medicox.com',
+  clinicPhone: '+91-9876543210',
+
+  doctorName: user.name,
+  doctorSpecialty: user.specialty || '',
+
+  patientName: (appt.patient as any).name,
+  patientEmail: (appt.patient as any).email || 'unknown@example.com',
+  patientPhone: (appt.patient as any).phone || 'N/A',
+
+  appointmentDate: appt.datetime.toISOString().split('T')[0],
+  issueDate: new Date(),
+
+  prescriptionItems, // assuming it's already of correct structure
+});
+
       if (!Buffer.isBuffer(pdfBuffer)) {
         throw new Error('Failed to generate valid PDF buffer');
       }

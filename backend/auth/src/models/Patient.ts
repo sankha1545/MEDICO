@@ -7,7 +7,8 @@ export interface IPatient extends Document {
   name: string;
   email: string;
   passwordHash?: string;
-  password?: string; // virtual plain password
+  password?: string; 
+   _password?: string;// virtual plain password
   googleId?: string;
   role: 'patient';
   provider: 'local' | 'google';
@@ -90,6 +91,7 @@ PatientSchema.virtual('password')
   .get(function (this: IPatient) {
     return this._password;
   });
+
 
 // 🔒 Pre-save hash logic — only hash `password` (not passwordHash)
 PatientSchema.pre<IPatient>('save', async function (next) {

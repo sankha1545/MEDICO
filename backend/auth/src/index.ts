@@ -11,6 +11,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import crypto from 'crypto';
 
+// Prometheus client
+import client from 'prom-client';
+
 // Routes
 import authRoutes from './routes/auth';
 import medicalRoutes from './routes/medical';
@@ -18,12 +21,42 @@ import appointmentRoutes from './routes/appointment';
 import paymentsRoutes from './routes/payment';
 import notificationsRoutes from './routes/notifications';
 import webhookHandler from './routes/Webhook';
-import payoutRouter from './routes/payout';
-import { startNotificationScheduler } from './utils/notificationsScheduler';
+import doctorRoutes from './routes/Doctor';
 import medicalinfoRouter from './routes/medicalinfo';
+import { startNotificationScheduler } from './utils/notificationsScheduler';
 
 dotenv.config();
 const app = express();
+
+// ─────────── Prometheus Metrics Setup ───────────
+// 1) Collect default system metrics (CPU, memory, event-loop lag, GC, etc.)
+client.collectDefaultMetrics();
+
+// 2) HTTP request duration histogram (in seconds)
+const httpDurationHistogram = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+});
+
+// 3) Login attempts counter
+const loginCounter = new client.Counter({
+  name: 'auth_login_attempts_total',
+  help: 'Total number of login attempts',
+  labelNames: ['result'], // 'success' or 'failure'
+});
+
+// 4) Middleware to measure every request duration
+app.use((req, res, next) => {
+  const endTimer = httpDurationHistogram.startTimer();
+  res.on('finish', () => {
+    const route = req.route?.path || req.path;
+    endTimer({ method: req.method, route, status_code: res.statusCode });
+  });
+  next();
+});
+// ────────────────────────────────────────────────
 
 // --- 1. Generate nonce for CSP per request ---
 app.use((req, res, next) => {
@@ -40,7 +73,7 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          (req, res) => `'nonce-${res.locals.nonce}'`,
+          (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`,
           'https://accounts.google.com',
           'https://accounts.gstatic.com',
           'https://apis.google.com',
@@ -95,6 +128,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use('/api/medicalinfo', medicalinfoRouter);
+
 // --- 8. Static file serving for uploads ---
 app.use(
   '/uploads',
@@ -130,8 +164,8 @@ app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
-
-app.use('/api/payout', payoutRouter);
+app.use('/api/doctor', doctorRoutes);
+app.use('/api/medical/doctor', doctorRoutes);
 
 // 11. Health check
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -155,6 +189,13 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const message = err.message || 'Internal Server Error';
   res.status(status).json({ message });
 });
+
+// ─────────── Expose Prometheus Metrics ───────────
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
+// ────────────────────────────────────────────────
 
 // 15. Start server
 const PORT = process.env.PORT || 4000;

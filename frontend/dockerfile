@@ -1,0 +1,42 @@
+# ───────────────────────────────────────────────
+# Stage 1: Build the React app with Vite + TypeScript
+# ───────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+# Create app directory
+WORKDIR /app
+
+# Copy package.json and lock files first
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the full source code
+COPY . .
+
+# Set environment variables for build (Vite uses VITE_*)
+ARG VITE_API_URL
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
+# Build the app for production
+RUN npm run build
+
+# ───────────────────────────────────────────────
+# Stage 2: Serve using Nginx
+# ───────────────────────────────────────────────
+FROM nginx:stable-alpine
+
+# Remove default nginx index.html
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy built files from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80 for the container
+EXPOSE 80
+
+# Start Nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]

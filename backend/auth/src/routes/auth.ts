@@ -3,7 +3,7 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions, Secret } from 'jsonwebtoken';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
@@ -12,17 +12,26 @@ import Patient, { IPatient } from '../models/Patient';
 import Doctor, { IDoctor } from '../models/Doctor';
 import Otp from '../models/Otp';
 import { sendOtpEmail } from '../utils/email';
-
+import { AuthRequest } from '../types/AuthRequest';
+import { Types } from 'mongoose';
 dotenv.config();
 const router: Router = express.Router();
 
 // ─── CONFIG & HELPERS ─────────────────────────────────────────────────────────
 
 const OTP_EXPIRY_MIN = Number(process.env.OTP_EXPIRY_MINUTES || '10');
-const JWT_SECRET = process.env.JWT_SECRET || 'yoursecret';
+const JWT_SECRET = process.env.JWT_SECRET!;
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+interface GoogleSignupPayload extends jwt.JwtPayload {
+  source: 'google-signup';
+  email: string;
+  fullName: string;
+  googleId: string;
+}
 
 interface JwtPayload {
   id: string;
@@ -31,8 +40,17 @@ interface JwtPayload {
   exp: number;
 }
 
-function signJwt(payload: object, expiresIn: string = '1d'): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+
+if (!JWT_SECRET) {
+  throw new Error('Missing JWT_SECRET in environment');
+}
+
+export function signJwt(
+  payload: object,
+  expiresIn: SignOptions['expiresIn'] = '1d'
+): string {
+  const options: SignOptions = { expiresIn };
+  return jwt.sign(payload, JWT_SECRET as Secret, options);
 }
 
 const upload = multer({
@@ -41,40 +59,59 @@ const upload = multer({
 });
 
 // JWT authentication middleware
-export const authenticateJWT = (
-  req: Request,
+export const authenticateJWT = async (
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer '))
+
+  if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
 
   const token = authHeader.slice(7);
+
   let payload: JwtPayload;
   try {
     payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
   } catch {
     return res.status(401).json({ message: 'Invalid token' });
   }
-  if (!payload.id || !payload.role)
+
+  const { id, role } = payload as { id?: string; role?: 'doctor' | 'patient' };
+
+  if (!id || !role) {
     return res.status(401).json({ message: 'Invalid token payload' });
+  }
 
-  const Model = payload.role === 'doctor' ? Doctor : Patient;
-  Model.findById(payload.id)
-    .then((user) => {
-      if (!user) return res.status(401).json({ message: 'User not found' });
-      if (!(user as any).isActive)
-        return res.status(403).json({ message: 'Account deactivated' });
+ try {
+  let user: IPatient | IDoctor | null;
 
-      (req as any).user = user;
-      (req as any).role = payload.role;
-      next();
-    })
-    .catch((err) => {
-      console.error('JWT auth error:', err);
-      res.status(500).json({ message: 'Server error' });
-    });
+  if (role === 'doctor') {
+    user = await Doctor.findById(id);
+  } else {
+    user = await Patient.findById(id);
+  }
+
+  if (!user) {
+    return res.status(401).json({ message: 'User not found' });
+  }
+
+ 
+  if (!user.isActive) {
+    return res.status(403).json({ message: 'Account deactivated' });
+  }
+
+  req.user = user;
+  req.role = role;
+
+  next();
+} catch (err) {
+  console.error('JWT auth error:', err);
+  res.status(500).json({ message: 'Server error' });
+}
+
 };
 
 // Generate and send OTP
@@ -88,6 +125,8 @@ async function generateAndSendOtp(
   await new Otp({ email, code, expiresAt, purpose }).save();
   await sendOtpEmail(email, code, purpose);
 }
+
+
 
 // ─── AUTH ROUTES ────────────────────────────────────────────────────────────────
 
@@ -179,6 +218,7 @@ router.post('/signup', async (req, res) => {
 
     res.status(500).json({ message: 'Signup failed.' });
   }
+ 
 });
 
 // 4. Login (email/password) — fixed bcrypt.compare issue
@@ -216,11 +256,13 @@ router.post('/login', async (req, res) => {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Login failed' });
   }
+   
 });
 
 // 5. Get current user
 router.get('/me', authenticateJWT, (req, res) => {
   res.json((req as any).user);
+ 
 });
 
 // 6. Update profile
@@ -419,53 +461,54 @@ router.post('/google/complete-signup', async (req, res) => {
     token?: string;
     role?: 'patient' | 'doctor';
   };
+
   if (!tempToken || !role) {
     return res.status(400).json({ message: 'Missing token or role' });
   }
+
+  let payload: GoogleSignupPayload;
   try {
-    const payload = jwt.verify(tempToken, JWT_SECRET) as JwtPayload;
-    if (
-      payload.source !== 'google-signup' ||
-      !payload.email ||
-      !payload.googleId
-    ) {
-      return res.status(400).json({ message: 'Invalid token' });
+    payload = jwt.verify(tempToken, JWT_SECRET) as GoogleSignupPayload;
+  } catch (err) {
+    console.error('JWT verification failed:', err);
+    return res.status(400).json({ message: 'Invalid or expired token' });
+  }
+
+  const { source, email, fullName, googleId } = payload;
+
+  if (source !== 'google-signup' || !email || !googleId) {
+    return res.status(400).json({ message: 'Malformed token payload' });
+  }
+
+  try {
+    // Check if user already exists
+    const existing = await Patient.findOne({ email }) || await Doctor.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ message: 'An account already exists with this email.' });
     }
-    const { email, fullName, googleId } = payload;
-    const already =
-      (await Patient.findOne({ email })) || (await Doctor.findOne({ email }));
-    if (already) {
-      return res
-        .status(409)
-        .json({ message: 'An account already exists with this email.' });
-    }
+
+    // Create user based on role
+    const newUserData = {
+      name: fullName,
+      email,
+      passwordHash: '', // Since it's Google signup
+      googleId,
+      role,
+      provider: 'google',
+      isVerified: true,
+      isActive: true,
+    };
+
     if (role === 'patient') {
-      await new Patient({
-        name: fullName,
-        email,
-        passwordHash: '',
-        googleId,
-        role,
-        provider: 'google',
-        isVerified: true,
-        isActive: true,
-      }).save();
+      await new Patient(newUserData).save();
     } else {
-      await new Doctor({
-        name: fullName,
-        email,
-        passwordHash: '',
-        googleId,
-        role,
-        provider: 'google',
-        isVerified: true,
-        isActive: true,
-      }).save();
+      await new Doctor(newUserData).save();
     }
-    res.json({ message: 'Account created' });
+
+    return res.status(201).json({ message: 'Account created successfully' });
   } catch (err) {
     console.error('Complete Google signup error:', err);
-    res.status(400).json({ message: 'Invalid or expired token' });
+    return res.status(500).json({ message: 'Server error during signup' });
   }
 });
 
@@ -475,45 +518,52 @@ router.post('/google/login', async (req, res) => {
   if (!idToken) {
     return res.status(400).json({ message: 'ID token required' });
   }
+
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: GOOGLE_CLIENT_ID,
     });
+
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.sub) {
       return res.status(400).json({ message: 'Invalid ID token payload' });
     }
+
     const { email, sub: googleId } = payload;
-    let user = await Patient.findOne({ googleId });
+
+    let user: (IPatient | IDoctor) & { _id: Types.ObjectId };
     let role: 'patient' | 'doctor' = 'patient';
+
+    user = await Patient.findOne({ googleId }) as IPatient & { _id: Types.ObjectId };
     if (!user) {
-      user = await Patient.findOne({ email });
+      user = await Patient.findOne({ email }) as IPatient & { _id: Types.ObjectId };
     }
+
     if (!user) {
-      const doc =
-        (await Doctor.findOne({ googleId })) || (await Doctor.findOne({ email }));
+      const doc = await Doctor.findOne({ googleId }) || await Doctor.findOne({ email });
       if (doc) {
-        user = doc;
+        user = doc as IDoctor & { _id: Types.ObjectId };
         role = 'doctor';
       }
     }
+
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: 'No account found. Please sign up.' });
+      return res.status(404).json({ message: 'No account found. Please sign up.' });
     }
+
     if (!user.isActive || !user.isVerified) {
-      return res
-        .status(403)
-        .json({ message: 'Account inactive or not verified' });
+      return res.status(403).json({ message: 'Account inactive or not verified' });
     }
+
     if (!user.googleId) {
       user.googleId = googleId;
       await user.save();
     }
+
     const appJwt = signJwt({ id: user._id.toString(), role }, '1d');
     res.json({ token: appJwt, role });
+
   } catch (err) {
     console.error('Google login error:', err);
     res.status(400).json({ message: 'Invalid or expired ID token' });

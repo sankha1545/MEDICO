@@ -1,24 +1,25 @@
 // File: backend/src/routes/doctor.ts
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
-import razorpay from '../utils/razorpayClient';
-import Doctor from '../models/Doctor';
+import Doctor, { IDoctor } from '../models/Doctor';
 import { authenticateJWT } from './auth';
+import razorpayInstance from '../utils/razorpayClient';
 
 const router = express.Router();
-const upload = multer();
+const storage = multer.memoryStorage();
+const upload = multer({ storage }); // in‐memory storage so req.file.buffer is available
 
 // Rate limiter for Razorpay onboarding
 const onboardingLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
-  message: 'Too many onboarding attempts, please try later.',
+  message: 'Too many onboarding attempts. Try again later.',
 });
 
 // Middleware: ensure the user is a doctor
-const authorizeDoctor = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const authorizeDoctor = (req: Request, res: Response, next: NextFunction) => {
   if ((req as any).role !== 'doctor') {
     return res.status(403).json({ message: 'Only doctors are allowed' });
   }
@@ -27,13 +28,13 @@ const authorizeDoctor = (req: express.Request, res: express.Response, next: expr
 
 /**
  * GET /api/doctor/profile
- * — Return the authenticated doctor’s profile.
+ * — Return the authenticated doctor’s profile (excluding __v).
  */
 router.get(
   '/profile',
   authenticateJWT,
   authorizeDoctor,
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     try {
       const doctorId = (req as any).user._id;
       const doctor = await Doctor.findById(doctorId)
@@ -42,29 +43,76 @@ router.get(
       if (!doctor) {
         return res.status(404).json({ message: 'Doctor not found' });
       }
-      return res.json(doctor);
+      // Ensure _id is stringified for frontend consumption
+      return res.json({ ...doctor, _id: doctor._id.toString() });
     } catch (err) {
       console.error('Error fetching doctor profile:', err);
       return res.status(500).json({ message: 'Server error' });
     }
   }
 );
+router.get(
+  '/me/profile-image',
+  authenticateJWT,
+  authorizeDoctor,
+  async (req: Request, res: Response) => {
+    try {
+      const doctorId = (req as any).user._id;
+      const doctor = await Doctor.findById(doctorId).select('profileImage');
+
+      if (!doctor) {
+        return res.status(404).json({ error: 'Doctor not found' });
+      }
+
+      if (!doctor.profileImage || !doctor.profileImage.data) {
+        return res.status(404).json({ error: 'Profile image not found' });
+      }
+
+      res.set('Content-Type', doctor.profileImage.contentType || 'image/jpeg');
+      return res.send(doctor.profileImage.data);
+    } catch (err) {
+      console.error('Error fetching own profile image:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+/**
+ * GET /api/doctor/:id/profile-image
+ * — Serve the stored profile image binary for any doctor.
+ */
+router.get('/:id/profile-image', async (req: Request, res: Response) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id).select('profileImage');
+
+    if (!doctor) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
+
+    if (!doctor.profileImage || !doctor.profileImage.data) {
+      return res.status(404).json({ error: 'Profile image not found' });
+    }
+
+    res.set('Content-Type', doctor.profileImage.contentType || 'image/jpeg');
+    return res.send(doctor.profileImage.data);
+  } catch (err) {
+    console.error('Error fetching profile image:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 /**
  * PUT /api/doctor/me
- * — Update specialty, slots, maxPatients, fee, bio, etc.
+ * — Update own profile: specialty, experience, fee, bio, slots, photo, etc.
  */
-
-
 router.put(
   '/me',
   authenticateJWT,
   authorizeDoctor,
-  upload.single('photo'),
-  async (req, res) => {
+upload.single('profileImage'),
+  async (req: Request, res: Response) => {
     try {
       const doctorId = (req as any).user._id;
-
       const {
         specialty,
         experience,
@@ -72,7 +120,7 @@ router.put(
         maxPatients,
         hospitalAffiliation,
         bio,
-        availabilitySlots, // Should be JSON stringified array of ISO strings
+        availabilitySlots // JSON‑stringified array of ISO datetimes
       } = req.body;
 
       const doctor = await Doctor.findById(doctorId);
@@ -80,15 +128,15 @@ router.put(
         return res.status(404).json({ message: 'Doctor not found' });
       }
 
-      // Update profile fields if provided
-      if (specialty !== undefined) doctor.specialty = specialty;
-      if (experience !== undefined) doctor.experience = experience;
-      if (consultationFee !== undefined) doctor.consultationFee = Number(consultationFee);
-      if (maxPatients !== undefined) doctor.maxPatients = Number(maxPatients);
+      // — Update simple fields if provided
+      if (specialty !== undefined)           doctor.specialty           = specialty;
+      if (experience !== undefined)          doctor.experience          = experience;
+      if (consultationFee !== undefined)     doctor.consultationFee     = Number(consultationFee);
+      if (maxPatients !== undefined)         doctor.maxPatients         = Number(maxPatients);
       if (hospitalAffiliation !== undefined) doctor.hospitalAffiliation = hospitalAffiliation;
-      if (bio !== undefined) doctor.bio = bio;
+      if (bio !== undefined)                 doctor.bio                 = bio;
 
-      // Handle profile image upload
+      // — Handle profile image upload
       if (req.file) {
         doctor.profileImage = {
           data: req.file.buffer,
@@ -96,38 +144,44 @@ router.put(
         };
       }
 
-      // Parse and update availabilitySlots if provided
-      if (availabilitySlots) {
-        let parsedSlots: string[] = [];
-
+      // — Parse and update availabilitySlots
+      if (availabilitySlots !== undefined) {
+        let slotsParsed: unknown;
         try {
-          parsedSlots = JSON.parse(availabilitySlots);
-          if (!Array.isArray(parsedSlots)) {
-            return res.status(400).json({ message: 'Invalid availabilitySlots format' });
-          }
-        } catch (parseErr) {
-          return res.status(400).json({ message: 'Error parsing availabilitySlots' });
+          slotsParsed = JSON.parse(availabilitySlots);
+        } catch {
+          return res.status(400).json({ message: 'Invalid JSON for availabilitySlots' });
         }
+        if (!Array.isArray(slotsParsed)) {
+          return res.status(400).json({ message: 'availabilitySlots must be an array' });
+        }
+        // Map ISO strings to your schema shape
+       doctor.availabilitySlots = slotsParsed.map((iso: string) => {
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) throw new Error(`Invalid date: ${iso}`);
+  return {
+    datetime: dt,
+    quantity: doctor.maxPatients,
+  };
+});
 
-        doctor.availabilitySlots = parsedSlots.map((iso: string) => ({
-          datetime: new Date(iso),
-          quantity: doctor.maxPatients, // Use updated maxPatients dynamically
-        }));
       }
 
       await doctor.save();
       return res.status(200).json({ message: 'Profile updated successfully' });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating doctor profile:', err);
+      if (err.message?.startsWith('Invalid date:')) {
+        return res.status(400).json({ message: err.message });
+      }
       return res.status(500).json({ message: 'Failed to update profile' });
     }
   }
 );
 
-
 /**
  * POST /api/doctor/onboard-razorpay
- * — Onboard doctor for payouts via Razorpay (contact & fund account).
+ * — Onboard doctor for payouts via Razorpay (contact + fund account).
  */
 router.post(
   '/onboard-razorpay',
@@ -135,12 +189,15 @@ router.post(
   authorizeDoctor,
   onboardingLimiter,
   express.json(),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     try {
       const doctorId = (req as any).user._id;
       const { name, email, contact, bankAccountNumber, ifsc } = req.body;
+
       if (!name || !email || !contact || !bankAccountNumber || !ifsc) {
-        return res.status(400).json({ message: 'All fields required: name, email, contact, bankAccountNumber, ifsc' });
+        return res.status(400).json({
+          message: 'All fields required: name, email, contact, bankAccountNumber, ifsc'
+        });
       }
 
       const doc = await Doctor.findById(doctorId);
@@ -158,14 +215,15 @@ router.post(
       }
 
       // 1. Create Razorpay Contact
-      const contactResp = await razorpay.contacts.create({
+      const contactResp = await razorpayInstance.contacts.create({
         name,
         email,
         contact,
         type: 'vendor',
       });
+
       // 2. Create Fund Account
-      const fundResp = await razorpay.fundAccounts.create({
+      const fundResp = await razorpayInstance.fundAccounts.create({
         contact_id: contactResp.id,
         account_type: 'bank_account',
         bank_account: {
@@ -175,12 +233,8 @@ router.post(
         },
       });
 
-      // Save Razorpay IDs in doctor record
       doc.razorpayContactId = contactResp.id;
       doc.razorpayFundAccountId = fundResp.id;
-      // Optionally store bank details (will be stripped from JSON output)
-      doc.bankAccountNumber = bankAccountNumber;
-      doc.ifsc = ifsc;
       await doc.save();
 
       return res.json({

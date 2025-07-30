@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import Notification from '../models/Notification';
 import Appointment from '../models/Appointment';
 import { Payment } from '../models/Payment';
-import Wallet from '../models/wallet';
+import {Wallet} from '../models/wallet';
 import Doctor from '../models/Doctor';
 import Patient from '../models/Patient';
 

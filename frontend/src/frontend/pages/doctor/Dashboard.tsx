@@ -1,4 +1,6 @@
-// File: frontend/src/pages/DocDashboardPage.tsx
+ // File: frontend/src/pages/docdashboardpage.tsx
+
+// File: frontend/src/pages/docdashboardpage.tsx
 
 import React, {
   useState,
@@ -16,16 +18,15 @@ import {
   DollarSign,
   Bell,
   Pencil,
+  FileText,
   Activity,
-  User as UserIcon,
+  UserIcon,
   Menu,
   X,
-  Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 import { useAuth } from '../../../contexts/AuthContext';
 import ThreeBackground from '../../components/animations/doctor/ThreeBackground';
@@ -37,11 +38,9 @@ import EditProfileForm, {
   LocationType,
 } from '../../components/common/editprofile/editprofileformsdoc';
 import { PayoutSetupForm } from '../../components/PayoutSetupForm';
-import AppointmentDetailModal from '../../components/common/bookappointment/bookappointment';
-
-import { Button } from '../../components/common/Button';
 import seatImg from '../../assets/chair.avif';
 import doctorSeatImg from '../../assets/doctorseat.png';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface DoctorAppointment {
   id: string;
@@ -53,7 +52,9 @@ interface DoctorAppointment {
 }
 
 function getBookedDate(a: DoctorAppointment): Date {
-  if (a.createdAt) return new Date(a.createdAt);
+  if (a.createdAt) {
+    return new Date(a.createdAt);
+  }
   const ts = parseInt(a.id.slice(0, 8), 16) * 1000;
   return new Date(ts);
 }
@@ -79,8 +80,16 @@ interface NotificationItem {
   createdAt: string;
 }
 
+type TabKey =
+  | 'overview'
+  | 'appointments'
+  | 'patients'
+  | 'earnings'
+  | 'messages'
+  | 'profile'
+  | 'payout';
+
 export default function DocDashboardPage() {
-  // Auth & routing
   const {
     user,
     logout,
@@ -91,72 +100,53 @@ export default function DocDashboardPage() {
   } = useAuth();
   const navigate = useNavigate();
   const token = localStorage.getItem('authToken') || '';
-  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
+  const API_BASE =
+    import.meta.env.VITE_API_URL?.replace(/\/$/, '') || '';
   const buildUrl = (path: string) =>
     API_BASE.endsWith('/api') ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
 
-  // Prevent double-fetch
-  const fetchedProfileRef = useRef(false);
-
-  // --- UI State ---
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'appointments' | 'patients' | 'earnings' | 'messages' | 'profile' | 'payout'
-  >('overview');
+  // UI State
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Profile editing
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState('');
 
+  // Profile Fields
   const [profileName, setProfileName] = useState('');
-  const [profileEmail, setProfileEmail] = useState('');
   const [profileBio, setProfileBio] = useState('');
-  const [profileLanguages, setProfileLanguages] = useState('');
+  const [profileLanguages, setProfileLanguages] = useState<string>('');
+  const [profileEmail, setProfileEmail] = useState('');
   const [profileSpecialty, setProfileSpecialty] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>();
   const [profileExperience, setProfileExperience] = useState('');
-  const [profileLocationData, setProfileLocationData] =
-    useState<LocationType | null>(null);
+  const [profileLocationData, setProfileLocationData] = useState<
+    LocationType | null
+  >(null);
+  const [profileLocation, setProfileLocation] = useState('');
   const [profileConsultationFee, setProfileConsultationFee] = useState(0);
+  // <-- NEW STATE for backend‑computed earnings:
+  const [totalEarnings, setTotalEarnings] = useState(0);
 
-  // Appointments & counts
+  // Appointments & Notifications
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [upcomingCount, setUpcomingCount] = useState(0);
-
-  // Notifications
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [upcomingCount, setUpcomingCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState(false);
+  const [cancellingSlot, setCancellingSlot] = useState(false);
 
-  // Hidden slots persistence
-  const [hiddenSlots, setHiddenSlots] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('hiddenSlots') || '[]');
-    } catch {
-      return [];
-    }
-  });
-  useEffect(() => {
-    localStorage.setItem('hiddenSlots', JSON.stringify(hiddenSlots));
-  }, [hiddenSlots]);
-
-  // Detail / cancellation / prescription
-  const [selectedAppointmentDetail, setSelectedAppointmentDetail] =
-    useState<AppointmentDetail | null>(null);
+  // Appointment Detail / Cancel / Prescription
+  const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<
+    AppointmentDetail | null
+  >(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Bulk slot cancellation
-  const [selectedSlotLabel, setSelectedSlotLabel] = useState<string | null>(
-    null
-  );
-  const [showSlotCancelConfirm, setShowSlotCancelConfirm] = useState(false);
-  const [cancellingSlot, setCancellingSlot] = useState(false);
-
-  // Prescription form
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [prescriptionData, setPrescriptionData] = useState({
     medicineName: '',
@@ -169,13 +159,90 @@ export default function DocDashboardPage() {
   const [issuingPrescription, setIssuingPrescription] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState('');
 
-  // Payout modal
+  // Payout Setup & Execute
   const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [existingPayoutAccountId, setExistingPayoutAccountId] =
-    useState<string | null>(null);
+  const [existingPayoutAccountId, setExistingPayoutAccountId] = useState<string | null>(
+    null
+  );
   const [payoutLoading, setPayoutLoading] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Fetch doctor profile once
+  const toggleMobileMenu = () => setIsMobileMenuOpen((prev) => !prev);
+  const fetchedProfileRef = useRef(false);
+
+  // —— Clean Slots Feature ——  
+  const [hiddenSlots, setHiddenSlots] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('hiddenSlots');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('hiddenSlots', JSON.stringify(hiddenSlots));
+    } catch {
+      // ignore
+    }
+  }, [hiddenSlots]);
+
+  // Logout handlers
+  const handleLogout = () => setIsLogoutModalOpen(true);
+  const confirmLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  // Save profile
+  const handleSaveProfile = async (
+    name: string,
+    email: string,
+    bio: string,
+    specialty: string,
+    file: File | null,
+    experience: string,
+    location: string,
+    languages: string,
+    fee: number
+  ) => {
+    setProfileError('');
+    try {
+      const updated = await updateDoctorProfile({
+        name,
+        email,
+        bio,
+        specialty,
+        languages,
+        profileImageFile: file,
+        experience,
+        location,
+        consultationFee: fee,
+        totalEarnings ,
+      });
+      setProfileName(updated.name);
+      setProfileEmail(updated.email);
+      setProfileBio(updated.bio);
+      setProfileLanguages(updated.languages);
+      setProfileSpecialty(updated.specialty || '');
+      setProfileExperience(updated.experience || '');
+      setProfileConsultationFee(updated.consultationFee ?? 0);
+      // <-- apply backend value if available:
+      setTotalEarnings(updated.totalEarnings ?? totalEarnings);
+      const loc = updated.location as LocationType;
+      if (loc?.lat != null) {
+        setProfileLocationData(loc);
+        setProfileLocation(loc.address);
+      }
+      setProfileImageUrl(file ? URL.createObjectURL(file) : updated.profileImageUrl);
+      setShowEditProfile(false);
+    } catch (err: any) {
+      console.error(err);
+      setProfileError(err.message || 'Failed to save profile');
+    }
+  };
+
+  // Fetch profile once
   useEffect(() => {
     if (user?.role === 'doctor' && !fetchedProfileRef.current) {
       fetchedProfileRef.current = true;
@@ -186,12 +253,20 @@ export default function DocDashboardPage() {
           setProfileBio(prof.bio);
           setProfileLanguages(prof.languages);
           setProfileSpecialty(prof.specialty || '');
+          setProfileImageUrl(prof.profileImageUrl);
           setProfileExperience(prof.experience || '');
           setProfileConsultationFee(prof.consultationFee ?? 0);
+          // <-- NEW: capture backend totalEarnings
+          console.log('PROFILE PAYLOAD:', prof); 
+          setTotalEarnings(prof.totalEarnings ?? 0);
           const loc = prof.location as LocationType;
-          if (loc?.lat != null) setProfileLocationData(loc);
-          setProfileImageUrl(prof.profileImageUrl);
-          setExistingPayoutAccountId((prof as any).razorpayFundAccountId || null);
+          if (loc?.lat != null) {
+            setProfileLocationData(loc);
+            setProfileLocation(loc.address);
+          }
+          setExistingPayoutAccountId(
+            (prof as any).razorpayFundAccountId || null
+          );
         })
         .catch((err) => {
           console.error(err);
@@ -202,38 +277,48 @@ export default function DocDashboardPage() {
   }, [user, fetchDoctorProfile]);
 
   // Fetch appointments & notifications
-  useEffect(() => {
-    if (!token) return;
+useEffect(() => {
+  if (!token) return;
 
-    // Appointments
-    axios
-      .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        const filtered = res.data.filter((a) => a.status !== 'cancelled');
-        const sorted = filtered.sort(
-          (a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime()
-        );
-        setAppointments(sorted);
-        setUpcomingCount(
-          sorted.filter((a) => a.status === 'upcoming' && new Date(a.date) > new Date())
-            .length
-        );
-      })
-      .catch(console.error);
+  // Fetch appointments
+  axios
+    .get<DoctorAppointment[]>(buildUrl('/appointments/doctor'), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => {
+      const filtered = res.data.filter((a) => a.status !== 'cancelled');
+      const sorted = filtered.sort(
+        (a, b) => getBookedDate(a).getTime() - getBookedDate(b).getTime()
+      );
 
-    // Notifications
-    axios
-      .get<NotificationItem[]>(buildUrl('/notifications'), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        setNotifications(res.data);
-        setUnreadCount(res.data.filter((n) => !n.read).length);
-      })
-      .catch(console.error);
-  }, [token]);
+      // Set appointment state
+      setAppointments(sorted);
+
+      // Set upcoming appointment count
+      setUpcomingCount(
+        sorted.filter(
+          (a) => a.status === 'upcoming' && new Date(a.date) > new Date()
+        ).length
+      );
+
+      // ✅ Calculate and set total earnings from appointments
+      const total = sorted.reduce((sum, appt) => sum + (appt.amount || 0), 0);
+      setTotalEarnings(total);
+    })
+    .catch(console.error);
+
+  // Fetch notifications
+  axios
+    .get<NotificationItem[]>(buildUrl('/notifications'), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => {
+      setNotifications(res.data);
+      setUnreadCount(res.data.filter((n) => !n.read).length);
+    })
+    .catch(console.error);
+}, [token]);
+
 
   // Stats data
   const weeklyData = useMemo(() => {
@@ -275,62 +360,80 @@ export default function DocDashboardPage() {
       return { year: label, count };
     });
   }, [appointments]);
+  
 
-  // Slot grouping
-  const slotGroups = useMemo(() => {
+  // Group into slots
+  const slotGroups = useMemo<Record<string, DoctorAppointment[]>>(() => {
     const groups: Record<string, DoctorAppointment[]> = {};
     user?.availabilitySlots?.forEach((iso) => {
       groups[iso] = [];
     });
     appointments.forEach((appt) => {
-      if (groups[appt.date]) groups[appt.date].push(appt);
+      const iso = appt.date;
+      if (groups[iso]) groups[iso].push(appt);
       else {
-        groups['Other'] = groups['Other'] || [];
+        groups['Other'] = groups['Other'] ?? [];
         groups['Other'].push(appt);
       }
     });
     return groups;
   }, [appointments, user]);
 
+  // Filter out hidden slots
   const displayedSlotGroups = useMemo(() => {
-    const acc: Record<string, DoctorAppointment[]> = {};
-    Object.entries(slotGroups).forEach(([iso, appts]) => {
-      if (!hiddenSlots.includes(iso) && appts.length > 0) acc[iso] = appts;
-    });
-    return acc;
+    return Object.entries(slotGroups).reduce((acc, [iso, appts]) => {
+      if (!hiddenSlots.includes(iso) && appts.length > 0) {
+        acc[iso] = appts;
+      }
+      return acc;
+    }, {} as Record<string, DoctorAppointment[]>);
   }, [slotGroups, hiddenSlots]);
 
-  const hasExpiredSlot = useMemo(
-    () =>
-      Object.keys(displayedSlotGroups).some((iso) => {
-        const t = new Date(iso).getTime();
-        return !isNaN(t) && t < Date.now();
-      }),
-    [displayedSlotGroups]
-  );
-
-  const handleHideExpiredSlots = () => {
-    const expired = Object.keys(displayedSlotGroups).filter((iso) => {
+  // Detect any expired slot left
+  const hasExpiredSlot = useMemo(() => {
+    return Object.keys(displayedSlotGroups).some((iso) => {
       const t = new Date(iso).getTime();
       return !isNaN(t) && t < Date.now();
     });
-    if (!expired.length) {
-      toast.info('No expired slots to hide.');
-      return;
-    }
-    setHiddenSlots((prev) => Array.from(new Set([...prev, ...expired])));
-    toast.success(`Hidden ${expired.length} expired slot(s).`);
-  };
+  }, [displayedSlotGroups]);
 
-  // Fetch appointment detail
+  // Hide expired slots locally
+ const handleHideExpiredSlots = () => {
+  // find all expired slot keys
+  const expired = Object.keys(displayedSlotGroups).filter((iso) => {
+    const t = new Date(iso).getTime();
+    return !isNaN(t) && t < Date.now();
+  });
+
+  if (expired.length === 0) {
+    toast.info('No expired slots to hide.');
+    return;
+  }
+
+  // update state (and trigger the effect to write to localStorage)
+  setHiddenSlots((prev) => {
+    // dedupe just in case
+    const updated = Array.from(new Set([...prev, ...expired]));
+    return updated;
+  });
+
+  toast.success(`Hidden ${expired.length} expired slot${expired.length > 1 ? 's' : ''}.`);
+};
+
+
+
+
+
+  // Cancel a single appointment
   const fetchAppointmentDetails = async (id: string) => {
     setDetailsLoading(true);
     setShowCancelConfirm(false);
     setPrescriptionError('');
     try {
-      const res = await axios.get<any>(buildUrl(`/appointments/${id}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get<any>(
+        buildUrl(`/appointments/${id}`),
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const d = res.data;
       setSelectedAppointmentDetail({
         id: d._id,
@@ -351,18 +454,21 @@ export default function DocDashboardPage() {
     }
   };
 
-  // Cancel single appointment
   const handleCancelAppointment = async () => {
     if (!selectedAppointmentDetail) return;
     setCancelling(true);
     try {
       await axios.post(
-        buildUrl(`/appointments/${selectedAppointmentDetail.id}/cancel`),
+        buildUrl(
+          `/appointments/${selectedAppointmentDetail.id}/cancel`
+        ),
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setAppointments((prev) =>
-        prev.filter((a) => a.id !== selectedAppointmentDetail.id)
+        prev.filter(
+          (a) => a.id !== selectedAppointmentDetail.id
+        )
       );
       setSelectedAppointmentDetail(null);
       setShowCancelConfirm(false);
@@ -374,39 +480,50 @@ export default function DocDashboardPage() {
     }
   };
 
-  // Bulk slot cancel
-  const openSlotCancel = (slotIso: string) => {
-    setSelectedSlotLabel(slotIso);
+  // Bulk slot cancellation
+  const openSlotCancel = (slotLabel: string) => {
+    setSelectedSlotLabel(slotLabel);
     setShowSlotCancelConfirm(true);
   };
-  const closeSlotCancel = () => setShowSlotCancelConfirm(false);
-  const handleCancelSlot = async () => {
-    if (!selectedSlotLabel) return;
-    setCancellingSlot(true);
-    try {
-      const res = await axios.post(
-        buildUrl('/appointments/cancel-slot'),
-        { slotLabel: selectedSlotLabel },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAppointments((prev) =>
-        prev.filter((a) => a.date !== selectedSlotLabel)
-      );
-      toast.success(
-        `Cancelled ${res.data.cancelledCount} appts, refunded ${res.data.refundedCount}.`
-      );
-      closeSlotCancel();
-    } catch {
-      toast.error('Failed to cancel slot');
-    } finally {
-      setCancellingSlot(false);
-    }
+  const closeSlotCancel = () => {
+    setShowSlotCancelConfirm(false);
+    setSelectedSlotLabel(null);
+  };
+ const handleCancelSlot = async () => {
+  if (!selectedSlotLabel) return;
+  setCancellingSlot(true);
+  try {
+    const res = await axios.post(
+      buildUrl('/appointments/cancel-slot'),
+      { slotLabel: selectedSlotLabel },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Remove cancelled appointments matching the ISO slot
+    setAppointments((prev) =>
+      prev.filter((appt) => appt.date !== selectedSlotLabel)
+    );
+
+    toast.success(
+      `Cancelled ${res.data.cancelledCount} appointments, refunded ${res.data.refundedCount}.`
+    );
+    closeSlotCancel();
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to cancel slot');
+  } finally {
+    setCancellingSlot(false);
+  }
+};
+
+
+  // Helper to disable Cancel All if within 24 hours
+  const isWithin24Hours = (slotLabel: string) => {
+    const slotDate = new Date(slotLabel);
+    return slotDate.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   };
 
-  const isWithin24Hours = (iso: string) =>
-    new Date(iso).getTime() - Date.now() < 24 * 60 * 60 * 1000;
-
-  // Prescription form
+  // --- Prescription ---
   const openPrescriptionForm = () => setShowPrescriptionForm(true);
   const closePrescriptionForm = () => {
     setShowPrescriptionForm(false);
@@ -420,22 +537,22 @@ export default function DocDashboardPage() {
       endDate: '',
     });
   };
+
   const handlePrescriptionChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setPrescriptionData((p) => ({
-      ...p,
+    setPrescriptionData(prev => ({
+      ...prev,
       [name]: name.includes('Date') ? value : Number(value) || value,
     }));
   };
+
   const submitPrescription = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedAppointmentDetail) return;
     setIssuingPrescription(true);
     try {
       await axios.post(
-        buildUrl(
-          `/appointments/${selectedAppointmentDetail.id}/prescription`
-        ),
+        buildUrl(`/appointments/${selectedAppointmentDetail.id}/prescription`),
         { prescriptionItems: [prescriptionData] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -449,7 +566,7 @@ export default function DocDashboardPage() {
     }
   };
 
-  // Payout
+  // --- Payout ---
   const handleSetupPayout = async (data: {
     accountHolderName: string;
     accountNumber: string;
@@ -468,6 +585,7 @@ export default function DocDashboardPage() {
       setShowPayoutModal(false);
     }
   };
+
   const handleExecutePayout = async (appt: DoctorAppointment) => {
     try {
       const paise = Math.round(appt.amount * 100 * 0.9);
@@ -477,13 +595,50 @@ export default function DocDashboardPage() {
       toast.error('Payout failed');
     }
   };
+const fetchAppointments = async () => {
+  try {
+    const res = await axios.get(`http://localhost:4000/api/appointments/doctor/${user._id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  // Logout
-  const handleLogout = () => setIsLogoutModalOpen(true);
-  const confirmLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+    // Filter for only active future slots
+    const activeAppointments = res.data.filter(
+      (appt) => appt.isSlotActive && new Date(appt.date) >= new Date()
+    );
+
+    setAppointments(activeAppointments);
+  } catch (err) {
+    console.error('Failed to fetch appointments', err);
+  }
+};
+
+
+
+const handleCleanSlots = async () => {
+  try {
+    await axios.put(
+      `http://localhost:4000/api/appointments/clean-slots/${user._id}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    toast.success('Expired appointment slots cleaned!');
+    fetchAppointments(); // Refresh the active ones
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to clean slots');
+  }
+};
+
+
+  // Determine if there are past appointments to clean
+  const hasPastSlots = useMemo(
+    () => appointments.some(a => new Date(a.date).getTime() < Date.now()),
+    [appointments]
+  );
 
   if (loadingProfile) {
     return (
@@ -496,111 +651,112 @@ export default function DocDashboardPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
       <ThreeBackground activeTab={activeTab} />
+    
+   <div
+  className="fixed z-50 w-full max-w-sm px-2 transform -translate-x-1/2 top-2 sm:top-4 md:top-6 lg:top-8 left-1/2 sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl sm:px-4 md:px-6"
+>
+  <FloatingNavbar
+    activeTab={activeTab}
+    setActiveTab={setActiveTab}
+    upcomingCount={upcomingCount}
+    unreadCount={unreadCount}
+    onLogout={handleLogout}
+  />
+</div>
 
-      {/* Navbar */}
-      <div className="fixed z-50 w-full px-4 sm:px-6 lg:px-8 top-4">
-        <FloatingNavbar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          upcomingCount={upcomingCount}
-          unreadCount={unreadCount}
-          onLogout={handleLogout}
-        />
-      </div>
+{/* Mobile Dropdown Toggle */}
+<div className="fixed z-50 top-4 right-4 sm:hidden">
+  <button
+    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+    className="p-2 text-white rounded-full bg-black/60 backdrop-blur"
+  >
+    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+  </button>
+</div>
 
-      {/* Mobile Menu Toggle */}
-      <div className="fixed z-50 top-4 right-4 sm:hidden">
-        <button
-          onClick={() => setIsMobileMenuOpen((p) => !p)}
-          className="p-2 text-white rounded-full bg-black/60 backdrop-blur"
-        >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            key="mobileMenu"
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 120, damping: 15 }}
-            className="fixed z-50 p-4 top-16 left-4 right-4 bg-black/80 backdrop-blur-xl rounded-xl sm:hidden"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { id: 'overview', icon: Activity, label: 'Overview' },
-                { id: 'appointments', icon: Calendar, label: 'Appointments' },
-                { id: 'patients', icon: Users, label: 'Patients' },
-                { id: 'earnings', icon: DollarSign, label: 'Earnings' },
-                { id: 'messages', icon: Bell, label: 'Messages' },
-                { id: 'profile', icon: UserIcon, label: 'Profile' },
-               
-              ].map(({ id, icon: Icon, label }) => {
-                const isActive = activeTab === id;
-                const badge =
-                  id === 'appointments'
-                    ? upcomingCount
-                    : id === 'messages'
-                    ? unreadCount
-                    : 0;
-                return (
-                  <button
-                    key={id}
-                    onClick={() => {
-                      setActiveTab(id as any);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`flex flex-col items-center p-3 rounded-xl transition ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white'
-                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                    }`}
-                  >
-                    <Icon className="w-6 h-6 mb-1" />
-                    <span className="text-sm">{label}</span>
-                    {badge > 0 && (
-                      <span className="inline-block px-2 mt-1 text-xs font-bold bg-red-500 rounded-full">
-                        {badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
+{/* Mobile Menu */}
+<AnimatePresence>
+  {isMobileMenuOpen && (
+    <motion.div
+      key="mobileMenu"
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 0,   opacity: 1 }}
+      exit={{ y: -100, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 120, damping: 15 }}
+      className="fixed z-50 p-4 space-y-4 shadow-lg top-16 left-4 right-4 rounded-xl bg-black/80 backdrop-blur-xl sm:hidden"
+    >
+      {/* 2‑column grid of your tabs */}
+      <div className="grid grid-cols-2 gap-4">
+        {[
+          { id: 'overview',     icon: Activity,   label: 'Overview'     },
+          { id: 'appointments', icon: Calendar,   label: 'Appointments' },
+          { id: 'patients',     icon: Users,      label: 'Patients'     },
+          { id: 'earnings',     icon: DollarSign, label: 'Earnings'     },
+          { id: 'messages',     icon: Bell,       label: 'Messages'     },
+          { id: 'profile',      icon: UserIcon,   label: 'Profile'      },
+          { id: 'payout',       icon: DollarSign, label: 'Payout'       },
+        ].map(({ id, icon: Icon, label }) => {
+          const isActive = activeTab === id;
+          const badge = id === 'appointments' ? upcomingCount
+                      : id === 'messages'     ? unreadCount
+                      : 0;
+          return (
             <button
+              key={id}
               onClick={() => {
+                setActiveTab(id);
                 setIsMobileMenuOpen(false);
-                handleLogout();
               }}
-              className="w-full py-2 mt-4 text-red-400 bg-red-500/20 rounded-xl hover:bg-red-500/30"
+              className={`
+                flex flex-col items-center justify-center
+                p-3 rounded-xl transition
+                ${isActive
+                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white'
+                  : 'bg-white/10 text-gray-300 hover:bg-white/20'}
+              `}
             >
-              Logout
+              <Icon className="w-6 h-6 mb-1" />
+              <span className="text-sm">{label}</span>
+              {badge > 0 && (
+                <span className="inline-block px-2 mt-1 text-xs font-bold bg-red-500 rounded-full">
+                  {badge}
+                </span>
+              )}
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          );
+        })}
+      </div>
 
-      {/* Page Content */}
+      {/* Logout */}
+      <button
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          handleLogout();
+        }}
+        className="w-full py-2 mt-2 text-red-400 rounded-xl bg-red-500/20 hover:bg-red-500/30"
+      >
+        Logout
+      </button>
+    </motion.div>
+  )}
+</AnimatePresence>
+
       <div className="px-6 pt-24 pb-12 mx-auto max-w-7xl">
-        {/* Header */}
+        {/* Header & Edit Profile */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="flex flex-col items-center mb-16 space-y-4"
         >
-          <ProfileAvatar3D name={profileName} size={150} />
+          <ProfileAvatar3D  name={profileName} size={150} />
           <motion.h1
-            className="text-4xl font-bold text-transparent sm:text-5xl lg:text-6xl bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600"
+            className="text-6xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text"
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
           >
-            Welcome,<br />Dr. {profileName}
+            Welcome Back, Dr. {profileName}
           </motion.h1>
           <motion.button
             onClick={() => setShowEditProfile(true)}
@@ -616,16 +772,16 @@ export default function DocDashboardPage() {
         <AnimatePresence>
           {showEditProfile && (
             <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
             >
               <motion.div
-                className="w-full max-w-lg p-8 bg-gray-800 rounded-2xl max-h-[90vh] overflow-y-auto"
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.8 }}
+                className="w-full max-w-lg p-8 bg-gray-800 rounded-2xl max-h-[90vh] overflow-y-auto"
               >
                 <EditProfileForm
                   currentName={profileName}
@@ -638,54 +794,14 @@ export default function DocDashboardPage() {
                   currentLocation={profileLocationData}
                   currentConsultationFee={profileConsultationFee}
                   onCancel={() => setShowEditProfile(false)}
-                  onSave={async (
-                    name,
-                    email,
-                    bio,
-                    specialty,
-                    file,
-                    experience,
-                    location,
-                    languages,
-                    fee
-                  ) => {
-                    try {
-                      const updated = await updateDoctorProfile({
-                        name,
-                        email,
-                        bio,
-                        specialty,
-                        languages,
-                        profileImageFile: file,
-                        experience,
-                        location,
-                        consultationFee: fee,
-                      });
-                      setProfileName(updated.name);
-                      setProfileEmail(updated.email);
-                      setProfileBio(updated.bio);
-                      setProfileLanguages(updated.languages);
-                      setProfileSpecialty(updated.specialty || '');
-                      setProfileExperience(updated.experience || '');
-                      setProfileConsultationFee(updated.consultationFee ?? 0);
-                      const loc = updated.location as LocationType;
-                      if (loc?.lat != null) setProfileLocationData(loc);
-                      setProfileImageUrl(
-                        file ? URL.createObjectURL(file) : updated.profileImageUrl
-                      );
-                      setShowEditProfile(false);
-                    } catch (err: any) {
-                      console.error(err);
-                      toast.error(err.message || 'Failed to save profile');
-                    }
-                  }}
+                  onSave={handleSaveProfile}
                 />
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Stats */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-8 mb-16 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Bookings This Week"
@@ -696,8 +812,15 @@ export default function DocDashboardPage() {
             glowColor="blue"
           />
           <StatsCard
-            title="Total Patients completed"
-            value={new Set(appointments.map((a) => a.patientName)).size}
+            title="Total Patients"
+            value={new Set(
+  appointments
+    .filter(a => a.status === 'completed' )
+    .filter( a => a.status === 'pending' )   
+     .filter( a => a.status === 'upcoming')       // only keep completed ones
+    .map(a => a.patientName)
+).size}
+
             icon={Users}
             gradient="from-green-500 to-emerald-500"
             delay={0.2}
@@ -721,54 +844,340 @@ export default function DocDashboardPage() {
           />
         </div>
 
-        {/* Tab Content */}
+        {/* Tabbed Content */}
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
-            <OverviewTab weeklyData={weeklyData} monthlyData={monthlyData} yearlyData={yearlyData} />
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-8"
+            >
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <AnimatedChart
+                  data={weeklyData}
+                  title="Weekly Bookings"
+                  dataKey="count"
+                  xAxisKey="date"
+                  color="cyan"
+                  delay={0.1}
+                  type="line"
+                />
+                <AnimatedChart
+                  data={monthlyData}
+                  title="Monthly Bookings"
+                  dataKey="count"
+                  xAxisKey="month"
+                  color="purple"
+                  delay={0.3}
+                  type="line"
+                />
+              </div>
+              <AnimatedChart
+                data={yearlyData}
+                title="Yearly Bookings"
+                dataKey="count"
+                xAxisKey="year"
+                color="pink"
+                delay={0.5}
+                type="line"
+              />
+            </motion.div>
           )}
-          {activeTab === 'appointments' && (
-            <AppointmentsTab appointments={appointments} fetchAppointmentDetails={fetchAppointmentDetails} />
+
+{activeTab === 'appointments' && (
+  <motion.div
+    key="appointments"
+    initial={{ opacity: 0, y: 50 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -50 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-4"
+  >
+    <h2 className="text-2xl font-bold text-white">Appointments</h2>
+    <ul className="space-y-2">
+      {appointments.map((a) => (
+        <motion.li
+          key={a.id}
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="flex items-center justify-between p-4 transform rounded-xl bg-violet-200 bg-opacity-20 backdrop-blur-sm"
+        >
+          <div>
+            <p className="text-white">{a.patientName}</p>
+            <p className="text-gray-300">
+              {format(new Date(a.date), 'PPP p')}
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-sm ${
+              a.status === 'upcoming'
+                ? 'bg-blue-600 text-white'
+                : a.status === 'completed'
+                ? 'bg-green-600 text-white'
+                : a.status === 'pending'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            {a.status}
+          </span>
+        </motion.li>
+      ))}
+    </ul>
+  </motion.div>
+)}
+
+
+
+{activeTab === 'patients' && (
+  <motion.div
+    key="patients"
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -30 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-8"
+  >
+    <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
+
+    <div className="flex justify-center mb-6">
+      <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
+    </div>
+
+    {/* Clean Slots Button */}
+    <AnimatePresence>
+      {hasExpiredSlot && (
+        <motion.div
+          initial={{ x: 100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 100, opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex justify-end"
+        >
+          <button
+            onClick={handleHideExpiredSlots}
+            className="px-4 py-2 mb-4 text-white bg-red-500 rounded-xl hover:bg-red-600"
+          >
+            Clean Slots
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* Render Appointments */}
+    {Object.entries(displayedSlotGroups).map(([slotIso, appts]) => {
+      const parsedDate = new Date(slotIso);
+      const isValidDate = !isNaN(parsedDate.getTime());
+      const label = isValidDate ? format(parsedDate, 'PPP p') : slotIso;
+      const disabled = !isValidDate || isWithin24Hours(slotIso);
+
+      return (
+        <div key={slotIso} className="mb-8">
+          <div className="flex items-center justify-between">
+            <h3 className="mb-2 text-xl font-semibold text-white">{label}</h3>
+            <button
+              onClick={() => isValidDate && openSlotCancel(slotIso)}
+              disabled={disabled}
+              className={`
+                px-3 py-1 text-sm rounded
+                ${disabled
+                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                  : 'bg-red-100 text-red-500 hover:bg-red-200'}
+              `}
+            >
+              Cancel All
+            </button>
+          </div>
+
+          <div className="grid grid-cols-5 gap-4 mt-2 justify-items-center">
+            {appts.map((a, index) => (
+              <div
+                key={a.id}
+                className="flex flex-col items-center cursor-pointer"
+                onClick={() => fetchAppointmentDetails(a.id)}
+              >
+                <img src={seatImg} alt={`Seat ${index + 1}`} className="w-12 h-12" />
+                <span className="mt-1 text-xs text-white">Seat {index + 1}</span>
+                <span className="w-16 mt-1 text-sm text-center text-white truncate">
+                  {a.patientName}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    })}
+  </motion.div>
+)}
+
+
+
+
+
+
+          {activeTab === 'earnings' && (
+            <motion.div
+              key="earnings"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
+            >
+              <h2 className="text-2xl font-bold text-white">Earnings</h2>
+              <p className="text-white">
+                Total appointments: {appointments.length}
+              </p>
+              {/* FIXED: use backend totalEarnings instead of fee * count */}
+              <p className="text-white">
+                Total earnings: ₹{totalEarnings.toLocaleString()}
+              </p>
+            </motion.div>
           )}
-          {activeTab === 'patients' && (
-            <PatientsTab
-              displayedSlotGroups={displayedSlotGroups}
-              hasExpiredSlot={hasExpiredSlot}
-              handleHideExpiredSlots={handleHideExpiredSlots}
-              openSlotCancel={openSlotCancel}
-              isWithin24Hours={isWithin24Hours}
-              fetchAppointmentDetails={fetchAppointmentDetails}
-            />
-          )}
-          {activeTab === 'earnings' && <EarningsTab appointments={appointments} fee={profileConsultationFee} />}
-          {activeTab === 'messages' && (
-            <MessagesTab
-              token={token}
-              buildUrl={buildUrl}
-              setUnreadCount={setUnreadCount}
-            />
-          )}
-          {activeTab === 'profile' && (
-            <ProfileTab
-              profile={{
-                name: profileName,
-                email: profileEmail,
-                specialty: profileSpecialty,
-                experience: profileExperience,
-                location: profileLocationData?.address || '',
-                fee: profileConsultationFee,
-                bio: profileBio,
-                languages: profileLanguages,
-                imageUrl: profileImageUrl,
+
+{activeTab === 'messages' && (
+  <motion.div
+    key="messages"
+    initial={{ opacity: 0, y: 50 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -50 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-4"
+  >
+   
+      <h2 className="text-2xl font-bold text-white">Notifications</h2>
+     <div style={{marginLeft:"1000px"}}>
+   {notifications.length > 10 && (
+      <div className="flex justify-center space-x-4">
+        {!showAllNotifications ? (
+          <button
+            onClick={() => setShowAllNotifications(true)}
+            className="px-6 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-700"
+          >
+            View All
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowAllNotifications(false)}
+            className="px-6 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-700"
+          >
+            View Less
+          </button>
+        )}
+      </div>
+    )}
+    </div>
+    <ul className="space-y-2">
+      {(showAllNotifications ? notifications : notifications.slice(0, 10)).map((n) => (
+        <li
+          key={n._id}
+          className={`p-4 rounded-xl flex justify-between items-center bg-black bg-opacity-50 backdrop-blur-sm ${
+            n.read ? 'text-gray-300' : 'text-white'
+          }`}
+        >
+          <span>{n.message}</span>
+          {!n.read && (
+            <button
+              onClick={() => {
+                axios
+                  .put(buildUrl(`/notifications/${n._id}/read`), {}, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                  .then(() => {
+                    setNotifications((prev) =>
+                      prev.map((x) =>
+                        x._id === n._id ? { ...x, read: true } : x
+                      )
+                    );
+                    setUnreadCount((c) => Math.max(c - 1, 0));
+                  })
+                  .catch(console.error);
               }}
-            />
+              className="ml-4 text-blue-400 hover:underline"
+            >
+              Mark read
+            </button>
           )}
+        </li>
+      ))}
+    </ul>
+
+  </motion.div>
+)}
+
+
+
+          {activeTab === 'profile' && (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.5 }}
+              className="p-8 space-y-4 text-white bg-gray-800 rounded-2xl"
+            >
+              <h2 className="text-3xl font-bold">My Profile</h2>
+              <div className="flex items-center space-x-6">
+                <ProfileAvatar3D imageUrl={profileImageUrl} name={profileName} size={100} />
+                <div className="space-y-2">
+                  <p><strong>Name:</strong> {profileName}</p>
+                  <p><strong>Email:</strong> {profileEmail}</p>
+                  <p><strong>Specialty:</strong> {profileSpecialty}</p>
+                  <p><strong>Experience:</strong> {profileExperience} years</p>
+                  <p><strong>Location:</strong> {profileLocation}</p>
+                  <p><strong>Consultation Fee:</strong> ₹{profileConsultationFee.toLocaleString()}</p>
+                  <p><strong>Bio:</strong> {profileBio}</p>
+                  <p><strong>Languages:</strong> {profileLanguages}</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'payout' && (
-            <PayoutTab
-              existingAccountId={existingPayoutAccountId}
-              onSetup={() => setShowPayoutModal(true)}
-              appointments={appointments}
-              onExecute={handleExecutePayout}
-            />
+            <motion.div
+              key="payout"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
+            >
+              <h2 className="text-2xl font-bold text-white">Payout Account</h2>
+              {existingPayoutAccountId ? (
+                <p className="text-white">Account ID: {existingPayoutAccountId}</p>
+              ) : (
+                <button
+                  onClick={() => setShowPayoutModal(true)}
+                  className="px-6 py-2 text-white bg-green-500 rounded-xl hover:bg-green-600"
+                >
+                  Setup Payout Account
+                </button>
+              )}
+              <h3 className="mt-8 text-xl font-semibold text-white">Execute Payouts</h3>
+              <ul className="space-y-4">
+                {appointments
+                  .filter(a => a.status === 'completed')
+                  .map(a => (
+                    <li
+                      key={a.id}
+                      className="flex justify-between p-4 bg-gray-800 rounded-xl"
+                    >
+                      <span>{a.patientName} — ₹{a.amount}</span>
+                      {existingPayoutAccountId && (
+                        <button
+                          onClick={() => handleExecutePayout(a)}
+                          className="px-4 py-1 text-white bg-indigo-500 rounded-lg hover:bg-indigo-600"
+                        >
+                          Pay Out
+                        </button>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -784,29 +1193,215 @@ export default function DocDashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Appointment Detail / Cancel / Prescription Modal */}
+      {/* Appointment Details / Cancel / Prescription Modal */}
       <AnimatePresence>
         {selectedAppointmentDetail && (
-          <AppointmentDetailModal
-            detail={selectedAppointmentDetail}
-            loading={detailsLoading}
-            showCancelConfirm={showCancelConfirm}
-            onOpenPrescription={openPrescriptionForm}
-            onClose={() => setSelectedAppointmentDetail(null)}
-            onCancelConfirm={() => setShowCancelConfirm(true)}
-            onCancel={handleCancelAppointment}
-            cancelling={cancelling}
-            showPrescriptionForm={showPrescriptionForm}
-            prescriptionData={prescriptionData}
-            onPrescriptionChange={handlePrescriptionChange}
-            onPrescriptionSubmit={submitPrescription}
-            issuingPrescription={issuingPrescription}
-            prescriptionError={prescriptionError}
-          />
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-md p-6 bg-gray-800 rounded-xl max-h-[90vh] overflow-y-auto"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+            >
+              {detailsLoading ? (
+                <p className="text-white">Loading details...</p>
+              ) : showCancelConfirm ? (
+                <>
+                  <h3 className="mb-4 text-xl font-bold text-white">
+                    Are you sure you want to cancel this appointment?
+                  </h3>
+                  <p className="mb-6 text-gray-300">
+                    This will refund the patient’s consultation fee and send them a notification.
+                  </p>
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={() => setShowCancelConfirm(false)}
+                      className="flex-1 py-2 font-medium text-white bg-gray-600 rounded-xl hover:bg-gray-500"
+                    >
+                      No, Go Back
+                    </button>
+                    <button
+                      onClick={handleCancelAppointment}
+                      disabled={cancelling}
+                      className="flex-1 py-2 font-medium text-white bg-red-600 rounded-xl hover:bg-red-500 disabled:opacity-50"
+                    >
+                      {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+                    </button>
+                  </div>
+                </>
+              ) : showPrescriptionForm ? (
+                <form onSubmit={submitPrescription} className="space-y-4">
+                  <h3 className="text-xl font-bold text-white">Issue Prescription</h3>
+                  <div className="space-y-2">
+                    <input
+                      name="medicineName"
+                      placeholder="Medicine Name"
+                      value={prescriptionData.medicineName}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="timesPerDay"
+                      type="number"
+                      min={1}
+                      placeholder="Times per Day"
+                      value={prescriptionData.timesPerDay}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="intervalDays"
+                      type="number"
+                      min={1}
+                      placeholder="Interval of Days"
+                      value={prescriptionData.intervalDays}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="durationDays"
+                      type="number"
+                      min={1}
+                      placeholder="Duration (Days)"
+                      value={prescriptionData.durationDays}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="beginDate"
+                      type="date"
+                      value={prescriptionData.beginDate}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    <input
+                      name="endDate"
+                      type="date"
+                      value={prescriptionData.endDate}
+                      onChange={handlePrescriptionChange}
+                      required
+                      className="w-full px-4 py-2 text-white bg-gray-700 rounded-xl"
+                    />
+                    {prescriptionError && (
+                      <p className="text-red-400">{prescriptionError}</p>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={closePrescriptionForm}
+                      className="flex-1 py-2 text-white bg-gray-600 rounded-xl hover:bg-gray-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={issuingPrescription}
+                      className="flex-1 py-2 text-white bg-green-600 rounded-xl disabled:opacity-50"
+                    >
+                      {issuingPrescription ? 'Issuing...' : 'Issue Prescription'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <h3 className="mb-2 text-xl font-bold text-white">
+                    {selectedAppointmentDetail.patient.name}
+                  </h3>
+                  <p className="mb-1 text-gray-300">
+                    <strong>Slot:</strong>{' '}
+                    {isValid(new Date(selectedAppointmentDetail.datetime))
+                      ? format(new Date(selectedAppointmentDetail.datetime), 'PPP p')
+                      : 'Invalid Date'}
+                  </p>
+                  <p className="mb-1 text-gray-300">
+                    <strong>Status:</strong> {selectedAppointmentDetail.status}
+                  </p>
+                  <p className="mb-1 text-gray-300">
+                    <strong>Email:</strong> {selectedAppointmentDetail.patient.email || 'N/A'}
+                  </p>
+                  <p className="mb-1 text-gray-300">
+                    <strong>Phone:</strong> {selectedAppointmentDetail.patient.phone || 'N/A'}
+                  </p>
+                  <p className="mb-4 text-gray-300">
+                    <strong>Message:</strong> {selectedAppointmentDetail.patient.message || '—'}
+                  </p>
+                  <div className="flex mb-4 space-x-2">
+                    <button
+                      onClick={openPrescriptionForm}
+                      className="flex items-center justify-center flex-1 px-4 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-500"
+                    >
+                      <FileText className="w-4 h-4 mr-2" /> Issue Prescription
+                    </button>
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="flex-1 px-4 py-2 text-white bg-red-600 rounded-xl hover:bg-red-500"
+                    >
+                      Cancel Appointment
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAppointmentDetail(null)}
+                    className="w-full py-2 text-white bg-indigo-600 rounded-xl hover:bg-indigo-500"
+                  >
+                    Close
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Cancel Slot Confirmation */}
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="w-full max-w-md p-8 border bg-black/80 backdrop-blur-xl border-white/20 rounded-3xl"
+            >
+              <h3 className="mb-4 text-2xl font-bold text-white">Confirm Logout</h3>
+              <p className="mb-6 text-gray-300">Are you sure you want to logout?</p>
+              <div className="flex space-x-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="flex-1 py-3 font-medium text-white bg-gray-600 hover:bg-gray-500 rounded-xl"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={confirmLogout}
+                  className="flex-1 py-3 font-medium text-white bg-gradient-to-r from-red-500 to-pink-500 rounded-xl"
+                >
+                  Logout
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {showSlotCancelConfirm && (
           <motion.div
@@ -816,16 +1411,17 @@ export default function DocDashboardPage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-md p-6 bg-gray-800 rounded-2xl"
+              className="w-full max-w-md p-6 bg-gray-800 rounded-2xl max-h-[90vh] overflow-y-auto"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.8 }}
             >
               <h3 className="mb-4 text-xl font-bold text-white">
-                Cancel All Appointments for “{selectedSlotLabel}”
+                Cancel All Appointments for "{selectedSlotLabel}"
               </h3>
               <p className="mb-6 text-gray-300">
-                This will cancel all appointments in this slot, refund patients, and send notifications.
+                This will cancel all appointments in this time slot, refund patients,
+                and send them notifications.
               </p>
               <div className="flex space-x-4">
                 <button
@@ -846,490 +1442,48 @@ export default function DocDashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Logout Confirmation Modal */}
-      <AnimatePresence>
-        {isLogoutModalOpen && (
+<AnimatePresence>
+        {showSlotCancelConfirm && selectedSlotLabel && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           >
             <motion.div
-              className="w-full max-w-md p-8 border bg-black/80 rounded-3xl border-white/20"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.8 }}
+              className="w-full max-w-sm p-6 bg-white rounded-lg"
             >
-              <h3 className="mb-4 text-2xl font-bold text-white">Confirm Logout</h3>
-              <p className="mb-6 text-gray-300">Are you sure you want to logout?</p>
-              <div className="flex space-x-4">
+              <h2 className="mb-4 text-xl font-semibold">
+                Cancel all appointments for:
+              </h2>
+              <p className="mb-6 font-medium">{selectedSlotLabel}</p>
+              <div className="flex justify-end space-x-4">
                 <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="flex-1 py-3 text-white bg-gray-600 rounded-xl hover:bg-gray-500"
+                  onClick={closeSlotCancel}
+                  className="px-4 py-2 bg-gray-300 rounded"
                 >
-                  Cancel
+                  No
                 </button>
                 <button
-                  onClick={confirmLogout}
-                  className="flex-1 py-3 text-white bg-gradient-to-r from-red-500 to-pink-500 rounded-xl hover:from-red-600 hover:to-pink-600"
+                  onClick={handleCancelSlot}
+                  disabled={cancellingSlot}
+                  className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
                 >
-                  Logout
+                  {cancellingSlot ? 'Cancelling...' : 'Yes, Cancel All'}
                 </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Profile Error Banner */}
       {profileError && (
-        <div className="fixed px-6 py-3 text-white transform -translate-x-1/2 bg-red-600 shadow-lg bottom-4 left-1/2 rounded-xl">
+        <div className="max-w-3xl p-3 mx-auto mt-4 text-white bg-red-600 rounded">
           {profileError}
         </div>
       )}
     </div>
   );
-}
-
-/** --- Sub-components below (unchanged) --- **/
-
-// OverviewTab
-function OverviewTab({
-  weeklyData,
-  monthlyData,
-  yearlyData,
-}: {
-  weeklyData: { date: string; count: number }[];
-  monthlyData: { month: string; count: number }[];
-  yearlyData: { year: string; count: number }[];
-}) {
-  return (
-    <motion.div
-      key="overview"
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -50 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-8"
-    >
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <AnimatedChart
-          data={weeklyData}
-          title="Weekly Bookings"
-          dataKey="count"
-          xAxisKey="date"
-          color="cyan"
-          delay={0.1}
-          type="line"
-        />
-        <AnimatedChart
-          data={monthlyData}
-          title="Monthly Bookings"
-          dataKey="count"
-          xAxisKey="month"
-          color="purple"
-          delay={0.3}
-          type="line"
-        />
-      </div>
-      <AnimatedChart
-        data={yearlyData}
-        title="Yearly Bookings"
-        dataKey="count"
-        xAxisKey="year"
-        color="pink"
-        delay={0.5}
-        type="line"
-      />
-    </motion.div>
-  );
-}
-
-// AppointmentsTab
-function AppointmentsTab({
-  appointments,
-  fetchAppointmentDetails,
-}: {
-  appointments: DoctorAppointment[];
-  fetchAppointmentDetails: (id: string) => void;
-}) {
-  return (
-    <motion.div
-      key="appointments"
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -50 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-4"
-    >
-      <h2 className="text-2xl font-bold text-white">Appointments</h2>
-      <ul className="space-y-2">
-        {appointments.map((a) => (
-          <motion.li
-            key={a.id}
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="flex items-center justify-between p-4 rounded-xl bg-violet-200 bg-opacity-20 backdrop-blur-sm"
-            onClick={() => fetchAppointmentDetails(a.id)}
-          >
-            <div>
-              <p className="text-white">{a.patientName}</p>
-              <p className="text-gray-300">{format(new Date(a.date), 'PPP p')}</p>
-            </div>
-            <span
-              className={`px-3 py-1 rounded-full text-sm ${
-                a.status === 'upcoming'
-                  ? 'bg-blue-600 text-white'
-                  : a.status === 'completed'
-                  ? 'bg-green-600 text-white'
-                  : a.status === 'pending'
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-red-600 text-white'
-              }`}
-            >
-              {a.status}
-            </span>
-          </motion.li>
-        ))}
-      </ul>
-    </motion.div>
-  );
-}
-
-// PatientsTab
-function PatientsTab({
-  displayedSlotGroups,
-  hasExpiredSlot,
-  handleHideExpiredSlots,
-  openSlotCancel,
-  isWithin24Hours,
-  fetchAppointmentDetails,
-}: {
-  displayedSlotGroups: Record<string, DoctorAppointment[]>;
-  hasExpiredSlot: boolean;
-  handleHideExpiredSlots: () => void;
-  openSlotCancel: (iso: string) => void;
-  isWithin24Hours: (iso: string) => boolean;
-  fetchAppointmentDetails: (id: string) => void;
-}) {
-  return (
-    <motion.div
-      key="patients"
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -30 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-8"
-    >
-      <h2 className="text-2xl font-bold text-white">Seating Chart</h2>
-      <div className="flex justify-center mb-6">
-        <img src={doctorSeatImg} alt="Doctor Seat" className="w-16 h-16" />
-      </div>
-      {hasExpiredSlot && (
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleHideExpiredSlots}
-            className="px-4 py-2 text-white bg-red-500 rounded-xl hover:bg-red-600"
-          >
-            Clean Slots
-          </button>
-        </div>
-      )}
-      {Object.entries(displayedSlotGroups).map(([slotIso, appts]) => {
-        const parsed = new Date(slotIso);
-        const validDate = !isNaN(parsed.getTime());
-        const label = validDate ? format(parsed, 'PPP p') : slotIso;
-        const disabled = !validDate || isWithin24Hours(slotIso);
-
-        return (
-          <div key={slotIso} className="mb-8">
-            <div className="flex items-center justify-between">
-              <h3 className="mb-2 text-xl font-semibold text-white">{label}</h3>
-              <button
-                onClick={() => validDate && openSlotCancel(slotIso)}
-                disabled={disabled}
-                className={`px-3 py-1 text-sm rounded ${
-                  disabled
-                    ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                    : 'bg-red-100 text-red-500 hover:bg-red-200'
-                }`}
-              >
-                Cancel All
-              </button>
-            </div>
-            <div className="grid grid-cols-5 gap-4 mt-2 justify-items-center">
-              {appts.map((a, idx) => (
-                <div
-                  key={a.id}
-                  className="flex flex-col items-center cursor-pointer"
-                  onClick={() => fetchAppointmentDetails(a.id)}
-                >
-                  <img src={seatImg} alt={`Seat ${idx + 1}`} className="w-12 h-12" />
-                  <span className="mt-1 text-xs text-white">Seat {idx + 1}</span>
-                  <span className="w-16 mt-1 text-sm text-center text-white truncate">
-                    {a.patientName}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </motion.div>
-  );
-}
-
-// EarningsTab
-function EarningsTab({ appointments, fee }: { appointments: DoctorAppointment[]; fee: number }) {
-  return (
-    <motion.div
-      key="earnings"
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -50 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-4"
-    >
-      <h2 className="text-2xl font-bold text-white">Earnings</h2>
-      <p className="text-white">Total appointments: {appointments.length}</p>
-      <p className="text-white">
-        Total earnings: ₹{(appointments.length * fee).toLocaleString()}
-      </p>
-    </motion.div>
-  );
-}
-
-// ProfileTab
-function ProfileTab({
-  profile,
-}: {
-  profile: {
-    name: string;
-    email: string;
-    specialty: string;
-    experience: string;
-    location: string;
-    fee: number;
-    bio: string;
-    languages: string;
-    imageUrl?: string;
-  };
-}) {
-  return (
-    <motion.div
-      key="profile"
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -30 }}
-      transition={{ duration: 0.5 }}
-      className="p-6 space-y-4 text-white bg-gray-800 rounded-2xl"
-    >
-      <h2 className="text-3xl font-bold">My Profile</h2>
-      <div className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-6">
-        <ProfileAvatar3D imageUrl={profile.imageUrl} name={profile.name} size={100} />
-        <div className="space-y-2">
-          <p>
-            <strong>Name:</strong> {profile.name}
-          </p>
-          <p>
-            <strong>Email:</strong> {profile.email}
-          </p>
-          <p>
-            <strong>Specialty:</strong> {profile.specialty}
-          </p>
-          <p>
-            <strong>Experience:</strong> {profile.experience} years
-          </p>
-          <p>
-            <strong>Location:</strong> {profile.location}
-          </p>
-          <p>
-            <strong>Consultation Fee:</strong> ₹{profile.fee.toLocaleString()}
-          </p>
-          <p>
-            <strong>Bio:</strong> {profile.bio}
-          </p>
-          <p>
-            <strong>Languages:</strong> {profile.languages}
-          </p>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-interface MessagesTabProps {
-  token: string;
-  buildUrl: (path: string) => string;
-  setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
-}
-// MessagesTab
-  function MessagesTab({
-  token,
-  buildUrl,
-  setUnreadCount,
-}: MessagesTabProps) {
-  const [messages, setMessages] = useState<NotificationItem[]>([]);
-  const [showAll, setShowAll] = useState(false);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [draggedPositions, setDraggedPositions] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    axios
-      .get<NotificationItem[]>(buildUrl('/notifications'), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        if (!alive) return;
-        setMessages(res.data);
-        setUnreadCount(res.data.filter((m) => !m.read).length);
-      })
-      .catch(() => toast.error('Couldn’t load messages. Please try again.'))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [token, buildUrl, setUnreadCount]);
-
-  const markRead = async (id: string) => {
-    try {
-      await axios.put(
-        buildUrl(`/notifications/${id}/read`),
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMessages((prev) =>
-        prev.map((m) => (m._id === id ? { ...m, read: true } : m))
-      );
-      setUnreadCount((c) => Math.max(c - 1, 0));
-    } catch {
-      toast.error('Failed to mark message read.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await axios.delete(buildUrl(`/notifications/${id}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMessages((prev) => prev.filter((m) => m._id !== id));
-      setUnreadCount((c) =>
-        Math.max(c - (messages.find((m) => m._id === id)?.read ? 0 : 1), 0)
-      );
-    } catch {
-      toast.error('Failed to delete message.');
-    }
-  };
-
-  // ✅ Key line: decide what to display
-  const displayedMessages = showAll ? messages : messages.slice(0, 4);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -50 }}
-      transition={{ duration: 0.5 }}
-      className="w-full max-w-full px-4 mx-auto space-y-4 sm:px-6 lg:px-8"
-    >
-      <div className="flex flex-col justify-between sm:flex-row sm:items-center">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Messages</h2>
-        {messages.length > 4 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2 text-blue-400 sm:mt-0 border-blue-400/30 hover:bg-blue-500/10"
-            onClick={() => setShowAll((prev) => !prev)}
-          >
-            {showAll ? 'View Less' : 'View All'}
-          </Button>
-        )}
-      </div>
-
-      {loading ? (
-        <p className="text-center text-gray-300">Loading messages...</p>
-      ) : messages.length === 0 ? (
-        <p className="text-center text-gray-300">No messages.</p>
-      ) : (
-        displayedMessages.map((msg) => {
-          const xOffset = draggedPositions[msg._id] || 0;
-          return (
-            <div key={msg._id} className="relative group">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, rotateY: 45 }}
-                animate={{
-                  opacity: draggedId === msg._id ? 1 : 0,
-                  scale: draggedId === msg._id ? 1 : 0.8,
-                  rotateY: draggedId === msg._id ? 0 : 45,
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="absolute z-10 flex items-center space-x-2 transform -translate-y-1/2 pointer-events-none right-4 top-1/2 group-hover:pointer-events-auto"
-              >
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="px-3 py-1 text-white bg-red-600 rounded-lg shadow-lg"
-                  onClick={() => handleDelete(msg._id)}
-                >
-                  <Trash2 size={16} />
-                </Button>
-                <motion.button
-                  onClick={() => {
-                    setDraggedId(null);
-                    setDraggedPositions((p) => ({ ...p, [msg._id]: 0 }));
-                  }}
-                  whileHover={{ scale: 1.2, rotate: 15 }}
-                  whileTap={{ scale: 0.8, rotate: -15 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full shadow-lg bg-white/10"
-                >
-                  <X size={16} className="text-white" />
-                </motion.button>
-              </motion.div>
-
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.2}
-                onDragEnd={(_, info) => {
-                  if (info.offset.x < -80) {
-                    setDraggedId(msg._id);
-                    setDraggedPositions((p) => ({ ...p, [msg._id]: -80 }));
-                  } else {
-                    setDraggedId(null);
-                    setDraggedPositions((p) => ({ ...p, [msg._id]: 0 }));
-                  }
-                }}
-                style={{ x: xOffset }}
-                animate={{ x: xOffset }}
-                whileTap={{ scale: 0.97 }}
-                whileHover={{ scale: 1.02, x: 5 }}
-                className={`p-4 sm:p-6 rounded-xl transition-all duration-300 bg-black bg-opacity-50 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between ${
-                  msg.read ? 'text-gray-300' : 'text-white'
-                }`}
-              >
-                <span className="flex-1 text-sm sm:text-base">{msg.message}</span>
-                {!msg.read && (
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    className="mt-3 text-blue-400 sm:mt-0 sm:ml-4 border-blue-400/30 hover:bg-blue-500/10"
-                    onClick={() => markRead(msg._id)}
-                  >
-                    Mark read
-                  </Button>
-                )}
-              </motion.div>
-            </div>
-          );
-        })
-      )}
-    </motion.div>
-  );
-}
+} 

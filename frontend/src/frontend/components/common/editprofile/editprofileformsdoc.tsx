@@ -27,7 +27,6 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 
-// Types
 export interface LocationType {
   lat: number;
   lng: number;
@@ -48,8 +47,6 @@ const SPECIALTIES = [
 ];
 
 const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
-
-// point at your backend (or use Vite proxy /api → http://localhost:4000)
 const api = axios.create({ baseURL: '/api/medical' });
 
 const getAuthHeader = () => {
@@ -81,6 +78,8 @@ const LocationPicker: React.FC<{
   return position ? <Marker position={position} /> : null;
 };
 
+const isValidDate = (d: Date) => d instanceof Date && !isNaN(d.getTime());
+
 export default function EditDocProfile({
   onCancel,
   onSave,
@@ -111,27 +110,34 @@ export default function EditDocProfile({
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState(false);
 
-  // Load profile from backend
+  // Load profile + image
   const loadProfile = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
+      // 1) fetch doctor data
       const res = await api.get('/doctor/me', { headers: getAuthHeader() });
       const d = res.data;
       setName(d.name || '');
       setEmail(d.email || '');
       setSpecialty(d.specialty || '');
       setDob(d.dob || '');
-      setPreviewUrl(d.profileImageUrl);
+
       setAvailability(
-        d.availabilitySlots?.length
-          ? d.availabilitySlots.map((s: string) => {
-              const dt = new Date(s);
-              const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
-              return local.toISOString().slice(0, 16);
-            })
+        Array.isArray(d.availabilitySlots) && d.availabilitySlots.length
+          ? d.availabilitySlots
+              .map((s: string) => {
+                const dt = new Date(s);
+                if (isNaN(dt.getTime())) return null;
+                const local = new Date(
+                  dt.getTime() - dt.getTimezoneOffset() * 60000
+                );
+                return local.toISOString().slice(0, 16);
+              })
+              .filter(Boolean)
           : ['']
       );
+
       setLocation(d.locationObj || null);
       setExperience(d.experience || '');
       setFee(d.consultationFee ?? 0);
@@ -140,9 +146,22 @@ export default function EditDocProfile({
       setBio(d.bio || '');
       setQuals(d.qualifications || []);
       setLangs(d.languages || []);
-    } catch (err) {
+
+      // 2) now fetch the protected image as a blob
+      try {
+        const imgRes = await api.get('/doctor/me/profile-image', {
+          headers: getAuthHeader(),
+          responseType: 'blob',
+        });
+        const blobUrl = URL.createObjectURL(imgRes.data);
+        setPreviewUrl(blobUrl);
+      } catch (imgErr) {
+        console.warn('No existing profile image or fetch failed', imgErr);
+        setPreviewUrl(undefined);
+      }
+    } catch (err: any) {
       console.error(err);
-      setError('Failed to load profile');
+      setError(err.response?.data?.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -176,11 +195,8 @@ export default function EditDocProfile({
     setAvailability((slots) =>
       slots.map((s, idx) => (idx === i ? v : s))
     );
-
   const addSlot = () =>
     availability.length < 5 && setAvailability([...availability, '']);
-
-  // NEW: Remove slot locally without any API call or confirm modal
   const removeSlot = (i: number) =>
     setAvailability((slots) => slots.filter((_, idx) => idx !== i));
 
@@ -191,7 +207,7 @@ export default function EditDocProfile({
     try {
       const form = new FormData();
       form.append('specialty', specialty);
-      if (profileFile) form.append('photo', profileFile);
+      if (profileFile) form.append('profileImage', profileFile);
       form.append('availabilitySlots', JSON.stringify(availability));
       form.append('locationObj', JSON.stringify(location));
       form.append('dob', dob);
@@ -202,7 +218,7 @@ export default function EditDocProfile({
       form.append('bio', bio);
       form.append('qualifications', JSON.stringify(quals));
       form.append('languages', JSON.stringify(langs));
-
+      
       await api.put('/doctor/me', form, {
         headers: {
           ...getAuthHeader(),
@@ -210,9 +226,8 @@ export default function EditDocProfile({
         },
       });
 
-      // reload so removed slots stay removed
+      // reload both data + image
       await loadProfile();
-
       onSave && onSave();
     } catch (err) {
       console.error(err);
@@ -269,6 +284,7 @@ export default function EditDocProfile({
                 <img
                   src={previewUrl || '/default-profile.jpg'}
                   className="object-cover w-full h-full"
+                  alt="Profile preview"
                 />
               </div>
               <Button variant="primary">
@@ -311,12 +327,12 @@ export default function EditDocProfile({
               <input
                 type="date"
                 value={dob}
-                onChange={(e) => setDob(e.target.value)}
+                onChange={e => setDob(e.target.value)}
                 className={inputClass}
               />
             </div>
 
-            {/* Location picker */}
+            {/* Location Picker */}
             <input
               type="text"
               readOnly
@@ -335,17 +351,14 @@ export default function EditDocProfile({
                 style={{ height: '100%' }}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <LocationPicker
-                  position={location}
-                  onSelect={handleMapSelect}
-                />
+                <LocationPicker position={location} onSelect={handleMapSelect} />
               </MapContainer>
             </div>
             {geocoding && (
               <p className="text-sm text-gray-300">Fetching address…</p>
             )}
 
-            {/* Slots */}
+            {/* Availability Slots */}
             <div>
               <p className="mb-2 font-semibold text-white">
                 Availability Slots
@@ -355,7 +368,7 @@ export default function EditDocProfile({
                   <input
                     type="datetime-local"
                     value={slot}
-                    onChange={(e) => updateSlot(i, e.target.value)}
+                    onChange={e => updateSlot(i, e.target.value)}
                     className={inputClass}
                   />
                   {availability.length > 1 && (
@@ -378,28 +391,28 @@ export default function EditDocProfile({
               <input
                 type="text"
                 value={experience}
-                onChange={(e) => setExperience(e.target.value)}
+                onChange={e => setExperience(e.target.value)}
                 placeholder="Experience"
                 className={inputClass}
               />
               <input
                 type="number"
                 value={fee}
-                onChange={(e) => setFee(+e.target.value)}
+                onChange={e => setFee(+e.target.value)}
                 placeholder="Consultation Fee (₹)"
                 className={inputClass}
               />
               <input
                 type="number"
                 value={maxPatients}
-                onChange={(e) => setMaxPatients(+e.target.value)}
+                onChange={e => setMaxPatients(+e.target.value)}
                 placeholder="Max Patients"
                 className={inputClass}
               />
               <input
                 type="text"
                 value={hospitalAff}
-                onChange={(e) => setHospitalAff(e.target.value)}
+                onChange={e => setHospitalAff(e.target.value)}
                 placeholder="Hospital Affiliation"
                 className={inputClass}
               />
@@ -422,6 +435,8 @@ export default function EditDocProfile({
                 className={inputClass}
               />
             </div>
+
+            {/* Bio */}
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}

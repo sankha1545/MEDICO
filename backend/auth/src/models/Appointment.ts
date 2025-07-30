@@ -6,7 +6,7 @@ export interface IAppointment extends Document {
   patient: mongoose.Types.ObjectId;
   doctor: mongoose.Types.ObjectId;
   datetime: Date;
-  amount: number;
+  amount: number; 
   currency: string;
   status: 'pending' | 'scheduled' | 'completed' | 'cancelled';
   message?: string;
@@ -20,7 +20,7 @@ const AppointmentSchema = new Schema<IAppointment>({
   patient: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
   doctor: { type: Schema.Types.ObjectId, ref: 'Doctor', required: true },
   datetime: { type: Date, required: true },
-  amount: { type: Number, required: true },
+amount: { type: Number, required: true },
   currency: { type: String, required: true, default: 'INR' },
   status: {
     type: String,

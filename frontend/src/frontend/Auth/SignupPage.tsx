@@ -10,10 +10,9 @@ import {
   Shield,
   Zap,
   Users,
-  Atom,
-  Cpu,
-  Globe,
-  Star,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../components/common/Button';
@@ -26,13 +25,11 @@ type Step =
   | 'details'
   | 'googleProcessing'
   | 'googleRoleSelection';
-
 type Role = 'patient' | 'doctor';
+const OTP_LENGTH = 6;
 
 declare global {
-  interface Window {
-    google: any;
-  }
+  interface Window { google: any; }
 }
 
 const SignUpPage: React.FC = () => {
@@ -45,41 +42,35 @@ const SignUpPage: React.FC = () => {
     completeGoogleSignup,
   } = useAuth();
 
-  // Multi-step & error
   const [step, setStep] = useState<Step>('chooseMethod');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string|null>(null);
 
-  // Email signup
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
 
-  // Account details
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Role>('patient');
   const [creating, setCreating] = useState(false);
 
-  // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // OTP timer
   const [timer, setTimer] = useState(30);
   const [canResendOtp, setCanResendOtp] = useState(false);
 
-  // Google signup
-  const [googleTempToken, setGoogleTempToken] = useState<string | null>(null);
+  const [googleTempToken, setGoogleTempToken] = useState<string|null>(null);
   const [googleProcessing, setGoogleProcessing] = useState(false);
 
-  // GSI script & ref
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [gsiLoaded, setGsiLoaded] = useState(false);
+  const otpRefs = useRef<HTMLInputElement[]>([]);
 
-  // Load GSI script
+  // Load Google script
   useEffect(() => {
     if (gsiLoaded) return;
     const script = document.createElement('script');
@@ -87,26 +78,18 @@ const SignUpPage: React.FC = () => {
     script.async = true;
     script.defer = true;
     script.onload = () => setGsiLoaded(true);
-    script.onerror = () => console.error('Failed to load Google script');
     document.body.appendChild(script);
   }, [gsiLoaded]);
 
-  // Init GSI client
+  // Initialize & render GSI
   useEffect(() => {
     if (!gsiLoaded) return;
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
-    if (!clientId) {
-      console.error('VITE_GOOGLE_CLIENT_ID not set');
-      return;
-    }
+    if (!clientId) return;
     window.google.accounts.id.initialize({
       client_id: clientId,
       ux_mode: 'popup',
       callback: async ({ credential }: { credential: string }) => {
-        if (!credential) {
-          setError('Google authentication failed');
-          return setStep('chooseMethod');
-        }
         setError(null);
         setStep('googleProcessing');
         setGoogleProcessing(true);
@@ -122,22 +105,17 @@ const SignUpPage: React.FC = () => {
         }
       },
     });
-  }, [gsiLoaded, signUpWithGoogle]);
-
-  // Render GSI button
-  useEffect(() => {
-    if (gsiLoaded && step === 'chooseMethod' && googleBtnRef.current) {
-      googleBtnRef.current.innerHTML = '';
+    if (step === 'chooseMethod' && googleBtnRef.current) {
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         theme: 'outline',
         size: 'large',
-        width: 200,
+        width: 240,
         text: 'signup_with',
       });
     }
-  }, [gsiLoaded, step]);
+  }, [gsiLoaded, step, signUpWithGoogle]);
 
-  // OTP timer countdown
+  // OTP countdown
   useEffect(() => {
     if (step !== 'otpInput') return;
     if (timer > 0 && !canResendOtp) {
@@ -147,7 +125,7 @@ const SignUpPage: React.FC = () => {
     if (timer === 0) setCanResendOtp(true);
   }, [timer, canResendOtp, step]);
 
-  // Hide OTP success banner
+  // Hide success banner
   useEffect(() => {
     if (otpSentSuccess) {
       const id = setTimeout(() => setOtpSentSuccess(false), 3000);
@@ -166,20 +144,30 @@ const SignUpPage: React.FC = () => {
       setStep('otpInput');
       setTimer(30);
       setCanResendOtp(false);
-      setOtp('');
+      setOtp(Array(OTP_LENGTH).fill(''));
+      otpRefs.current[0]?.focus();
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message || 'Failed to send OTP');
+      setError(e.message || 'Failed to send OTP');
     } finally {
       setSendingOtp(false);
     }
   };
 
+  const handleOtpChange = (i: number, v: string) => {
+    if (!/^[0-9]?$/.test(v)) return;
+    let arr = [...otp];
+    arr[i] = v;
+    setOtp(arr);
+    if (v && i < OTP_LENGTH - 1) otpRefs.current[i+1]?.focus();
+  };
+
   const handleVerifyOtp = async () => {
     setError(null);
-    if (otp.length !== 6) return setError('Enter 6-digit OTP');
+    const code = otp.join('');
+    if (code.length < OTP_LENGTH) return setError('Enter full OTP');
     setVerifyingOtp(true);
     try {
-      await verifyEmailOtp(email, otp);
+      await verifyEmailOtp(email, code);
       setStep('details');
     } catch (e: any) {
       setError(e.message || 'OTP verification failed');
@@ -190,32 +178,27 @@ const SignUpPage: React.FC = () => {
 
   const handleCreateAccount = async () => {
     setError(null);
-    if (!name || !password || !confirmPassword) return setError('All fields are required');
-    if (password !== confirmPassword) return setError('Passwords do not match');
-    if (password.length < 6) return setError('Password must be at least 6 characters');
+    if (!name || !password || !confirmPassword) return setError('All fields required');
+    if (password !== confirmPassword) return setError('Passwords must match');
     setCreating(true);
     try {
       await signup({ name, email, password, role });
       navigate('/login?signup=success');
     } catch (e: any) {
-      setError(e.message.includes('exists') ? 'Account already exists' : e.message || 'Signup failed');
+      setError(e.message || 'Signup failed');
     } finally {
       setCreating(false);
     }
   };
 
   const handleGoogleRoleSubmit = async () => {
-    if (!googleTempToken) {
-      setError('Missing Google token');
-      return setStep('chooseMethod');
-    }
+    if (!googleTempToken) return setStep('chooseMethod');
     setCreating(true);
-    setError(null);
     try {
       await completeGoogleSignup(googleTempToken, role);
       navigate('/login?signup=success');
     } catch (e: any) {
-      setError(e.message || 'Failed to complete Google signup');
+      setError(e.message || 'Google completion failed');
       setStep('chooseMethod');
     } finally {
       setCreating(false);
@@ -228,369 +211,258 @@ const SignUpPage: React.FC = () => {
     else setStep('chooseMethod');
   };
 
-  const renderOtpInputs = () =>
-    Array.from({ length: 6 }).map((_, i) => (
-      <motion.input
-        key={i}
-        id={`otp-${i}`}
-        type="text"
-        inputMode="numeric"
-        maxLength={1}
-        value={otp[i] || ''}
-        onChange={e => {
-          const d = e.target.value.replace(/\D/, '');
-          const arr = otp.split('');
-          arr[i] = d;
-          setOtp(arr.join(''));
-          if (d && i < 5) {
-            document.getElementById(`otp-${i+1}`)?.focus();
-          }
-        }}
-        className="w-16 h-16 text-2xl font-bold text-center transition transform border-2 bg-white/10 border-white/20 rounded-2xl backdrop-blur-xl focus:border-primary-400 focus:ring-4 focus:ring-primary-400/30 hover:scale-110 focus:scale-110 placeholder-white/50"
-        initial={{ opacity:0, scale:0.8, rotateY:-90 }}
-        animate={{ opacity:1, scale:1, rotateY:0 }}
-        transition={{ delay:i*0.1, type:'spring', stiffness:300, damping:20 }}
-        whileFocus={{ boxShadow:'0 0 30px rgba(99,102,241,0.5)', scale:1.15, rotateY:10 }}
-      />
-    ));
+  const renderOtpGrid = () => (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      {otp.map((d, i) => (
+        <motion.input
+          key={i}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={d}
+          onChange={e => handleOtpChange(i, e.target.value)}
+          ref={el => el && (otpRefs.current[i] = el)}
+          className="w-full h-12 text-2xl font-bold text-center transition border rounded-lg sm:h-14 bg-white/20 border-white/30 focus:border-primary-400 focus:ring-2 focus:ring-primary-400/30"
+        />
+      ))}
+    </div>
+  );
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background (non-interactive) */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-          <div className="absolute inset-0 pointer-events-none animate-gradient-xy bg-gradient-to-tl from-primary-500/30 via-secondary-500/20 to-accent-500/30" />
+    <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <motion.div
+        className="w-full max-w-lg p-6 border shadow-lg bg-white/10 backdrop-blur-lg border-white/20 rounded-3xl sm:p-8"
+        initial={{ opacity:0, y:50, scale:0.9 }}
+        animate={{ opacity:1, y:0, scale:1 }}
+        transition={{ duration:0.8 }}
+      >
+        {/* Logo */}
+        <div className="mb-6 text-center">
+          <Link to="/" className="inline-flex items-center space-x-2">
+            <Sparkles className="w-8 h-8 text-gradient-to-r from-primary-400 to-pink-500"/>
+            <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 via-pink-500 to-accent-400">
+              MedicoX
+            </span>
+          </Link>
         </div>
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(99,102,241,0.3) 1px,transparent 1px),
-              linear-gradient(90deg,rgba(99,102,241,0.3) 1px,transparent 1px),
-              linear-gradient(rgba(168,85,247,0.2) 1px,transparent 1px),
-              linear-gradient(90deg,rgba(168,85,247,0.2) 1px,transparent 1px)
-            `,
-            backgroundSize: '100px 100px,100px 100px,20px 20px,20px 20px',
-            animation: 'float 20s ease-in-out infinite',
-          }}
-        />
-        <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: 80 }).map((_, i) => (
+
+        {/* Notifications */}
+        <AnimatePresence>
+          {error && (
             <motion.div
-              key={i}
-              className="absolute w-2 h-2 rounded-full pointer-events-none bg-gradient-to-r from-primary-400 to-secondary-400"
-              style={{ top:`${Math.random()*100}%`, left:`${Math.random()*100}%` }}
-              animate={{
-                x:[0, Math.random()*30-15, 0],
-                y:[0, -50, 0],
-                opacity:[0.2,1,0.2],
-                scale:[1,1.5,1],
-                rotateZ:[0,360],
-              }}
-              transition={{ duration:5+Math.random()*5, repeat:Infinity, ease:'easeInOut', delay:Math.random()*5 }}
-            />
-          ))}
-        </div>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[Atom, Cpu, Globe, Star].map((Icon, i) => (
-            <motion.div
-              key={i}
-              className="absolute pointer-events-none text-white/10"
-              style={{ left:`${20+i*20}%`, top:`${10+i*15}%`, fontSize:'6rem' }}
-              animate={{ rotateY:[0,360], rotateX:[0,180,0], scale:[1,1.2,1] }}
-              transition={{ duration:15+i*5, repeat:Infinity, ease:'linear' }}
+              className="flex items-center justify-center p-3 mb-4 text-red-100 border border-red-500 rounded-lg bg-red-600/30"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             >
-              <Icon size={96} />
+              <Shield className="w-5 h-5 mr-2"/> {error}
             </motion.div>
-          ))}
-        </div>
-      </div>
+          )}
+          {otpSentSuccess && step==='otpInput' && (
+            <motion.div
+              className="flex items-center justify-center p-3 mb-4 border rounded-lg bg-emerald-600/30 border-emerald-500 text-emerald-100"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            >
+              <Zap className="w-5 h-5 mr-2"/> OTP sent!
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Interactive content */}
-      <div className="relative z-20 flex items-center justify-center min-h-screen p-4 pointer-events-auto">
-        <motion.div
-          className="w-full max-w-xl"
-          initial={{ opacity:0, y:100, rotateX:45, scale:0.8 }}
-          animate={{ opacity:1, y:0, rotateX:0, scale:1 }}
-          transition={{ duration:1.2, type:'spring', stiffness:100, damping:20 }}
-          style={{ perspective:'2000px', transformStyle:'preserve-3d' }}
-        >
-          <motion.div
-            className="relative p-10 border shadow-2xl bg-white/10 backdrop-blur-2xl border-white/20 rounded-3xl"
-            whileHover={{ scale:1.02, rotateY:5, rotateX:2, boxShadow:'0 50px 100px rgba(0,0,0,0.3)' }}
-            transition={{ type:'spring', stiffness:300, damping:30 }}
-          >
-            {/* Glow */}
-            <div className="absolute pointer-events-none -inset-1 bg-gradient-to-r from-primary-500 via-secondary-500 to-accent-500 opacity-30 blur-xl animate-pulse rounded-3xl" />
+        {/* Step content */}
+        <AnimatePresence exitBeforeEnter>
+          {/* Choose method */}
+          {step==='chooseMethod' && (
+            <motion.div
+              key="choose"
+              initial={{ opacity:0, x:-50 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:50 }}
+              transition={{ type:'spring', stiffness:200, damping:20 }}
+              className="space-y-4"
+            >
+              <div ref={googleBtnRef} className="flex justify-center" />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="flex-grow border-t border-white/30"/>
+                </div>
+                <div className="relative text-center">
+                  <span className="px-3 rounded-full bg-slate-900/70 text-white/80">OR</span>
+                </div>
+              </div>
+              <Button fullWidth onClick={() => setStep('emailInput')}>
+                <div className="flex items-center justify-center space-x-2">
+                  <Mail/> <span>Continue with Email</span> <ChevronsRight/>
+                </div>
+              </Button>
+            </motion.div>
+          )}
 
-            {/* Header */}
-            <div className="mb-8 text-center pointer-events-auto">
-              <motion.h1
-                className="mb-2 text-5xl font-bold text-white"
-                initial={{ opacity:0, scale:0.5, rotateX:-90 }}
-                animate={{ opacity:1, scale:1, rotateX:0 }}
-                transition={{ delay:0.3, type:'spring', stiffness:200 }}
-                style={{
-                  textShadow:'0 0 30px rgba(255,255,255,0.5)',
-                  background:'linear-gradient(135deg,#fff 0%,#e0e7ff 50%,#c7d2fe 100%)',
-                  WebkitBackgroundClip:'text',
-                  WebkitTextFillColor:'transparent'
-                }}
-              >
-                Join the Future
-              </motion.h1>
-              <motion.p className="text-lg text-white/80" initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.5 }}>
-                Experience next-generation healthcare
-              </motion.p>
-            </div>
+          {/* Email input */}
+          {step==='emailInput' && (
+            <motion.div
+              key="email"
+              initial={{ opacity:0, x:-50 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:50 }}
+              transition={{ type:'spring', stiffness:200, damping:20 }}
+              className="space-y-4"
+            >
+              <Input
+                type="email" label="Email" placeholder="you@example.com"
+                icon={<Mail className='text-black'/>} value={email}
+                onChange={e=>setEmail(e.target.value)} fullWidth
+              />
+              <Button fullWidth onClick={handleSendOtp} isLoading={sendingOtp}>
+                <div className="flex items-center justify-center space-x-2">
+                  <Zap/> <span>Send OTP</span>
+                </div>
+              </Button>
+              <button onClick={handleBack} className="text-sm underline text-white/70">← Back</button>
+            </motion.div>
+          )}
 
-            {/* Success */}
-            <AnimatePresence>
-              {otpSentSuccess && step==='otpInput' && (
-                <motion.div
-                  className="p-4 mb-6 border pointer-events-auto bg-emerald-500/20 border-emerald-500/30 text-emerald-300 rounded-2xl backdrop-blur-md"
-                  initial={{ opacity:0, y:-20 }}
-                  animate={{ opacity:1, y:0 }}
-                  exit={{ opacity:0, y:-20 }}
-                  style={{ boxShadow:'0 0 30px rgba(16,185,129,0.3)' }}
+          {/* OTP input */}
+          {step==='otpInput' && (
+            <motion.div
+              key="otp"
+              initial={{ opacity:0, x:-50 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:50 }}
+              transition={{ type:'spring', stiffness:200, damping:20 }}
+              className="space-y-4"
+            >
+              {renderOtpGrid()}
+              <Button fullWidth onClick={handleVerifyOtp} isLoading={verifyingOtp}>
+                <div className="flex items-center justify-center space-x-2">
+                  <Shield/> <span>Verify OTP</span>
+                </div>
+              </Button>
+              <div className="flex justify-between text-sm text-white/70">
+                <button onClick={handleBack}>← Back</button>
+                {canResendOtp
+                  ? <button onClick={handleSendOtp} className="text-primary-400">Resend</button>
+                  : <span>Resend in {timer}s</span>
+                }
+              </div>
+            </motion.div>
+          )}
+
+          {/* Details */}
+          {step==='details' && (
+            <motion.div
+              key="details"
+              initial={{ opacity:0, x:-50 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:50 }}
+              transition={{ type:'spring', stiffness:200, damping:20 }}
+              className="space-y-4"
+            >
+              <Input
+                type="text" label="Full Name" placeholder="John Doe"
+                icon={<Users className='text-black'/>} value={name}
+                onChange={e=>setName(e.target.value)} fullWidth
+              />
+              <div className="relative">
+                <Input
+                  type={showPassword?'text':'password'} label="Password" placeholder="••••••••"
+                  icon={<Lock className='text-black'/>} value={password}
+                  onChange={e=>setPassword(e.target.value)} fullWidth
+                />
+                <button
+                  type="button"
+                  onClick={()=>setShowPassword(v=>!v)}
+                  className="absolute inset-y-0 flex items-center right-3 text-white/70"
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    <Sparkles size={20}/>
-                    <span>OTP sent successfully! Check your email</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Error */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  className="p-4 mb-6 text-red-300 border pointer-events-auto bg-red-500/20 border-red-500/30 rounded-2xl backdrop-blur-md"
-                  initial={{ opacity:0, y:-20 }}
-                  animate={{ opacity:1, y:0 }}
-                  exit={{ opacity:0, y:-20 }}
-                  style={{ boxShadow:'0 0 30px rgba(239,68,68,0.3)' }}
+                  {showPassword?<EyeOff className='text-black'/>:<Eye className='text-black'/>}
+                </button>
+              </div>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword?'text':'password'}
+                  label="Confirm Password" placeholder="••••••••"
+                  icon={<Lock className='text-black'/>} value={confirmPassword}
+                  onChange={e=>setConfirmPassword(e.target.value)} fullWidth
+                />
+                <button
+                  type="button"
+                  onClick={()=>setShowConfirmPassword(v=>!v)}
+                  className="absolute inset-y-0 flex items-center right-3 text-white/70"
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    <Shield size={20}/>
-                    <span>{error}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {showConfirmPassword?<EyeOff className='text-black'/>:<Eye className='text-black'/>}
+                </button>
+              </div>
+              <div>
+                <label className="block mb-1 text-white">I am a:</label>
+                <div className="flex space-x-4">
+                  {(['patient','doctor'] as Role[]).map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={()=>setRole(r)}
+                      className={`px-4 py-2 rounded-lg border ${
+                        role===r
+                          ? 'border-primary-400 bg-primary-500/20'
+                          : 'border-white/30'
+                      } text-white`}
+                    >
+                      {r[0].toUpperCase() + r.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <button onClick={handleBack} className="text-white/70">← Back</button>
+                <Button onClick={handleCreateAccount} isLoading={creating}>
+                  Create Account
+                </Button>
+              </div>
+            </motion.div>
+          )}
 
-            {/* Multi-step */}
-            <AnimatePresence exitBeforeEnter>
-              {/* Choose Method */}
-              {step==='chooseMethod' && (
-                <motion.div
-                  key="chooseMethod"
-                  className="space-y-6 pointer-events-auto"
-                  initial={{ opacity:0, x:-100 }}
-                  animate={{ opacity:1, x:0 }}
-                  exit={{ opacity:0, x:100 }}
-                  transition={{ type:'spring', stiffness:200, damping:25 }}
-                >
-                  <div ref={googleBtnRef} className="flex justify-center" />
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/30" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="px-4 border rounded-full bg-slate-900/70 text-white/80 border-white/20 backdrop-blur-sm">OR</span>
-                    </div>
-                  </div>
-                  <Button fullWidth onClick={() => { setError(null); setStep('emailInput'); }}>
-                    <div className="flex items-center justify-center space-x-2">
-                      <Mail size={20}/>
-                      <span>Continue with Email</span>
-                      <ChevronsRight size={20}/>
-                    </div>
-                  </Button>
-                </motion.div>
-              )}
-
-              {/* Email Input */}
-              {step==='emailInput' && (
-                <motion.div
-                  key="emailInput"
-                  className="space-y-6 pointer-events-auto"
-                  initial={{ opacity:0, x:-100 }}
-                  animate={{ opacity:1, x:0 }}
-                  exit={{ opacity:0, x:100 }}
-                  transition={{ type:'spring', stiffness:200, damping:25 }}
-                >
-                  <Input
-                    type="email"
-                    label="Email Address"
-                    placeholder="you@example.com"
-                    icon={<Mail size={20} className="text-primary-400"/>}
-                    value={email}
-                    onChange={e=>setEmail(e.target.value)}
-                    fullWidth
-                  />
-                  <Button fullWidth onClick={handleSendOtp} isLoading={sendingOtp}>
-                    <div className="flex items-center justify-center space-x-2">
-                      <Zap size={20}/>
-                      <span>{sendingOtp ? 'Sending…' : 'Send Verification Code'}</span>
-                    </div>
-                  </Button>
-                  <button onClick={()=>setStep('chooseMethod')} className="underline text-white/70">
-                    ← Back to options
+          {/* Google processing & role */}
+          {step==='googleProcessing' && (
+            <motion.div
+              key="gp"
+              className="py-12 text-center"
+              initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
+              exit={{ opacity:0, scale:0.8 }}
+            >
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 animate-spin">
+                <Sparkles className="text-white" size={24}/>
+              </div>
+              <p className="text-white">Processing Google signup…</p>
+            </motion.div>
+          )}
+          {step==='googleRoleSelection' && (
+            <motion.div
+              key="gr"
+              className="space-y-4"
+              initial={{ opacity:0, x:-50 }} animate={{ opacity:1, x:0 }}
+              exit={{ opacity:0, x:50 }}
+            >
+              <p className="mb-2 text-center text-white">Choose your role</p>
+              <div className="flex justify-center space-x-4">
+                {(['patient','doctor'] as Role[]).map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={()=>setRole(r)}
+                    className={`px-4 py-2 rounded-lg border ${
+                      role===r
+                        ? 'border-primary-400 bg-primary-500/20'
+                        : 'border-white/30'
+                    } text-white`}
+                  >
+                    {r[0].toUpperCase() + r.slice(1)}
                   </button>
-                </motion.div>
-              )}
+                ))}
+              </div>
+              <div className="flex justify-between">
+                <button onClick={()=>setStep('chooseMethod')} className="text-white/70">Cancel</button>
+                <Button onClick={handleGoogleRoleSubmit} isLoading={creating}>
+                  Continue
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              {/* OTP Input */}
-              {step==='otpInput' && (
-                <motion.div
-                  key="otpInput"
-                  className="space-y-6 pointer-events-auto"
-                  initial={{ opacity:0, x:-100 }}
-                  animate={{ opacity:1, x:0 }}
-                  exit={{ opacity:0, x:100 }}
-                  transition={{ type:'spring', stiffness:200, damping:25 }}
-                >
-                  <div className="flex justify-center space-x-2">
-                    {renderOtpInputs()}
-                  </div>
-                  <Button fullWidth onClick={handleVerifyOtp} isLoading={verifyingOtp}>
-                    <div className="flex items-center justify-center space-x-2">
-                      <Shield size={20}/>
-                      <span>{verifyingOtp ? 'Verifying…' : 'Verify Code'}</span>
-                    </div>
-                  </Button>
-                  <div className="flex items-center justify-between text-white/70">
-                    <button onClick={handleBack}>← Back</button>
-                    {canResendOtp
-                      ? <button onClick={handleSendOtp} className="text-primary-400">Resend Code</button>
-                      : <span>Resend in {timer}s</span>}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Details */}
-              {step==='details' && (
-                <motion.div
-                  key="details"
-                  className="space-y-6 pointer-events-auto"
-                  initial={{ opacity:0, x:-100 }}
-                  animate={{ opacity:1, x:0 }}
-                  exit={{ opacity:0, x:100 }}
-                  transition={{ type:'spring', stiffness:200, damping:25 }}
-                >
-                  <Input
-                    type="text"
-                    label="Full Name"
-                    placeholder="John Doe"
-                    icon={<Users size={20} className="text-primary-400"/>}
-                    value={name}
-                    onChange={e=>setName(e.target.value)}
-                    fullWidth
-                  />
-                  <div className="relative">
-                    <Input
-                      type={showPassword?'text':'password'}
-                      label="Password"
-                      placeholder="••••••••"
-                      icon={<Lock size={20} className="text-primary-400"/>}
-                      value={password}
-                      onChange={e=>setPassword(e.target.value)}
-                      fullWidth
-                    />
-                    <button type="button" onClick={()=>setShowPassword(v=>!v)} className="absolute -translate-y-1/2 right-4 top-1/2 text-white/70">
-                      {showPassword?<EyeOff size={20}/>:<Eye size={20}/>}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Input
-                      type={showConfirmPassword?'text':'password'}
-                      label="Confirm Password"
-                      placeholder="••••••••"
-                      icon={<Lock size={20} className="text-primary-400"/>}
-                      value={confirmPassword}
-                      onChange={e=>setConfirmPassword(e.target.value)}
-                      fullWidth
-                    />
-                    <button type="button" onClick={()=>setShowConfirmPassword(v=>!v)} className="absolute -translate-y-1/2 right-4 top-1/2 text-white/70">
-                      {showConfirmPassword?<EyeOff size={20}/>:<Eye size={20}/>}
-                    </button>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-white">I am a:</label>
-                    <div className="flex space-x-4">
-                      {(['patient','doctor'] as Role[]).map(r=>(
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={()=>setRole(r)}
-                          className={`px-4 py-2 rounded-lg border ${role===r?'border-primary-400 bg-primary-500/20':'border-white/30'} text-white`}
-                        >
-                          {r.charAt(0).toUpperCase()+r.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <button onClick={handleBack} className="text-white/70">← Back</button>
-                    <Button onClick={handleCreateAccount} isLoading={creating}>
-                      Create Account
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Google Processing */}
-              {step==='googleProcessing' && (
-                <motion.div key="googleProcessing" className="py-16 text-center pointer-events-auto"
-                  initial={{ opacity:0, scale:0.5 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:0.5 }}
-                >
-                  <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 animate-spin-slow">
-                    <Sparkles size={24} className="text-white"/>
-                  </div>
-                  <p className="text-white">Processing Google signup…</p>
-                </motion.div>
-              )}
-
-              {/* Google Role Selection */}
-              {step==='googleRoleSelection' && (
-                <motion.div key="googleRoleSelection" className="space-y-6 pointer-events-auto"
-                  initial={{ opacity:0, x:-100 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:100 }} transition={{ type:'spring', stiffness:200, damping:25 }}
-                >
-                  <p className="mb-4 text-center text-white">Choose your role</p>
-                  <div className="flex space-x-4">
-                    {(['patient','doctor'] as Role[]).map(r=>(
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={()=>setRole(r)}
-                        className={`px-4 py-2 rounded-lg border ${role===r?'border-primary-400 bg-primary-500/20':'border-white/30'} text-white`}
-                      >
-                        {r.charAt(0).toUpperCase()+r.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex justify-between">
-                    <button onClick={()=>setStep('chooseMethod')} className="text-white/70">Cancel</button>
-                    <Button onClick={handleGoogleRoleSubmit} isLoading={creating}>
-                      Continue
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Footer */}
-            <div className="mt-8 text-center pointer-events-auto">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary-400 hover:underline">
-                Sign in
-              </Link>
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
+        {/* Footer */}
+        <p className="mt-6 text-sm text-center text-white/70">
+          Already have an account?{' '}
+          <Link to="/login" className="underline text-primary-400">Sign in</Link>
+        </p>
+      </motion.div>
     </div>
   );
 };

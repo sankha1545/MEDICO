@@ -26,27 +26,25 @@ import FAQ from './frontend/components/footerlinks/FAQ';
 import HealthBlog from './frontend/components/footerlinks/HealthBlog';
 import TOS from './frontend/components/footerlinks/TermsOfService';
 import HelpCenter from './frontend/components/footerlinks/HelpCentre';
-import Docpatient from './frontend/pages/doctor/PatientAdmission';
+
 
 // Doctor pages
-import HomePage1 from './frontend/pages/doctor/HomePage';
+
 import DashboardPage1 from './frontend/pages/doctor/Dashboard';
-import SettingsPage from './frontend/components/common/settingspage';
+
 
 // Common
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
 import Glimpse from './frontend/components/ProjectGlimpse';
-import PatientSettingsPage from './frontend/components/common/settingsdoc';
+
 import PaymentPage from './frontend/pages/patient/paymentspage';
 import AnimatedCursor from './frontend/components/common/cursor';
 import { ToastContainer } from 'react-toastify';
 
-// A simple wrapper to guard protected routes
+// Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated
-    ? <>{children}</>
-    : <Navigate to="/login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 const App: React.FC = () => {
@@ -56,6 +54,9 @@ const App: React.FC = () => {
       <ToastContainer />
 
       <Routes>
+        {/* Default: Redirect root to login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
         {/* ─── Authentication ─── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
@@ -140,16 +141,7 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <PatientSettingsPage onBack={() => window.history.back()} />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+       
         <Route
           path="/payment"
           element={
@@ -160,14 +152,7 @@ const App: React.FC = () => {
         />
 
         {/* ─── Doctor pages ─── */}
-        <Route
-          path="/doc-home"
-          element={
-            <Layout1>
-              <HomePage1 />
-            </Layout1>
-          }
-        />
+        
         <Route
           path="/doc-dashboard"
           element={
@@ -178,26 +163,9 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/doc-settings"
-          element={
-            <ProtectedRoute>
-              <Layout1>
-                <SettingsPage onBack={() => window.history.back()} />
-              </Layout1>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/doc-patient"
-          element={
-            <Layout1>
-              <Docpatient />
-            </Layout1>
-          }
-        />
+       
 
-        {/* Utility & Fallback */}
+        {/* ─── Utility & Fallback ─── */}
         <Route path="/glimpse" element={<Glimpse />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

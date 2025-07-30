@@ -470,14 +470,14 @@ const DoctorsPage1: React.FC = () => {
                         <div className="sm:col-span-2">
                           <p className="font-semibold">Slots</p>
                           {selectedDoctorProfile.availabilitySlots.length > 0 ? (
-                            <ul className="ml-4 list-disc list-inside">
-                              {selectedDoctorProfile.availabilitySlots.map((slot, i) => (
-                                <li key={i}>{new Date(slot).toLocaleString()}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p>No upcoming slots</p>
-                          )}
+  <ul className="ml-4 list-disc list-inside">
+    {selectedDoctorProfile.availabilitySlots.map((slot, i) => (
+      <li key={i}>{new Date(slot).toLocaleString()}</li>
+    ))}
+  </ul>
+) : (
+  <p>No upcoming slots</p>
+)}
                         </div>
                         {selectedDoctorProfile.qualifications?.length && (
                           <div className="sm:col-span-2">

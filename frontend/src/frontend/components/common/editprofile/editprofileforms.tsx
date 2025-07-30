@@ -104,7 +104,7 @@ export default function EditProfileForm({
             <input
               type="text"
               {...register('name', { required: 'Full name is required.' })}
-              className="w-full py-2 text-base bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
+              className="w-full py-2 text-base text-black bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
               placeholder=" "
             />
             <label className="absolute left-0 -top-3.5 text-gray-500 text-sm sm:text-base
@@ -132,7 +132,7 @@ export default function EditProfileForm({
                   message: 'Invalid email address.',
                 },
               })}
-              className="w-full py-2 text-base bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
+              className="w-full py-2 text-base text-black bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
               placeholder=" "
             />
             <label className="absolute left-0 -top-3.5 text-gray-500 text-sm sm:text-base
@@ -160,7 +160,7 @@ export default function EditProfileForm({
                   message: 'Invalid phone number.',
                 },
               })}
-              className="w-full py-2 text-base bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
+              className="w-full py-2 text-base text-black bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
               placeholder=" "
             />
             <label className="absolute left-0 -top-3.5 text-gray-500 text-sm sm:text-base
@@ -182,7 +182,7 @@ export default function EditProfileForm({
             <input
               type="date"
               {...register('dob', { required: 'Date of birth is required.' })}
-              className="w-full py-2 text-base bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
+              className="w-full py-2 text-base text-black bg-transparent border-b-2 border-gray-300 outline-none peer focus:border-indigo-500 sm:py-3 sm:text-lg"
               placeholder=" "
             />
             <label className="absolute left-0 -top-3.5 text-gray-500 text-sm sm:text-base

@@ -653,7 +653,7 @@ function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
                       )
                     }
                   >
-                    {appt.type === 'video' ? 'Join Call' : 'View Details'}
+                    
                   </Button>
                 </div>
               </motion.div>

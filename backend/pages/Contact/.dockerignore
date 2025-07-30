@@ -1,0 +1,25 @@
+# Node dependencies & logs
+node_modules
+npm-debug.log
+
+
+# Local env & metadata
+node_modules
+dist
+npm-debug.log
+Dockerfile
+.dockerignore
+.env
+*.ts
+*.tsx
+
+
+# IDE configs
+.vscode/
+.idea/
+
+# Frontend (separate app)
+frontend/
+
+# Misc
+README.md

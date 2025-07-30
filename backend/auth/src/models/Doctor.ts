@@ -21,11 +21,12 @@ export interface IDoctor extends Document {
   specialty: string;
   phone?: string;
   dob?: Date;
-
-  profileImage?: {
+profileImage?: {
     data: Buffer;
     contentType: string;
   };
+
+
 
   rating: number;
   reviewCount: number;
@@ -36,17 +37,14 @@ export interface IDoctor extends Document {
   locationObj?: ILocation;    // geodata
 
   slotDateTime?: Date;
-availabilitySlots: [
-  {
-    datetime: { type: Date, required: true },
-    quantity: { type: Number, required: true }
-  }
-],
+availabilitySlots: {
+  datetime: Date;
+  quantity?: number;
+}[]; // ← ✅ an array of slot objects
 
-maxPatients: {
-  type: Number,
-  default: 1,
-},
+
+
+ maxPatients: number;
 
 
   bio: string;
@@ -97,11 +95,10 @@ const DoctorSchema = new Schema<IDoctor>(
     specialty: { type: String, default: '' },
     phone: { type: String, default: '' },
     dob: { type: Date },
-
-    profileImage: {
-      data: Buffer,
-      contentType: String,
-    },
+ profileImage: {
+    data: { type: Buffer, required: false },
+    contentType: { type: String, required: false },
+  },
 
     rating: { type: Number, default: 4.5, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0, min: 0 },
@@ -112,10 +109,12 @@ const DoctorSchema = new Schema<IDoctor>(
     locationObj: { type: LocationSchema, required: false },
 
     slotDateTime: { type: Date },
-availabilitySlots: Array<{
-  datetime: Date;
-  quantity: number;
-}>  ,
+availabilitySlots: [
+  {
+    datetime: { type: Date, required: true },
+    quantity: { type: Number, default: 1 }, // or optional
+  }
+],
 
 
     maxPatients: { type: Number, default: 1, min: 1 },
