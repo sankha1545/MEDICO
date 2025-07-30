@@ -23,7 +23,8 @@ const OTP_EXPIRY_MIN = Number(process.env.OTP_EXPIRY_MINUTES || '10');
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 interface GoogleSignupPayload extends jwt.JwtPayload {

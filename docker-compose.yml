@@ -29,7 +29,7 @@ services:
 
   contact:
     build:
-      context: ./backend/pages/contact
+      context: ./backend/pages/Contact
       dockerfile: Dockerfile
     container_name: medico-contact
     ports:

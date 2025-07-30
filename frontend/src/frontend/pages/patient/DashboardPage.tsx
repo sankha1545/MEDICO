@@ -167,7 +167,7 @@ const [completedVisits, setCompletedVisits] = useState<number>(0);
 
 
   const api = axios.create({
-  baseURL: '/api',              // Vite will proxy /api → http://localhost:4000/api
+  baseURL: '/api',              // Vite will proxy /api → http://13.203.226.34:4000/api
   headers: { 'Content-Type': 'application/json' },
 });
 api.interceptors.request.use(cfg => {

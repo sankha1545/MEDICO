@@ -86,7 +86,7 @@ export default function ChatbotUI() {
     };
 
     try {
-      const res = await fetch("http://localhost:8000/api/chat", {
+      const res = await fetch("http://13.203.226.34:8000/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -131,7 +131,7 @@ export default function ChatbotUI() {
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-6 right-6 z-50 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-4 shadow-xl text-white"
+        className="fixed z-50 p-4 text-white rounded-full shadow-xl bottom-6 right-6 bg-gradient-to-tr from-blue-500 to-indigo-600"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="Toggle Chatbot"
       >
@@ -149,16 +149,16 @@ export default function ChatbotUI() {
             className="fixed bottom-20 right-4 z-50 flex h-[75vh] w-80 max-w-full flex-col rounded-2xl bg-white/30 shadow-2xl backdrop-blur-lg sm:w-96"
           >
             {/* Header */}
-            <div className="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-indigo-600 to-blue-500 px-4 py-3 text-white shadow-md">
+            <div className="flex items-center justify-between px-4 py-3 text-white shadow-md rounded-t-2xl bg-gradient-to-r from-indigo-600 to-blue-500">
               <div className="flex items-center space-x-2">
-                <img src={botAvatar} alt="Bot Avatar" className="h-8 w-8 rounded-full border-2 border-white" />
+                <img src={botAvatar} alt="Bot Avatar" className="w-8 h-8 border-2 border-white rounded-full" />
                 <h2 className="text-lg font-semibold drop-shadow-sm">
                   Medical Booking Assistant
                 </h2>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="rounded-full p-1 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
+                className="p-1 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
                 aria-label="Close Chatbot"
               >
                 <X size={20} />
@@ -166,7 +166,7 @@ export default function ChatbotUI() {
             </div>
 
             {/* Messages Container */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            <div className="flex-1 px-4 py-3 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
               {messages.map((msg, idx) => (
                 <MessageBubble key={idx} {...msg} />
               ))}
@@ -180,11 +180,11 @@ export default function ChatbotUI() {
                 e.preventDefault();
                 sendMessage();
               }}
-              className="rounded-b-2xl bg-white/70 px-4 py-3 backdrop-blur-sm"
+              className="px-4 py-3 rounded-b-2xl bg-white/70 backdrop-blur-sm"
             >
               <div className="flex items-center space-x-2">
                 <textarea
-                  className="flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-inner focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 "
+                  className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 shadow-inner resize-none rounded-xl focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 "
                   rows={1}
                   value={input}
                   placeholder="Ask about appointments..."
@@ -205,7 +205,7 @@ export default function ChatbotUI() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="flex items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 p-2 shadow-lg disabled:opacity-50 transition-transform duration-200 hover:scale-105"
+                  className="flex items-center justify-center p-2 transition-transform duration-200 rounded-full shadow-lg bg-gradient-to-tr from-indigo-600 to-blue-500 disabled:opacity-50 hover:scale-105"
                   aria-label="Send Message"
                 >
                   <Send size={18} className="text-white" />
@@ -238,7 +238,7 @@ function MessageBubble({
         <img
           src={avatar}
           alt="bot-avatar"
-          className="mr-2 h-8 w-8 rounded-full border border-gray-200 shadow-sm"
+          className="w-8 h-8 mr-2 border border-gray-200 rounded-full shadow-sm"
         />
       )}
       <div
@@ -254,7 +254,7 @@ function MessageBubble({
         <img
           src={avatar}
           alt="user-avatar"
-          className="ml-2 h-8 w-8 rounded-full border border-gray-200 shadow-sm"
+          className="w-8 h-8 ml-2 border border-gray-200 rounded-full shadow-sm"
         />
       )}
     </div>
@@ -264,19 +264,19 @@ function MessageBubble({
 // Typing Indicator Component
 function TypingDots() {
   return (
-    <div className="flex items-center space-x-1 pl-10">
+    <div className="flex items-center pl-10 space-x-1">
       <motion.span
-        className="h-2 w-2 rounded-full bg-indigo-400"
+        className="w-2 h-2 bg-indigo-400 rounded-full"
         animate={{ y: ["0%", "-50%", "0%"] }}
         transition={{ repeat: Infinity, duration: 0.8, delay: 0 }}
       />
       <motion.span
-        className="h-2 w-2 rounded-full bg-indigo-400"
+        className="w-2 h-2 bg-indigo-400 rounded-full"
         animate={{ y: ["0%", "-50%", "0%"] }}
         transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }}
       />
       <motion.span
-        className="h-2 w-2 rounded-full bg-indigo-400"
+        className="w-2 h-2 bg-indigo-400 rounded-full"
         animate={{ y: ["0%", "-50%", "0%"] }}
         transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }}
       />

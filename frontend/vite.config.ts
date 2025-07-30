@@ -6,7 +6,7 @@ import type { ProxyOptions } from 'vite';
 
 export default defineConfig(({ mode }) => {
   // Backend URL can be overridden via environment variables
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:4000';
+  const backendUrl = process.env.BACKEND_URL || 'http://13.234.123.45:4000';
 
   // Shared proxy settings for all /api routes
   const apiProxy: ProxyOptions = {
