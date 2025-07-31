@@ -597,7 +597,7 @@ useEffect(() => {
   };
 const fetchAppointments = async () => {
   try {
-    const res = await axios.get(`http://13.203.226.34:4000/api/appointments/doctor/${user._id}`, {
+    const res = await axios.get(`http://13.201.104.174:4000/api/appointments/doctor/${user._id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -617,7 +617,7 @@ const fetchAppointments = async () => {
 const handleCleanSlots = async () => {
   try {
     await axios.put(
-      `http://13.203.226.34:4000/api/appointments/clean-slots/${user._id}`,
+      `http://13.201.104.174:4000/api/appointments/clean-slots/${user._id}`,
       {},
       {
         headers: {
