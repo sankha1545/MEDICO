@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: medico-auth
     ports:
-      - "7000:4000"
+      - "4000:4000"
     env_file:
       - ./backend/auth/.env
     restart: unless-stopped
@@ -29,29 +29,13 @@ services:
 
   contact:
     build:
-      context: ./backend/pages/Contact
+      context: ./backend/pages/contact
       dockerfile: Dockerfile
     container_name: medico-contact
     ports:
       - "5000:5000"
     env_file:
       - ./backend/pages/contact/.env
-    restart: unless-stopped
-    networks:
-      - medico-network
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: http://localhost:7000/api
-        VITE_GOOGLE_CLIENT_ID: your-google-client-id
-    container_name: medico-frontend-v2
-    ports:
-      - "80:80"
-    depends_on:
-      - auth
     restart: unless-stopped
     networks:
       - medico-network

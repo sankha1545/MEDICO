@@ -6,13 +6,17 @@ FROM node:20-alpine AS builder
 # Create app directory
 WORKDIR /app
 
-# Copy package.json and lock files first
+# Copy package.json and lock files first for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Set npm retry configs to handle network issues (important for EC2 or slow networks)
+RUN npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm config set registry https://registry.npmjs.org/ \
+ && npm install
 
-# Copy the full source code
+# Copy the rest of the application
 COPY . .
 
 # Set environment variables for build (Vite uses VITE_*)
@@ -21,7 +25,7 @@ ARG VITE_GOOGLE_CLIENT_ID
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
-# Build the app for production
+# Build the app
 RUN npm run build
 
 # ───────────────────────────────────────────────
@@ -32,11 +36,11 @@ FROM nginx:stable-alpine
 # Remove default nginx index.html
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built files from builder
+# Copy built static files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port 80 for the container
+# Expose port 80
 EXPOSE 80
 
-# Start Nginx in foreground
+# Run Nginx in the foreground
 CMD ["nginx", "-g", "daemon off;"]
