@@ -37,7 +37,6 @@ import ProfileAvatar3D from '../../components/animations/doctor/ProfileAvatar3D'
 import EditProfileForm, {
   LocationType,
 } from '../../components/common/editprofile/editprofileformsdoc';
-import { PayoutSetupForm } from '../../components/PayoutSetupForm';
 import seatImg from '../../assets/chair.avif';
 import doctorSeatImg from '../../assets/doctorseat.png';
 import 'react-toastify/dist/ReactToastify.css';
@@ -597,7 +596,7 @@ useEffect(() => {
   };
 const fetchAppointments = async () => {
   try {
-    const res = await axios.get(`http://13.201.104.174:4000/api/appointments/doctor/${user._id}`, {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL}/appointments/doctor/${user._id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -617,7 +616,7 @@ const fetchAppointments = async () => {
 const handleCleanSlots = async () => {
   try {
     await axios.put(
-      `http://13.201.104.174:4000/api/appointments/clean-slots/${user._id}`,
+      `${import.meta.env.VITE_API_URL}/appointments/clean-slots/${user._id}`,
       {},
       {
         headers: {

@@ -16,7 +16,7 @@ import OTPVerificationPage from './frontend/Auth/VerifyEmailOtp';
 import OAuthSuccessPage from './frontend/pages/patient/OAuthSuccessPage';
 import DashboardPage from './frontend/pages/patient/DashboardPage';
 import DoctorsPage from './frontend/pages/patient/DoctorsPage';
-import AppointmentBookingPage from './frontend/pages/patient/AppointmentBookingPage';
+
 import NotFoundPage from './frontend/pages/patient/NotFoundPage';
 import Services from './frontend/pages/patient/services';
 import About from './frontend/pages/patient/About';
@@ -35,7 +35,7 @@ import DashboardPage1 from './frontend/pages/doctor/Dashboard';
 
 // Common
 import PrivacyPolicy from './frontend/components/footerlinks/PrivacyPolicy';
-import Glimpse from './frontend/components/ProjectGlimpse';
+
 
 import PaymentPage from './frontend/pages/patient/paymentspage';
 import AnimatedCursor from './frontend/components/common/cursor';
@@ -121,16 +121,7 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/book-appointment"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <AppointmentBookingPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+    
         <Route
           path="/profile"
           element={
@@ -166,7 +157,7 @@ const App: React.FC = () => {
        
 
         {/* ─── Utility & Fallback ─── */}
-        <Route path="/glimpse" element={<Glimpse />} />
+       
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AuthProvider>

@@ -41,7 +41,7 @@ export default function ContactPage() {
     setError(null);
     setIsLoading(true);
     try {
-      const res = await fetch('http://13.201.104.174:5000/api/contact', {
+      const res = await fetch(`${import.meta.env.VITE_CONTACT_API_URL}/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
