@@ -57,6 +57,9 @@ app.use((req, res, next) => {
   next();
 });
 // ────────────────────────────────────────────────
+app.get("/", (req, res) => {
+  res.send("Medico API is running 🚀");
+});
 
 // --- 1. Generate nonce for CSP per request ---
 app.use((req, res, next) => {
