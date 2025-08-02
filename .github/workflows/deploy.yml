@@ -1,49 +1,74 @@
+# .github/workflows/deploy.yml
+
 name: 🚀 Deploy to EC2
 
+# Trigger on pushes to main
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     name: Deploy MEDICO to EC2
     runs-on: ubuntu-latest
 
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_KEY:  ${{ secrets.EC2_KEY }}
+
     steps:
-      - name: Checkout code
+      # 1. Checkout the repo so we have the workflow file
+      - name: 🛎️ Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_KEY: ${{ secrets.EC2_KEY }}
+      # 2. Install the SSH key for passwordless SSH
+      - name: 🔐 Install SSH key
         run: |
-          echo "🔐 Setting up SSH..."
-          mkdir -p ~/.ssh
-          echo "$EC2_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          echo "Setting up SSH key…"
+          mkdir -p $HOME/.ssh
+          echo "$EC2_KEY" | tr -d '\r' > $HOME/.ssh/id_rsa
+          chmod 600 $HOME/.ssh/id_rsa
+          ssh-keyscan -H $EC2_HOST >> $HOME/.ssh/known_hosts
+        shell: bash
 
-          echo "🔗 Connecting to $EC2_USER@$EC2_HOST..."
+      # 3. SSH into EC2 and perform the deploy
+      - name: 🚀 SSH & Deploy
+        run: |
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
             set -e
 
-            echo "📂 Checking MEDICO repo..."
+            echo "✅ Connected to $EC2_HOST as $EC2_USER"
+
+            # 3a. Ensure the MEDICO directory exists (clone if missing)
             if [ ! -d ~/MEDICO ]; then
-              git clone https://github.com/sankha1545/MEDICO.gitgi ~/MEDICO
+              echo "📥 Cloning MEDICO repository…"
+              git clone https://github.com/sankha1545/MEDICO.git ~/MEDICO
             fi
 
-            echo "🔄 Pulling latest code..."
             cd ~/MEDICO
-            git pull origin main
 
-            echo "🐳 Rebuilding Docker containers..."
-            docker compose -f docker-compose.ec2.yml up -d --build
+            # 3b. Fetch & fast‐forward to latest main
+            echo "🔄 Pulling latest code from main…"
+            git fetch origin main
+            git reset --hard origin/main
 
-            echo "🌐 Reloading Nginx..."
+            # 3c. Clean up old Docker artifacts to free disk
+            echo "🧹 Pruning unused Docker resources…"
+            sudo docker system prune -af || true
+
+            # 3d. Rebuild & restart services
+            echo "🐳 Rebuilding Docker containers…"
+            sudo docker compose -f docker-compose.ec2.yml up -d --build
+
+            # 3e. Reload Nginx to pick up any config changes
+            echo "🌐 Reloading Nginx…"
             sudo systemctl reload nginx || true
 
-            echo "✅ Deployment successful!"
+            # 3f. Optional health check
+            echo "🔎 Running health check…"
+            curl --fail https://$EC2_HOST/api/health || exit 1
+
+            echo "🎉 Deployment complete!"
           EOF
+        shell: bash
