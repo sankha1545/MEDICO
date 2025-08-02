@@ -1,0 +1,44 @@
+# .github/workflows/deploy.yml
+
+name: 🚀 Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy MEDICO to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_KEY }}
+
+      - name: Add EC2 host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: SSH & Deploy
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            echo "Pulling latest code…"
+            cd ~/MEDICO
+            git pull origin main
+
+            echo "Rebuilding services…"
+            docker compose -f docker-compose.ec2.yml up -d --build
+
+            echo "Reloading Nginx…"
+            sudo systemctl reload nginx || true
+
+            echo "✅ Deployment complete!"
+          EOF
