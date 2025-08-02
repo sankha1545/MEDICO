@@ -51,7 +51,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/api/contact', (req, res, next) => {
+app.use('/api', (req, res, next) => {
   // increment contact counter on every call to /api/contact
   contactRequestCounter.inc();
   next();
