@@ -12,33 +12,42 @@ jobs:
     name: Deploy MEDICO to EC2
     runs-on: ubuntu-latest
 
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_KEY:  ${{ secrets.EC2_KEY }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.EC2_KEY }}
-
-      - name: Add EC2 host to known_hosts
+      - name: Install SSH key
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p $HOME/.ssh
+          echo "$EC2_KEY" > $HOME/.ssh/id_rsa
+          chmod 600 $HOME/.ssh/id_rsa
+        shell: bash
 
       - name: SSH & Deploy
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh \
+            -i $HOME/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            $EC2_USER@$EC2_HOST << 'EOF'
+            
             set -e
-            echo "Pulling latest code…"
+            echo "✅ Connected to $EC2_HOST as $EC2_USER"
+            
+            echo "🔄 Pulling latest code…"
             cd ~/MEDICO
             git pull origin main
-
-            echo "Rebuilding services…"
+            
+            echo "🛠️  Rebuilding services…"
             docker compose -f docker-compose.ec2.yml up -d --build
-
-            echo "Reloading Nginx…"
+            
+            echo "♻️  Reloading Nginx…"
             sudo systemctl reload nginx || true
-
+            
             echo "✅ Deployment complete!"
-          EOF
+            EOF
+        shell: bash
