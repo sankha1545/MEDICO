@@ -20,14 +20,21 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_KEY: ${{ secrets.EC2_KEY }}
         run: |
-          echo "Setting up SSH..."
+          echo "🔐 Setting up SSH..."
           mkdir -p ~/.ssh
-          echo "$EC2_KEY" > ~/.ssh/id_rsa
+          echo "$EC2_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-          echo "Connecting to $EC2_USER@$EC2_HOST..."
+          echo "🔗 Connecting to $EC2_USER@$EC2_HOST..."
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
             set -e
+
+            echo "📂 Checking MEDICO repo..."
+            if [ ! -d ~/MEDICO ]; then
+              git clone https://github.com/sankha1545/MEDICO.gitgi ~/MEDICO
+            fi
+
             echo "🔄 Pulling latest code..."
             cd ~/MEDICO
             git pull origin main
