@@ -1,116 +1,93 @@
-MedicoX 🩺
+# MedicoX 🩺
 
-[
-]
-[
-]
-[
-]
-[
-]
-[
-]
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)  
+[![Frontend Build Status](https://img.shields.io/badge/Frontend-passing-brightgreen)]  
+[![Backend Build Status](https://img.shields.io/badge/Backend-passing-brightgreen)]  
+[![Docker Compose](https://img.shields.io/badge/Docker–Compose-blue)]  
+[![Node.js](https://img.shields.io/badge/Node.js-18.x-green)]  
+[![React](https://img.shields.io/badge/React-18.x-blue)]  
 
-A full-stack, Dockerized doctor-appointment booking and tele-medicine platform, built with modern technologies to streamline patient–doctor interactions, billing, chat support, and notifications.
+A full-stack, Dockerized **doctor-appointment booking** and **tele-medicine** platform, built with modern technologies to streamline patient–doctor interactions, billing, chat support, and notifications.
 
-🚀 Features
-User Authentication & Authorization
+---
 
-Local email/password signup + login
+## 🚀 Features
 
-Google OAuth 2.0 via Passport.js
+- **User Authentication & Authorization**  
+  - Local email/password signup + login  
+  - Google OAuth 2.0 via Passport.js  
+  - JWT-based session management  
+- **Doctor & Patient Profiles**  
+  - Complete profile CRUD  
+  - Profile image upload & retrieval (stored in MongoDB)  
+  - Availability slot management  
+- **Appointment Booking & Management**  
+  - Real-time slot fetching per doctor  
+  - Consultation fee display  
+  - Razorpay integration for secure payment  
+- **OTP-Based Password Recovery**  
+  - Email-delivered OTP via Nodemailer  
+  - Configurable expiry  
+- **Notifications & Chatbot**  
+  - In-app notifications (appointments, reminders)  
+  - Contact & chatbot microservices  
+- **DevOps & Deployment**  
+  - Dockerized microservices (auth, chatbot, contact) + frontend  
+  - Single `docker-compose.yml` orchestration  
+  - HTTPS with Let’s Encrypt / Certbot on Nginx  
+  - Deployed on AWS EC2 (backend) & Netlify/Vercel (frontend)  
+- **Tech-stack Highlights**  
+  - **Backend:** Node.js, TypeScript, Express, Mongoose, Passport, Firebase, Razorpay, Nodemailer  
+  - **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, Framer Motion, react-hook-form  
+  - **Database:** MongoDB Atlas  
+  - **CI/CD:** (Coming soon) GitHub Actions + Docker Hub  
 
-JWT-based session management
+---
 
-Doctor & Patient Profiles
+## 📁 Repository Structure
 
-Complete profile CRUD
-
-Profile image upload & retrieval (stored in MongoDB)
-
-Availability slot management
-
-Appointment Booking & Management
-
-Real-time slot fetching per doctor
-
-Consultation fee display
-
-Razorpay integration for secure payment
-
-OTP-Based Password Recovery
-
-Email-delivered OTP via Nodemailer
-
-Configurable expiry
-
-Notifications & Chatbot
-
-In-app notifications (appointments, reminders)
-
-Contact & chatbot microservices
-
-DevOps & Deployment
-
-Dockerized microservices (auth, chatbot, contact) + frontend
-
-Single docker-compose.yml orchestration
-
-HTTPS with Let’s Encrypt / Certbot on Nginx
-
-Deployed on AWS EC2 (backend) & Netlify/Vercel (frontend)
-
-Tech-stack Highlights
-
-Backend: Node.js, TypeScript, Express, Mongoose, Passport, Firebase, Razorpay, Nodemailer
-
-Frontend: React 18, Vite, TypeScript, Tailwind CSS, Framer Motion, react-hook-form
-
-Database: MongoDB Atlas
-
-CI/CD: (Coming soon) GitHub Actions + Docker Hub
-
-📁 Repository Structure
-pgsql
-Copy
-Edit
 .
 ├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── App.tsx
-│   │   └── vite.config.ts
-│   ├── .env
-│   ├── package.json
-│   └── tailwind.config.js
+│ ├── public/
+│ ├── src/
+│ │ ├── components/
+│ │ ├── pages/
+│ │ ├── App.tsx
+│ │ └── vite.config.ts
+│ ├── .env
+│ ├── package.json
+│ └── tailwind.config.js
 ├── backend/
-│   ├── src/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   │   ├── auth.ts
-│   │   │   ├── appointments.ts
-│   │   │   ├── doctors.ts
-│   │   │   └── payments.ts
-│   │   ├── utils/
-│   │   └── index.ts
-│   ├── .env
-│   ├── dockerfile
-│   └── package.json
+│ ├── src/
+│ │ ├── models/
+│ │ ├── routes/
+│ │ │ ├── auth.ts
+│ │ │ ├── appointments.ts
+│ │ │ ├── doctors.ts
+│ │ │ └── payments.ts
+│ │ ├── utils/
+│ │ └── index.ts
+│ ├── .env
+│ ├── dockerfile
+│ └── package.json
 ├── docker-compose.yml
 ├── nginx/
-│   └── default.conf
+│ └── default.conf
 ├── .gitignore
 └── README.md
-🔧 Installation & Setup
-Clone the repo
 
-bash
+yaml
 Copy
 Edit
-git clone https://github.com/your-username/MedicoX.git
-cd MedicoX
+
+---
+
+## 🔧 Installation & Setup
+
+1. **Clone the repo**  
+   ```bash
+   git clone https://github.com/your-username/MedicoX.git
+   cd MedicoX
 Environment Variables
 
 Copy and configure .env.example in both frontend/ and backend/
