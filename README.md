@@ -76,9 +76,7 @@ A full-stack, Dockerized **doctor-appointment booking** and **tele-medicine** pl
 ├── .gitignore
 └── README.md
 
-yaml
-Copy
-Edit
+
 
 ---
 
@@ -100,9 +98,7 @@ PORT, MONGO_URI, JWT_SECRET, Google OAuth, Razorpay, SMTP credentials (backend)
 
 Local Docker Deployment
 
-bash
-Copy
-Edit
+
 docker compose up --build -d
 Backend at http://localhost:4000/api
 
@@ -112,17 +108,13 @@ Manual Setup (without Docker)
 
 Backend
 
-bash
-Copy
-Edit
+
 cd backend
 npm install
 npm run dev
 Frontend
 
-bash
-Copy
-Edit
+
 cd frontend
 npm install
 npm run dev
@@ -146,13 +138,11 @@ Use Certbot to issue TLS certificates
 
 Example:
 
-bash
-Copy
-Edit
+
 sudo certbot --nginx -d api.yourdomain.com
 AWS EC2
 
-Spin up Ubuntu instance
+Spin up an Ubuntu instance
 
 Install Docker & Docker Compose
 
@@ -162,17 +152,25 @@ Frontend Hosting
 
 Connect GitHub repo to Netlify/Vercel
 
-Set build command: npm run build and publish dist/
+Set build command: npm run build
+
+Publish the dist/ directory
 
 👥 Contributing
 Fork the project
 
-Create your feature branch (git checkout -b feature/fooBar)
+Create your feature branch
 
-Commit your changes (git commit -m 'feat: add fooBar')
 
-Push to the branch (git push origin feature/fooBar)
+git checkout -b feature/fooBar
+Commit your changes
 
+
+git commit -m "feat: add fooBar"
+Push to the branch
+
+
+git push origin feature/fooBar
 Open a Pull Request
 
 Please follow our Code of Conduct and Contributing Guide.
