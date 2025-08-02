@@ -34,20 +34,20 @@ jobs:
             -i $HOME/.ssh/id_rsa \
             -o StrictHostKeyChecking=no \
             $EC2_USER@$EC2_HOST << 'EOF'
-            
-            set -e
-            echo "✅ Connected to $EC2_HOST as $EC2_USER"
-            
-            echo "🔄 Pulling latest code…"
-            cd ~/MEDICO
-            git pull origin main
-            
-            echo "🛠️  Rebuilding services…"
-            docker compose -f docker-compose.ec2.yml up -d --build
-            
-            echo "♻️  Reloading Nginx…"
-            sudo systemctl reload nginx || true
-            
-            echo "✅ Deployment complete!"
+              
+              set -e
+              echo "✅ Connected to $EC2_HOST as $EC2_USER"
+              
+              echo "🔄 Pulling latest code…"
+              cd ~/MEDICO
+              git pull origin main
+              
+              echo "🛠️  Rebuilding services…"
+              docker compose -f docker-compose.ec2.yml up -d --build
+              
+              echo "♻️  Reloading Nginx…"
+              sudo systemctl reload nginx || true
+              
+              echo "✅ Deployment complete!"
             EOF
         shell: bash
