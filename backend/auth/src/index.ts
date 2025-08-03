@@ -29,58 +29,43 @@ dotenv.config();
 const app = express();
 
 // ─────────── Prometheus Metrics Setup ───────────
-// 1) Collect default system metrics (CPU, memory, event-loop lag, GC, etc.)
 client.collectDefaultMetrics();
-
-// 2) HTTP request duration histogram (in seconds)
 const httpDurationHistogram = new client.Histogram({
   name: 'http_request_duration_seconds',
   help: 'Duration of HTTP requests in seconds',
   labelNames: ['method', 'route', 'status_code'],
   buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
 });
-
-// 3) Login attempts counter
 const loginCounter = new client.Counter({
   name: 'auth_login_attempts_total',
   help: 'Total number of login attempts',
-  labelNames: ['result'], // 'success' or 'failure'
+  labelNames: ['result'],
 });
-
-// 4) Middleware to measure every request duration
+// Measure request durations
 app.use((req, res, next) => {
-  const endTimer = httpDurationHistogram.startTimer();
+  const end = httpDurationHistogram.startTimer();
   res.on('finish', () => {
-    const route = req.route?.path || req.path;
-    endTimer({ method: req.method, route, status_code: res.statusCode });
+    end({ method: req.method, route: req.route?.path || req.path, status_code: res.statusCode });
   });
   next();
 });
 // ────────────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.send("Medico API is running 🚀");
-});
 
-// --- 1. Generate nonce for CSP per request ---
+app.get('/', (_req, res) => res.send('Medico API is running 🚀'));
+
+// Generate CSP nonce per request
 app.use((req, res, next) => {
-  const nonce = crypto.randomBytes(16).toString('base64');
-  res.locals.nonce = nonce;
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
   next();
 });
 
-// --- 2. Helmet with CSP and other security headers ---
+// Helmet security headers
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`,
-          'https://accounts.google.com',
-          'https://accounts.gstatic.com',
-          'https://apis.google.com',
-        ],
+        scriptSrc: ["'self'", (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`, 'https://accounts.google.com', 'https://accounts.gstatic.com', 'https://apis.google.com'],
         frameSrc: ["'self'", 'https://accounts.google.com', 'https://*.google.com'],
         connectSrc: ["'self'", 'https://www.googleapis.com'],
         objectSrc: ["'none'"],
@@ -96,20 +81,30 @@ app.use(
   })
 );
 
-// --- 3. Logging ---
+// Logging
 app.use(morgan('combined'));
 
-// --- 4. CORS: allow frontend origin, methods, and headers for multipart + auth ---
+// CORS setup - allow both production and Netlify frontend
+const allowedOrigins = [
+  'https://medicox123.netlify.app',
+  process.env.FRONTEND_URL || 'https://medicox.ddns.net',
+];
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS policy violation'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// --- 5. Session (for Passport, if needed) ---
+// Session for Passport (if needed)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'defaultsecret',
@@ -123,25 +118,22 @@ app.use(
   })
 );
 
-// --- 6. Body parsers ---
+// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- 7. Passport initialization ---
+// Passport init
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Additional routers
 app.use('/api/medicalinfo', medicalinfoRouter);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
 
-// --- 8. Static file serving for uploads ---
-app.use(
-  '/uploads',
-  express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' })
-);
-
-// --- MongoDB Connection ---
+// MongoDB connection
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-  console.error('❌ MONGO_URI is not defined');
+  console.error('❌ MONGO_URI not defined');
   process.exit(1);
 }
 mongoose
@@ -152,54 +144,40 @@ mongoose
   })
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// --- Routes ---
+// Webhook (raw body)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), webhookHandler);
 
-// 9. Razorpay webhook needs raw body
-app.post(
-  '/api/payments/webhook',
-  express.raw({ type: 'application/json' }),
-  webhookHandler
-);
-
-// 10. Mount API routes
+// Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/doctor', doctorRoutes);
-app.use('/api/medical/doctor', doctorRoutes);
+// Consider removing one of the duplicate doctor mounts below
+ app.use('/api/medical/doctor', doctorRoutes);
 
-// 11. Health check
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Health check
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// 12. Chrome DevTools preflight ping
-app.use('/.well-known/appspecific/com.chrome.devtools.json', (_req, res) => {
-  res.sendStatus(204);
-});
+// Chrome DevTools preflight ping
+app.use('/.well-known/appspecific/com.chrome.devtools.json', (_req, res) => res.sendStatus(204));
 
-// 13. 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({ message: 'Not Found' });
-});
+// 404 handler
+app.use((req: Request, res: Response) => res.status(404).json({ message: 'Not Found' }));
 
-// 14. Global error handler
+// Global error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Unhandled Error:', err);
-  const status = err.status || 500;
-  const message = err.message || 'Internal Server Error';
-  res.status(status).json({ message });
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
 });
 
-// ─────────── Expose Prometheus Metrics ───────────
+// Prometheus metrics endpoint
 app.get('/metrics', async (_req, res) => {
   res.set('Content-Type', client.register.contentType);
   res.end(await client.register.metrics());
 });
-// ────────────────────────────────────────────────
 
-// 15. Start server
+// Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
