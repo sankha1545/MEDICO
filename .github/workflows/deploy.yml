@@ -19,7 +19,7 @@ jobs:
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.7.0
         with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+          ssh-private-key: ${{ secrets.EC2_KEY }}
 
       # 3) Add EC2 host to known_hosts to avoid interactive prompt
       - name: Add EC2 host to known_hosts
