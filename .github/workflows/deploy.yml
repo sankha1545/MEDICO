@@ -43,10 +43,10 @@ jobs:
             # docker system prune -af
 
             echo "🛑 Stopping current containers (if any)..."
-            docker compose -f docker-compose.ec2.yml down || true
+            docker-compose -f docker-compose.ec2.yml down || true
 
             echo "🚀 Rebuilding and starting containers in detached mode..."
-            docker compose -f docker-compose.ec2.yml up -d --build
+            docker-compose -f docker-compose.ec2.yml up -d --build
 
             echo "✅ Backend successfully deployed to EC2!"
           EOF
