@@ -24,54 +24,63 @@ const chatRequestCounter = new client.Counter({
   name: 'chat_requests_total',
   help: 'Total number of /api/chat requests received',
 });
-// ─────────────────────────────────────────────────────
 
+// ─── Async Server Bootstrap ───────────────────────────
 async function startServer() {
-  // Load & index Q&A
+  // ✅ Load & index Q&A store
   try {
-    initQAStore();
+    await initQAStore(); // 🔧 FIX: added await in case it's async
   } catch (err) {
     console.error('❌ Failed to initialize QA store:', err);
     process.exit(1);
   }
 
   const app = express();
-  const PORT = parseInt(process.env.PORT, 10) || 8000;
+  const PORT = parseInt(process.env.PORT || '8000', 10);
 
-  // ✅ Enable CORS for your frontend
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://medicox123.netlify.app',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
-    credentials: true
-  }));
+  // ✅ CORS
+  app.use(
+    cors({
+      origin: process.env.CORS_ORIGIN || 'https://medicox123.netlify.app',
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type'],
+      credentials: true,
+    })
+  );
 
-  // ✅ Body parsing
+  // ✅ Body parser
   app.use(express.json());
 
-  // ─── Request Timing Middleware ──────────────────────
+  // ─── Prometheus Middleware ─────────────────────────
   app.use((req, res, next) => {
     const endTimer = httpDurationHistogram.startTimer();
     res.on('finish', () => {
-      const route = (req.route && req.route.path) || req.path;
-      endTimer({ method: req.method, route, status_code: res.statusCode });
+      const route = req.route?.path || req.path || 'unknown';
+      endTimer({
+        method: req.method,
+        route,
+        status_code: res.statusCode,
+      });
     });
     next();
   });
 
-  // ─── Health Check ───────────────────────────────────
+  // ─── Health Check ──────────────────────────────────
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'chatbot', timestamp: Date.now() });
   });
 
-  // ─── Mount Chat Router ──────────────────────────────
-  // This makes `POST /api/chat` work, since chatRouter defines `router.post('/', ...)`
-  app.use('/api/chat', (req, res, next) => {
-    chatRequestCounter.inc();
-    next();
-  }, chatRouter);
+  // ─── Mount Chat API ────────────────────────────────
+  app.use(
+    '/api/chat',
+    (req, res, next) => {
+      chatRequestCounter.inc();
+      next();
+    },
+    chatRouter
+  );
 
-  // ─── Prometheus Metrics Endpoint ────────────────────
+  // ─── Prometheus Metrics Endpoint ───────────────────
   app.get('/metrics', async (_req, res) => {
     try {
       res.set('Content-Type', client.register.contentType);
@@ -81,13 +90,13 @@ async function startServer() {
     }
   });
 
-  // ─── Global Error Handler ───────────────────────────
+  // ─── Global Error Handler ──────────────────────────
   app.use((err, _req, res, _next) => {
     console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  // ─── Start Server ────────────────────────────────────
+  // ─── Start Express Server ──────────────────────────
   app.listen(PORT, () => {
     console.log(`⚡️ Chatbot backend listening on http://localhost:${PORT}`);
   });
