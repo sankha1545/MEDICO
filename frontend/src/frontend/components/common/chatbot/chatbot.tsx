@@ -86,7 +86,7 @@ export default function ChatbotUI() {
     };
 
     try {
-      const res = await fetch("http://13.203.226.34:8000/api/chat", {
+      const res = await fetch("https://medicox.ddns.net/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
