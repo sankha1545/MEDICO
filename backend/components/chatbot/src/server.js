@@ -1,12 +1,12 @@
 // File: src/server.js
 
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import client from 'prom-client';
 
 import chatRouter from './routes/chat.js';
 import { initQAStore } from './qaStore.js';
+const express = require('express');
+const cors = require('cors');
 
 dotenv.config();
 
