@@ -6,11 +6,10 @@ require('dotenv').config();
 
 // Prometheus client
 const client = require('prom-client');
-
 const { initQAStore, findBestAnswer } = require('./qaStore');
 
 async function startServer() {
-  // ─────────── Prometheus Metrics Setup ───────────
+  // ─── Prometheus Metrics Setup ───────────────────
   // 1) Collect default system metrics (CPU, memory, GC, event-loop lag, etc.)
   client.collectDefaultMetrics();
 
@@ -28,7 +27,7 @@ async function startServer() {
     help: 'Total number of /api/chat requests received',
   });
 
-  // ────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────
 
   // 1) Load & index Q&A
   try {
@@ -40,7 +39,17 @@ async function startServer() {
 
   // 2) Express setup
   const app = express();
-  app.use(cors());
+  const PORT = parseInt(process.env.PORT, 10) || 8000;
+
+  // ✅ CORS configuration to allow requests from frontend
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',              // set your frontend URL (e.g., 'https://medicox123.netlify.app')
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
+    credentials: true
+  }));
+
+  // ✅ Body parsing middleware
   app.use(express.json());
 
   // 4) Middleware to measure every request duration
@@ -53,7 +62,14 @@ async function startServer() {
     next();
   });
 
-  // 3) Chat endpoint
+  // ─── Routes ───────────────────────────────────────
+
+  // Health check endpoint
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', service: 'chatbot', timestamp: Date.now() });
+  });
+
+  // Chat endpoint
   app.post('/api/chat', (req, res) => {
     chatRequestCounter.inc(); // increment chat request count
 
@@ -71,7 +87,6 @@ async function startServer() {
       return res.status(400).json({ answer: 'No user question found.' });
     }
 
-    // 4) lookup
     const answer = findBestAnswer(lastUser.content);
 
     return res.json({
@@ -81,17 +96,25 @@ async function startServer() {
     });
   });
 
-  // ─────────── Expose Prometheus Metrics ───────────
+  // Prometheus metrics endpoint
   app.get('/metrics', async (_req, res) => {
-    res.set('Content-Type', client.register.contentType);
-    res.end(await client.register.metrics());
+    try {
+      res.set('Content-Type', client.register.contentType);
+      res.end(await client.register.metrics());
+    } catch (err) {
+      res.status(500).end(err.toString());
+    }
   });
-  // ────────────────────────────────────────────────
+
+  // Global error handler
+  app.use((err, _req, res, _next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  });
 
   // 5) Start listening
-  const port = parseInt(process.env.PORT, 10) || 8000;
-  app.listen(port, () => {
-    console.log(`⚡️ Chatbot backend listening on http://localhost:${port}`);
+  app.listen(PORT, () => {
+    console.log(`⚡️ Chatbot backend listening on http://localhost:${PORT}`);
   });
 }
 
