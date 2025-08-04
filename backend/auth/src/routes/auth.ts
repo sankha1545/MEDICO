@@ -428,6 +428,7 @@ router.post('/google/signup', async (req, res) => {
   if (!idToken) {
     return res.status(400).json({ message: 'ID token required' });
   }
+
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -437,18 +438,21 @@ router.post('/google/signup', async (req, res) => {
     if (!payload?.email || !payload.sub) {
       return res.status(400).json({ message: 'Invalid ID token payload' });
     }
+
     const { email, name: fullName, sub: googleId } = payload;
-    const exists =
-      (await Patient.findOne({ email })) || (await Doctor.findOne({ email }));
+
+    const exists = await Patient.findOne({ email }) || await Doctor.findOne({ email });
     if (exists) {
       return res
         .status(409)
         .json({ message: 'An account already exists with this email.' });
     }
+
     const tempToken = signJwt(
       { email, fullName, googleId, source: 'google-signup' },
       '15m'
     );
+
     res.json({ tempToken, frontendUrl: FRONTEND_URL });
   } catch (err) {
     console.error('Google signup error:', err);
@@ -456,7 +460,7 @@ router.post('/google/signup', async (req, res) => {
   }
 });
 
-// Google complete signup
+// ─── Google Complete Signup ─────────────────────────────
 router.post('/google/complete-signup', async (req, res) => {
   const { token: tempToken, role } = req.body as {
     token?: string;
@@ -468,6 +472,7 @@ router.post('/google/complete-signup', async (req, res) => {
   }
 
   let payload: GoogleSignupPayload;
+
   try {
     payload = jwt.verify(tempToken, JWT_SECRET) as GoogleSignupPayload;
   } catch (err) {
@@ -477,22 +482,20 @@ router.post('/google/complete-signup', async (req, res) => {
 
   const { source, email, fullName, googleId } = payload;
 
-  if (source !== 'google-signup' || !email || !googleId) {
+  if (source !== 'google-signup' || !email || !googleId || !fullName) {
     return res.status(400).json({ message: 'Malformed token payload' });
   }
 
   try {
-    // Check if user already exists
-    const existing = await Patient.findOne({ email }) || await Doctor.findOne({ email });
-    if (existing) {
+    const alreadyExists = await Patient.findOne({ email }) || await Doctor.findOne({ email });
+    if (alreadyExists) {
       return res.status(409).json({ message: 'An account already exists with this email.' });
     }
 
-    // Create user based on role
     const newUserData = {
       name: fullName,
       email,
-      passwordHash: '', // Since it's Google signup
+      passwordHash: '', // No password for Google signups
       googleId,
       role,
       provider: 'google',
@@ -502,8 +505,10 @@ router.post('/google/complete-signup', async (req, res) => {
 
     if (role === 'patient') {
       await new Patient(newUserData).save();
-    } else {
+    } else if (role === 'doctor') {
       await new Doctor(newUserData).save();
+    } else {
+      return res.status(400).json({ message: 'Invalid role specified' });
     }
 
     return res.status(201).json({ message: 'Account created successfully' });
