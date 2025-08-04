@@ -1,20 +1,21 @@
-// src/qaStore.js
-const Fuse = require('fuse.js');
-const stringSimilarity = require('string-similarity');
-const { parseJSONtoQA } = require('./jsonparser');
-require('dotenv').config();
+// File: src/qaStore.js
+import Fuse from 'fuse.js';
+import stringSimilarity from 'string-similarity';
+import { parseJSONtoQA } from './jsonparser.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const fuseThreshold = parseFloat(process.env.FUSE_THRESHOLD  || '0.6');
-const simThreshold  = parseFloat(process.env.SIM_THRESHOLD   || '0.7');
+const fuseThreshold = parseFloat(process.env.FUSE_THRESHOLD || '0.6');
+const simThreshold = parseFloat(process.env.SIM_THRESHOLD || '0.7');
 
 let qaList = [];
-let fuse   = null;
+let fuse = null;
 
 /**
  * Initialize the in-memory Q&A store.
  * Builds a Fuse.js index over all questions.
  */
-function initQAStore() {
+export function initQAStore() {
   qaList = parseJSONtoQA();
 
   if (qaList.length === 0) {
@@ -58,7 +59,6 @@ export function findBestAnswer(userQuestion) {
   const { bestMatch } = stringSimilarity.findBestMatch(q, questions);
   console.log(`🔍 Sim similarity: best = "${bestMatch.target}" (rating: ${bestMatch.rating})`);
   if (bestMatch.rating >= simThreshold) {
-    // find its answer
     const entry = qaList.find((e) => e.question === bestMatch.target);
     return entry?.answer ?? null;
   }
@@ -66,5 +66,3 @@ export function findBestAnswer(userQuestion) {
   // 3) No good match
   return null;
 }
-
-module.exports = { initQAStore, findBestAnswer };
