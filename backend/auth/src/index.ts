@@ -80,7 +80,13 @@ app.use(
     crossOriginEmbedderPolicy: false,
   })
 );
-
+/*----------------------------------------------------------------*/
+app.use('/api/auth/google', (req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+/*------------------------------------------------------------------*/ 
 // Logging
 app.use(morgan('combined'));
 
