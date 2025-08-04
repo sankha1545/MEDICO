@@ -1,5 +1,5 @@
 import express from 'express';
-import { findBestAnswer } from '../qaStore.js';
+import  findBestAnswer  from '../qaStore.js';
 
 const router = express.Router();
 
