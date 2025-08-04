@@ -37,7 +37,7 @@ function initQAStore() {
  * if a match is found by Fuse (≤ fuseThreshold) or by
  * string-similarity (≥ simThreshold). Otherwise null.
  */
-function findBestAnswer(userQuestion) {
+export function findBestAnswer(userQuestion) {
   if (!fuse) {
     throw new Error('QA store not initialized; call initQAStore() first');
   }
