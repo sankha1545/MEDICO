@@ -10,11 +10,8 @@ import path from 'path';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import crypto from 'crypto';
-
-// Prometheus client
 import client from 'prom-client';
 
-// Routes
 import authRoutes from './routes/auth';
 import medicalRoutes from './routes/medical';
 import appointmentRoutes from './routes/appointment';
@@ -28,20 +25,22 @@ import { startNotificationScheduler } from './utils/notificationsScheduler';
 dotenv.config();
 const app = express();
 
-// ─────────── Prometheus Metrics Setup ───────────
+// ─────────────── Prometheus Metrics ───────────────
 client.collectDefaultMetrics();
+
 const httpDurationHistogram = new client.Histogram({
   name: 'http_request_duration_seconds',
   help: 'Duration of HTTP requests in seconds',
   labelNames: ['method', 'route', 'status_code'],
   buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
 });
+
 const loginCounter = new client.Counter({
   name: 'auth_login_attempts_total',
   help: 'Total number of login attempts',
   labelNames: ['result'],
 });
-// Measure request durations
+
 app.use((req, res, next) => {
   const end = httpDurationHistogram.startTimer();
   res.on('finish', () => {
@@ -49,8 +48,19 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// ✅ Metrics endpoint – must be before 404 handler
+app.get('/metrics', async (_req, res) => {
+  try {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).send('Failed to load metrics');
+  }
+});
 // ────────────────────────────────────────────────
 
+// Basic route
 app.get('/', (_req, res) => res.send('Medico API is running 🚀'));
 
 // Generate CSP nonce per request
@@ -59,13 +69,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Helmet security headers
+// Helmet for security headers
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`, 'https://accounts.google.com', 'https://accounts.gstatic.com', 'https://apis.google.com'],
+        scriptSrc: [
+          "'self'",
+          (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`,
+          'https://accounts.google.com',
+          'https://accounts.gstatic.com',
+          'https://apis.google.com',
+        ],
         frameSrc: ["'self'", 'https://accounts.google.com', 'https://*.google.com'],
         connectSrc: ["'self'", 'https://www.googleapis.com'],
         objectSrc: ["'none'"],
@@ -80,17 +96,18 @@ app.use(
     crossOriginEmbedderPolicy: false,
   })
 );
-/*----------------------------------------------------------------*/
+
+// COOP headers for Google Auth
 app.use('/api/auth/google', (req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   next();
 });
-/*------------------------------------------------------------------*/ 
+
 // Logging
 app.use(morgan('combined'));
 
-// CORS setup - allow both production and Netlify frontend
+// CORS setup
 const allowedOrigins = [
   'https://medicox123.netlify.app',
   process.env.FRONTEND_URL || 'https://medicox.ddns.net',
@@ -110,7 +127,7 @@ app.use(
   })
 );
 
-// Session for Passport (if needed)
+// Session config
 app.use(
   session({
     secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'defaultsecret',
@@ -128,12 +145,11 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Passport init
+// Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Additional routers
-app.use('/api/medicalinfo', medicalinfoRouter);
+// Static uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
 
 // MongoDB connection
@@ -148,42 +164,44 @@ mongoose
     console.log('✅ MongoDB connected');
     startNotificationScheduler();
   })
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
 
-// Webhook (raw body)
+// Webhook (Stripe)
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), webhookHandler);
 
-// Mount API routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/medical', medicalRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/doctor', doctorRoutes);
-// Consider removing one of the duplicate doctor mounts below
- app.use('/api/medical/doctor', doctorRoutes);
+app.use('/api/medicalinfo', medicalinfoRouter);
 
 // Health check
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
-// Chrome DevTools preflight ping
+// Chrome DevTools ping
 app.use('/.well-known/appspecific/com.chrome.devtools.json', (_req, res) => res.sendStatus(204));
 
-// 404 handler
-app.use((req: Request, res: Response) => res.status(404).json({ message: 'Not Found' }));
+// 404 Handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ message: 'Not Found' });
+});
 
-// Global error handler
+// Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Unhandled Error:', err);
   res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
 });
 
-// Prometheus metrics endpoint
-app.get('/metrics', async (_req, res) => {
-  res.set('Content-Type', client.register.contentType);
-  res.end(await client.register.metrics());
-});
-
-// Start server
+// Start Server
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

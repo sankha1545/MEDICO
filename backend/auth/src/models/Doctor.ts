@@ -86,7 +86,12 @@ const DoctorSchema = new Schema<IDoctor>(
       lowercase: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please fill a valid email address'],
     },
-    passwordHash: { type: String, required: true },
+   passwordHash: {
+  type: String,
+  required: function () {
+    return !this.isGoogleSignup;  // allow blank if Google signup //    passwordHash: { type: String, required: true }
+  }
+},
     googleId: { type: String, unique: true, sparse: true },
     role: { type: String, enum: ['doctor'], default: 'doctor' },
     provider: { type: String, enum: ['local', 'google'], default: 'local' },
