@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import type { ProxyOptions } from 'vite';
 
 export default defineConfig(({ mode }) => {
-   const backendUrl = process.env.BACKEND_URL || 'http://13.234.123.45:4000';
+   const backendUrl = process.env.BACKEND_URL || 'http://medicox.ddns.net:4000';
 
   // Proxy config (only used during development)
   const apiProxy: ProxyOptions = {
