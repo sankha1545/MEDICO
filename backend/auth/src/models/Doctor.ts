@@ -88,9 +88,6 @@ const DoctorSchema = new Schema<IDoctor>(
     },
    passwordHash: {
   type: String,
-  required: function () {
-    return !this.isGoogleSignup;  // allow blank if Google signup //    passwordHash: { type: String, required: true }
-  }
 },
     googleId: { type: String, unique: true, sparse: true },
     role: { type: String, enum: ['doctor'], default: 'doctor' },
