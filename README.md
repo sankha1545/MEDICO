@@ -566,92 +566,192 @@ docker compose up -d --build
 Example docker-compose.yml for a minimal production-like setup (adjust volumes, networks, and secrets as appropriate):
 ```
 version: '3.8'
+
 services:
-  api:
-    build: ./backend
-    env_file: ./backend/.env
+  auth:
+    build:
+      context: ./backend/auth
+      dockerfile: Dockerfile
+    container_name: medico-auth
     ports:
       - "4000:4000"
-    restart: always
-    depends_on:
-      - db
+    env_file:
+      - ./backend/auth/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
 
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: medicox
-      POSTGRES_PASSWORD: medicox_pass
-      POSTGRES_DB: medicox
+  chatbot:
+    build:
+      context: ./backend/components/chatbot
+      dockerfile: Dockerfile
+    container_name: medico-chatbot
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/components/chatbot/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  contact:
+    build:
+      context: ./backend/pages/Contact
+      dockerfile: Dockerfile
+    container_name: medico-contact
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/pages/Contact/.env
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: medico-prometheus
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    depends_on:
+      - auth
+      - chatbot
+      - contact
+    restart: unless-stopped
+    networks:
+      - medico-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: medico-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - medico-network
 
 volumes:
-  pgdata:
+  grafana-storage:
+
+networks:
+  medico-network:
+    driver: bridge
 ```
+Bring up containers : 
+```
+docker compose up -d --build
+```
+### Nginx reverse proxy + Certbot (TLS) ###
+**Nginx server block example (place at /etc/nginx/sites-available/medicox):**
+```
+server {
+    listen 80;
+    server_name api.yourdomain.com;
 
-## Frontend hosting ##
+    location / {
+        proxy_pass http://127.0.0.1:4000;   # or the backend container IP:port
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
 
-Recommended: Netlify, Vercel, or any static hosting that supports modern frontend frameworks.
-
-- **Build command:** npm run build
-
-- **Publish directory:** dist/ (or framework-specific build/)
-
--   Add environment variables (e.g. VITE_API_BASE_URL or REACT_APP_API_URL) on the hosting dashboard.
-For full list, see backend/src/routes.
-
-⚙️ Deployment
-SSL & Nginx
-
-Use Certbot to issue TLS certificates
-
-Example:
-
-
+```
+**Obtain TLS with Certbot:**
+```
 sudo certbot --nginx -d api.yourdomain.com
-AWS EC2
 
-Spin up an Ubuntu instance
+```
+Certbot will modify your nginx config to use HTTPS and set up auto-renewal.
+## AWS EC2 quick deploy (Ubuntu) ##
+- 1. Launch Ubuntu EC2 & open ports 22, 80, 443, and any app port in security group.
 
-Install Docker & Docker Compose
+- 2. SSH and install Docker & Compose:
+     ```
+     sudo apt update && sudo apt -y upgrade
+     sudo apt install -y docker.io docker-compose
+     sudo systemctl enable --now docker
+     
+     ```
+- 3. Clone repo, configure .env, and run:
+     ```
+     git clone <repo-url>
+     cd repo
+     docker compose up -d --build
 
-Clone repo, configure env, run docker compose up -d
+     ```
+ - 4. Set up nginx + certbot on the instance to proxy TLS traffic to the backend container.
+              
+## Frontend hosting (Netlify) ##
+- Connect repository to Netlify
+- Build command.
+```
+npm run build
+```
+- Publish directory:
+  ```
+  dist/    # or build/ for CRA, .output/public for some frameworks
 
-Frontend Hosting
+  ```
+- Add environment variables (API base URL, public keys) via the provider dashboard.  
 
-Connect GitHub repo to Netlify/Vercel
+## Environment variables (.env.example) ##
+Create .env in backend/ and fill values securely.
+```
+PORT=4000
+NODE_ENV=production
+DATABASE_URL=postgresql://medicox:password@postgres:5432/medicox
+JWT_SECRET=replace_with_strong_secret
+RAZORPAY_KEY_ID=your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+FRONTEND_URL=https://yourfrontend.com
 
-Set build command: npm run build
+```
+**Do not commit secrets to source control.** Use secret managers (AWS Secrets Manager, GitHub Actions secrets) for production.
 
-Publish the dist/ directory
+## 👥 Contributing ##
 
-### 👥 Contributing
-Fork the project
+**Thank you for considering a contribution! Please follow the steps below.**
 
-Create your feature branch
+- 1) Fork the repository.
 
+- 2) Create a feature branch:
+     ```
+     git checkout -b feature/your-feature-name
 
-git checkout -b feature/fooBar
-Commit your changes
-
-
-git commit -m "feat: add fooBar"
-Push to the branch
-
-
-git push origin feature/fooBar
-Open a Pull Request
-
-Please follow our Code of Conduct and Contributing Guide.
-
-### 📄 License
+     ```
+- 3) Commit your changes with clear messages:
+   ```
+     git commit -m "feat(api): add appointment validation"
+   
+- 4) Push the branch and open a Pull Request:
+   ```
+    git push origin feature/your-feature-name
+   
+- 5) Follow the project’s Code of Conduct and include tests or documentation for significant changes.
+       
+## 📄 License
 Distributed under the MIT License. See LICENSE for more information.
 
-## 📞 Contact
-Project Lead: Akash Dass
+## 📞 Contact & Resources
 
-Email: akash@example.com
+- Backend routes: backend/src/routes (reference for full API)
 
-GitHub: akash-dass
+- Live demos:
+
+  - Frontend portfolio / demo: myportfolioxyx.netlify.app
+
+  - Capstone project: medicox123.netlify.app
 
 “Healing is a matter of time, but it is sometimes also a matter of opportunity.” – Hippocrates
