@@ -498,18 +498,106 @@ A full-stack, Dockerized **doctor-appointment booking** and **tele-medicine** pl
 ## 🌐 API Endpoints
 
 			
-|Module Name   | Endpoint       | Method |  Description         |
-|--------------|----------------|--------|----------------------|
-|Auth          |/api/auth/signup|POST    |User registration     |
-|              |/api/auth/login |POST    |User Login            |
-|              |/api/auth/google|GET     |Google OAuth callback |
-|Doctors       |--------------  |--------|----------------------| 
-|Appointments  |--------------  |--------|----------------------| 
-|Payments      |--------------  |--------|----------------------| 
-|Notifications |--------------  |--------|----------------------|
+|Module Name   | Endpoint                       | Method        |  Description                 |
+|--------------|--------------------------------|---------------|------------------------------|
+|Auth          |/api/auth/signup                |POST           |User registration             |
+|              |/api/auth/login                 |POST           |User Login                    |
+|              |/api/auth/google                |GET            |Google OAuth callback         |
+|Doctors       |/api/doctors/me                 |GET,           |Fetch & update                | 
+|              |                                |PUT            |doctor profile                |
+|Appointments  |/api/appointments/slots/:docId  |GET            |Fetch doctor's available slots| 
+|              |/api/appointments/book          |POST           |Book an appointment           |
+|Payments      |/api/payments/order             |POST           |Create razorpay order         | 
+|Notifications |/api/notifications              |GET            |Retrieve user notifications   |
 
+**Authentication:** endpoints that modify user data require a bearer token in the Authorization header:
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+*All request/response payloads use application/json unless documented otherwise.*
 
+## Environment variables ##
 
+Create a .env file in the backend folder and populate with secure values. Example:
+```
+PORT=4000
+DATABASE_URL=postgres://user:pass@db-host:5432/medicox
+JWT_SECRET=replace_with_a_strong_secret
+RAZORPAY_KEY_ID=your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
+NODE_ENV=production
+```
+**DO NOT commit .env to git.** Use secret managers for production.
+
+## Deployment ##
+
+### TLS with Nginx & Certbot ###
+
+- Ensure your DNS (e.g. api.yourdomain.com) points to the server IP.
+
+- Install and configure Nginx as a reverse proxy to the backend container.
+
+- Obtain TLS certificate with Certbot:
+```
+sudo certbot --nginx -d api.yourdomain.com
+```
+
+Certbot will configure Nginx for HTTPS and set up auto-renewal.
+
+### Quick deploy on AWS EC2 (Ubuntu) ###
+
+- Launch an Ubuntu instance and SSH into it.
+
+- Install Docker & Docker Compose:
+```
+sudo apt update && sudo apt -y upgrade
+sudo apt install -y docker.io docker-compose
+sudo systemctl enable --now docker
+```
+- Clone the repo, create .env, and run:
+```
+git clone <repo-url>
+cd <repo-root>/backend
+docker compose up -d --build
+```
+- Configure Nginx on the host to reverse proxy to the API container and secure with Certbot.
+
+### Docker Compose example ###
+Example docker-compose.yml for a minimal production-like setup (adjust volumes, networks, and secrets as appropriate):
+```
+version: '3.8'
+services:
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    ports:
+      - "4000:4000"
+    restart: always
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: medicox
+      POSTGRES_PASSWORD: medicox_pass
+      POSTGRES_DB: medicox
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+## Frontend hosting ##
+
+Recommended: Netlify, Vercel, or any static hosting that supports modern frontend frameworks.
+
+- **Build command:** npm run build
+
+- **Publish directory:** dist/ (or framework-specific build/)
+
+-   Add environment variables (e.g. VITE_API_BASE_URL or REACT_APP_API_URL) on the hosting dashboard.
 For full list, see backend/src/routes.
 
 ⚙️ Deployment
