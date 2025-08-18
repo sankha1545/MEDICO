@@ -741,8 +741,6 @@ FRONTEND_URL=https://yourfrontend.com
    
 - 5) Follow the project’s Code of Conduct and include tests or documentation for significant changes.
        
-## 📄 License
-Distributed under the MIT License. See LICENSE for more information.
 
 ## 📞 Contact & Resources
 
